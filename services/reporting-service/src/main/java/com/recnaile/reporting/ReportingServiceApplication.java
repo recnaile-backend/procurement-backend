@@ -1,4 +1,4 @@
-package com.procurement.platform.reporting;
+package com.recnaile.reporting;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

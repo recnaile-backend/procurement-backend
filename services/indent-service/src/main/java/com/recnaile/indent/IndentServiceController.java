@@ -1,4 +1,4 @@
-package com.procurement.platform.indent;
+package com.recnaile.indent;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

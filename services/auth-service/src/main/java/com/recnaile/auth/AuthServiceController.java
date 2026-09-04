@@ -1,4 +1,4 @@
-package com.procurement.platform.auth;
+package com.recnaile.auth;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

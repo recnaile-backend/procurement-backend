@@ -1,4 +1,4 @@
-package com.procurement.platform.gateway.controller;
+package com.recnaile.gateway.controller;
 
 import java.time.Instant;
 import java.util.Map;

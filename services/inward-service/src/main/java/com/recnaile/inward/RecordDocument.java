@@ -1,4 +1,4 @@
-package com.procurement.platform.inward;
+package com.recnaile.inward;
 
 import org.springframework.data.annotation.Id;
 import java.time.Instant;

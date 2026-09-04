@@ -6,7 +6,7 @@ plugins {
 }
 
 allprojects {
-    group = 'com.procurement.platform'
+    group = 'com.recnaile'
     version = System.getenv('PLATFORM_VERSION') ?: '0.1.0-SNAPSHOT'
     repositories { mavenCentral() }
 }

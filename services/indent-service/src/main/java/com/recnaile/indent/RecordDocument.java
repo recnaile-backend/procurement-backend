@@ -1,4 +1,4 @@
-package com.procurement.platform.indent;
+package com.recnaile.indent;
 
 import org.springframework.data.annotation.Id;
 import java.time.Instant;

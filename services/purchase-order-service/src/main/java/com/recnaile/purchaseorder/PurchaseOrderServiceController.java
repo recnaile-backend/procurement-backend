@@ -1,4 +1,4 @@
-package com.procurement.platform.purchaseorder;
+package com.recnaile.purchaseorder;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

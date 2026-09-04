@@ -1,4 +1,4 @@
-package com.procurement.platform.gateway.filter;
+package com.recnaile.gateway.filter;
 
 import java.util.UUID;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;

@@ -1,4 +1,4 @@
-package com.procurement.platform.inventory;
+package com.recnaile.inventory;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 

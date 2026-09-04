@@ -1,8 +1,8 @@
-package com.procurement.platform.gateway;
+package com.recnaile.gateway;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.procurement.platform.gateway.controller.PlatformController;
+import com.recnaile.gateway.controller.PlatformController;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 

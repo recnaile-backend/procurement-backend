@@ -1,4 +1,4 @@
-package com.procurement.platform.purchaseorder;
+package com.recnaile.purchaseorder;
 
 import org.springframework.data.annotation.Id;
 import java.time.Instant;

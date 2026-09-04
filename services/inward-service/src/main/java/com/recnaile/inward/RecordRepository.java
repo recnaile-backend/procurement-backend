@@ -1,4 +1,4 @@
-package com.procurement.platform.inward;
+package com.recnaile.inward;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 
