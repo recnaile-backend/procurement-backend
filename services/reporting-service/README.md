@@ -1,0 +1,1 @@
+# reporting-service\n\nRole-based dashboards and daily/weekly/monthly/quarterly/half-yearly/yearly reporting.\n\nPort: `8092`. MongoDB database: `reporting`. Public API is exposed through the API Gateway under `/api/v1/reporting`.\n

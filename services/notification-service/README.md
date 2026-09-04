@@ -1,0 +1,1 @@
+# notification-service\n\nIn-app/email notification orchestration and event consumers.\n\nPort: `8090`. MongoDB database: `notification`. Public API is exposed through the API Gateway under `/api/v1/notification`.\n

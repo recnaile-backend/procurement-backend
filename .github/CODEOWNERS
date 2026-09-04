@@ -1,0 +1,11 @@
+# Recnaile Procurement Backend ownership
+# GitHub CODEOWNERS accepts GitHub usernames or @org/team handles, not email addresses.
+
+* @Recnaile/engineering
+/gateway/ @Recnaile/backend
+/services/ @Recnaile/backend
+/contracts/ @Recnaile/backend @Recnaile/architecture
+/infrastructure/ @Recnaile/devops
+/scripts/ @Recnaile/devops
+/.github/ @Recnaile/devops @Recnaile/security
+/docs/ @Recnaile/architecture

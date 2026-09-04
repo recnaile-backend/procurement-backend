@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/ASSET_CREATION_REQUESTED.schema.json",
+  "title": "ASSET_CREATION_REQUESTED",
+  "description": "Raised when an approved outward issue is for a reusable item, requesting asset-service to create the tracked asset.",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "ASSET_CREATION_REQUESTED" },
+        "payload": {
+          "type": "object",
+          "required": ["outwardId", "itemId", "assignedTo"],
+          "properties": {
+            "outwardId": { "type": "string" },
+            "itemId": { "type": "string" },
+            "assignedTo": { "type": "string" },
+            "departmentId": { "type": "string" }
+          }
+        }
+      }
+    }
+  ]
+}

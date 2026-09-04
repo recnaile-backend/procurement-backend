@@ -1,0 +1,47 @@
+# OpenTelemetry Collector — receives OTLP from every service, fans out to Prometheus
+# (metrics), Loki (logs, via the loki exporter if log forwarding is routed through the
+# Collector rather than a node-level agent), and Tempo (traces).
+# (architecture/observability-architecture.md §1)
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 512
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${ENVIRONMENT}
+        action: upsert
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:8889
+  otlp/tempo:
+    endpoint: tempo.observability.svc.cluster.local:4317
+    tls:
+      insecure: true
+  logging:
+    verbosity: basic
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp/tempo]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [logging]

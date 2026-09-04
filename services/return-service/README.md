@@ -1,0 +1,1 @@
+# return-service\n\nReturns, condition verification and stock adjustment.\n\nPort: `8088`. MongoDB database: `return`. Public API is exposed through the API Gateway under `/api/v1/return`.\n

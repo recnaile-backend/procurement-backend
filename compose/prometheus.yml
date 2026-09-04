@@ -1,0 +1,20 @@
+# Local Prometheus scrape config — mirrors production scrape targets at small scale.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/rules.yaml
+
+scrape_configs:
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8889"]
+
+  # Once domain services run locally (outside compose, pointed at this infra per
+  # docs/runbooks/local-development.md), add their /actuator/prometheus endpoints here,
+  # e.g.:
+  # - job_name: indent-service
+  #   metrics_path: /actuator/prometheus
+  #   static_configs:
+  #     - targets: ["host.docker.internal:8081"]

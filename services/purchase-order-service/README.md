@@ -1,0 +1,1 @@
+# purchase-order-service\n\nPO creation, supplier ordering, status and invoice metadata.\n\nPort: `8084`. MongoDB database: `purchase_order`. Public API is exposed through the API Gateway under `/api/v1/purchase-order`.\n

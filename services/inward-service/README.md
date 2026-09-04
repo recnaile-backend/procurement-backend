@@ -1,0 +1,1 @@
+# inward-service\n\nGoods receipt/GRN, accepted/rejected quantities and vendor delivery record.\n\nPort: `8085`. MongoDB database: `inward`. Public API is exposed through the API Gateway under `/api/v1/inward`.\n

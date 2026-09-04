@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/INDENT_VERIFIED.schema.json",
+  "title": "INDENT_VERIFIED",
+  "description": "Raised when Procurement verifies a submitted indent.",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "INDENT_VERIFIED" },
+        "payload": {
+          "type": "object",
+          "required": ["indentId", "verifiedBy"],
+          "properties": {
+            "indentId": { "type": "string" },
+            "verifiedBy": { "type": "string" },
+            "remarks": { "type": "string" }
+          }
+        }
+      }
+    }
+  ]
+}

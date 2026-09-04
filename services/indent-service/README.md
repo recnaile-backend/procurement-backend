@@ -1,0 +1,1 @@
+# indent-service\n\nPurchase request lifecycle, verification, approval routing.\n\nPort: `8083`. MongoDB database: `indent`. Public API is exposed through the API Gateway under `/api/v1/indent`.\n

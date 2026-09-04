@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: master-data-service
+  data:
+    mongodb:
+      uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:master_data}?retryWrites=true&w=majority&appName=recnaile
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+server:
+  port: ${SERVICE_PORT:8082}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLE_RATE:0.1}
+otel:
+  exporter:
+    otlp:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
+
+app:
+  service-name: master-data-service
+  description: "Departments, projects, vendors and item master"

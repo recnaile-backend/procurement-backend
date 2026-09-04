@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/ASSET_STATUS_CHANGED.schema.json",
+  "title": "ASSET_STATUS_CHANGED",
+  "description": "Raised by asset-service whenever a tracked asset changes lifecycle status.",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "ASSET_STATUS_CHANGED" },
+        "payload": {
+          "type": "object",
+          "required": ["assetId", "previousStatus", "newStatus"],
+          "properties": {
+            "assetId": { "type": "string" },
+            "previousStatus": { "type": "string" },
+            "newStatus": { "type": "string", "enum": ["ACTIVE", "RETURNED", "CLOSED", "LOST", "DAMAGED"] },
+            "changedBy": { "type": "string" }
+          }
+        }
+      }
+    }
+  ]
+}

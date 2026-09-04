@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/schemas/error.schema.json",
+  "title": "ApiErrorResponse",
+  "type": "object",
+  "required": ["success", "data", "error"],
+  "properties": {
+    "success": { "const": false },
+    "data": { "const": null },
+    "error": {
+      "type": "object",
+      "required": ["code", "message", "traceId"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": ["VALIDATION_ERROR", "NOT_FOUND", "UNAUTHORIZED", "FORBIDDEN", "CONFLICT", "BUSINESS_ERROR", "INTERNAL_ERROR"]
+        },
+        "message": { "type": "string" },
+        "traceId": { "type": "string" }
+      }
+    }
+  }
+}

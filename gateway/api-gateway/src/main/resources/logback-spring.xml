@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <property name="SERVICE_NAME" value="api-gateway" />
+    <property name="ENVIRONMENT" value="${ENVIRONMENT:-unknown}" />
+    <include resource="logback-json-base.xml" />
+</configuration>

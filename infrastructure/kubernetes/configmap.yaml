@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: procurement-service-config
+  namespace: procurement
+data:
+  KAFKA_BOOTSTRAP_SERVERS: kafka.procurement.svc.cluster.local:9092
+  REDIS_HOST: redis.procurement.svc.cluster.local
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observability.svc.cluster.local:4317
+  AUTH_SERVICE_URL: http://auth-service:8081
+  AUTH_SERVICE_PORT: "8081"
+  MASTER_DATA_SERVICE_URL: http://master-data-service:8082
+  MASTER_DATA_SERVICE_PORT: "8082"
+  INDENT_SERVICE_URL: http://indent-service:8083
+  INDENT_SERVICE_PORT: "8083"
+  PURCHASE_ORDER_SERVICE_URL: http://purchase-order-service:8084
+  PURCHASE_ORDER_SERVICE_PORT: "8084"
+  INWARD_SERVICE_URL: http://inward-service:8085
+  INWARD_SERVICE_PORT: "8085"
+  INVENTORY_SERVICE_URL: http://inventory-service:8086
+  INVENTORY_SERVICE_PORT: "8086"
+  OUTWARD_SERVICE_URL: http://outward-service:8087
+  OUTWARD_SERVICE_PORT: "8087"
+  RETURN_SERVICE_URL: http://return-service:8088
+  RETURN_SERVICE_PORT: "8088"
+  ASSET_SERVICE_URL: http://asset-service:8089
+  ASSET_SERVICE_PORT: "8089"
+  NOTIFICATION_SERVICE_URL: http://notification-service:8090
+  NOTIFICATION_SERVICE_PORT: "8090"
+  AUDIT_SERVICE_URL: http://audit-service:8091
+  AUDIT_SERVICE_PORT: "8091"
+  REPORTING_SERVICE_URL: http://reporting-service:8092
+  REPORTING_SERVICE_PORT: "8092"
+  API_GATEWAY_PORT: "8080"

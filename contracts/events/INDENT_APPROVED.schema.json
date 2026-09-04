@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/INDENT_APPROVED.schema.json",
+  "title": "INDENT_APPROVED",
+  "description": "Raised when a TL/MD approves an indent, per the configured approval threshold.",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "INDENT_APPROVED" },
+        "payload": {
+          "type": "object",
+          "required": ["indentId", "approvedBy", "approverRole"],
+          "properties": {
+            "indentId": { "type": "string" },
+            "approvedBy": { "type": "string" },
+            "approverRole": { "type": "string", "enum": ["TL", "MD"] },
+            "estimatedValue": { "type": "number" }
+          }
+        }
+      }
+    }
+  ]
+}

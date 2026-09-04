@@ -1,0 +1,10 @@
+apiVersion: v2
+name: procurement-service-chart
+description: >
+  Generic, reusable Helm chart for deploying any service in the Procurement & Inventory
+  platform (the 12 domain microservices, plus the API Gateway). Parameterized entirely
+  via values.yaml so no per-service copy-paste of near-identical manifests is required
+  (MASTER PROMPT §14).
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

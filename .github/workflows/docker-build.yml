@@ -1,0 +1,28 @@
+name: Docker Build
+
+on:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The default "docker" buildx driver can't export cache (type=gha).
+      # Create a docker-container builder so cache-to/cache-from work.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build gateway image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: gateway/api-gateway/Dockerfile
+          push: false
+          tags: procurement/api-gateway:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

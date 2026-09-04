@@ -1,0 +1,1 @@
+# outward-service\n\nStock issue requests, approval and issue transactions.\n\nPort: `8087`. MongoDB database: `outward`. Public API is exposed through the API Gateway under `/api/v1/outward`.\n

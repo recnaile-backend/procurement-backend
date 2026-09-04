@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: api-gateway-staging
+  namespace: argocd
+spec:
+  project: procurement-staging
+  source:
+    repoURL: PLACEHOLDER_REPO_URL
+    targetRevision: main
+    path: infrastructure/helm/procurement-service-chart
+    helm:
+      valueFiles:
+        - values-staging.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

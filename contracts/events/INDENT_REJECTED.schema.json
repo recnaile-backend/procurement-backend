@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/INDENT_REJECTED.schema.json",
+  "title": "INDENT_REJECTED",
+  "description": "Raised when an indent is rejected at verification or approval.",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "INDENT_REJECTED" },
+        "payload": {
+          "type": "object",
+          "required": ["indentId", "rejectedBy", "reason"],
+          "properties": {
+            "indentId": { "type": "string" },
+            "rejectedBy": { "type": "string" },
+            "rejectedAtStage": { "type": "string", "enum": ["VERIFICATION", "APPROVAL"] },
+            "reason": { "type": "string" }
+          }
+        }
+      }
+    }
+  ]
+}

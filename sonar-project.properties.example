@@ -1,0 +1,6 @@
+# Copy to sonar-project.properties only if you need standalone scanner configuration.
+# The Gradle build already configures these values for the recommended Gradle scan.
+sonar.projectKey=procurement-platform-foundation
+sonar.projectName=Procurement Platform Foundation
+sonar.host.url=http://localhost:9000
+sonar.sourceEncoding=UTF-8

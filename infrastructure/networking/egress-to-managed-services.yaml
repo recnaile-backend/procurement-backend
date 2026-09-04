@@ -1,0 +1,47 @@
+# Egress rules allowing each domain service to reach its own MongoDB Atlas endpoint,
+# Kafka, Redis, and the OpenTelemetry Collector — nothing else, and never a blanket
+# 0.0.0.0/0 egress allow (architecture/network-architecture.md §3-4).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-to-platform-dependencies
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      platform.procurement/tier: domain-service
+  policyTypes: [Egress]
+  egress:
+    # MongoDB Atlas — reached via VPC Peering/PrivateLink, represented here as an
+    # ipBlock matching the peering CIDR (populated per-environment, not 0.0.0.0/0).
+    - to:
+        - ipBlock:
+            cidr: ${MONGODB_ATLAS_PEERING_CIDR}
+      ports:
+        - protocol: TCP
+          port: 27017
+    # Kafka brokers (in-cluster StatefulSet or MSK ENI CIDR)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kafka
+      ports:
+        - protocol: TCP
+          port: 9096
+    # Redis
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # OpenTelemetry Collector
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - protocol: TCP
+          port: 4317

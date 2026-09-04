@@ -1,0 +1,11 @@
+{
+  "title": "Kubernetes Cluster Health",
+  "uid": "kubernetes-cluster",
+  "tags": ["procurement-platform", "kubernetes"],
+  "panels": [
+    { "type": "timeseries", "title": "Pod Restarts", "targets": [{ "expr": "increase(kube_pod_container_status_restarts_total[15m])" }] },
+    { "type": "timeseries", "title": "CPU Usage vs Requests", "targets": [{ "expr": "sum(rate(container_cpu_usage_seconds_total[5m])) by (pod)" }] },
+    { "type": "timeseries", "title": "Memory Working Set", "targets": [{ "expr": "container_memory_working_set_bytes" }] },
+    { "type": "state-timeline", "title": "Node Conditions", "targets": [{ "expr": "kube_node_status_condition" }] }
+  ]
+}

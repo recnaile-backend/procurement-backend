@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: api-gateway-production
+  namespace: argocd
+spec:
+  project: procurement-production
+  source:
+    repoURL: PLACEHOLDER_REPO_URL
+    targetRevision: main
+    path: infrastructure/helm/procurement-service-chart
+    helm:
+      valueFiles:
+        - values-production.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
+  syncPolicy:
+    # Manual approval gate for production (architecture/deployment-architecture.md §1) —
+    # no automated syncPolicy block; an authorized operator triggers sync explicitly via
+    # `argocd app sync api-gateway-production` (or the Argo CD UI) after review.
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m

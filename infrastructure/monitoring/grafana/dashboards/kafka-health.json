@@ -1,0 +1,11 @@
+{
+  "title": "Kafka Health",
+  "uid": "kafka-health",
+  "tags": ["procurement-platform", "kafka"],
+  "panels": [
+    { "type": "timeseries", "title": "Consumer Lag by Group", "targets": [{ "expr": "kafka_consumer_group_lag" }] },
+    { "type": "timeseries", "title": "DLT Volume", "targets": [{ "expr": "rate(kafka_dlt_messages_total[5m])" }] },
+    { "type": "timeseries", "title": "Rebalances", "targets": [{ "expr": "rate(kafka_consumer_group_rebalances_total[15m])" }] },
+    { "type": "timeseries", "title": "Under-Replicated Partitions", "targets": [{ "expr": "kafka_partition_under_replicated" }] }
+  ]
+}

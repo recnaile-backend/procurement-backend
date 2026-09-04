@@ -1,0 +1,29 @@
+name: Feature request
+description: Propose a product or platform capability
+labels: [enhancement]
+body:
+  - type: input
+    id: work-item
+    attributes:
+      label: Work item
+      placeholder: PROJ-123
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+    validations:
+      required: true

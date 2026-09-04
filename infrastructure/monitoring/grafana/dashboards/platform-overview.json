@@ -1,0 +1,41 @@
+{
+  "title": "Platform Overview",
+  "uid": "platform-overview",
+  "tags": ["procurement-platform", "overview"],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Request Rate by Service",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum(rate(http_server_requests_seconds_count[5m])) by (service)" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Error Rate by Service",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "job:http_request_error_rate:ratio" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "P95 Latency by Service",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, service))" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Kafka Consumer Lag (max)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        { "expr": "max(kafka_consumer_group_lag) by (consumer_group)" }
+      ]
+    }
+  ]
+}

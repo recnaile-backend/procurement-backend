@@ -1,0 +1,27 @@
+# Promtail DaemonSet config — tails container stdout on every node and ships to Loki,
+# parsing the JSON structured log lines so traceId/correlationId become queryable labels.
+server:
+  http_listen_port: 9080
+
+positions:
+  filename: /run/promtail/positions.yaml
+
+clients:
+  - url: http://loki.observability.svc.cluster.local:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: kubernetes-pods
+    kubernetes_sd_configs:
+      - role: pod
+    pipeline_stages:
+      - json:
+          expressions:
+            traceId: traceId
+            correlationId: correlationId
+            level: level
+            service: service
+      - labels:
+          traceId:
+          correlationId:
+          level:
+          service:

@@ -1,0 +1,27 @@
+name: Technical task
+description: Architecture, infrastructure, refactoring, security, or operational work
+labels: [technical]
+body:
+  - type: input
+    id: work-item
+    attributes:
+      label: Work item
+      placeholder: PROJ-123
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and non-goals
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks / rollback plan

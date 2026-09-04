@@ -1,0 +1,91 @@
+# Prometheus recording + alerting rules (docs/observability/metrics-catalogue.md).
+groups:
+  - name: platform-golden-signals
+    rules:
+      - record: job:http_request_error_rate:ratio
+        expr: |
+          sum(rate(http_server_requests_errors_total[5m])) by (service)
+          /
+          sum(rate(http_server_requests_seconds_count[5m])) by (service)
+
+  - name: kafka-health
+    rules:
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumer_group_lag > 10000
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "Consumer group {{ $labels.consumer_group }} lag exceeds threshold"
+          description: "Lag has been above 10000 for 5 minutes on topic {{ $labels.topic }}."
+
+      - alert: KafkaDLTVolumeSpike
+        expr: increase(kafka_dlt_messages_total[10m]) > 50
+        for: 0m
+        labels:
+          severity: page
+        annotations:
+          summary: "Dead-letter topic volume spike"
+          description: "More than 50 messages landed on {{ $labels.topic }} in 10 minutes."
+
+      - alert: KafkaUnderReplicatedPartitions
+        expr: kafka_partition_under_replicated > 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "Under-replicated Kafka partitions detected"
+
+  - name: application-health
+    rules:
+      - alert: HighErrorRate
+        expr: job:http_request_error_rate:ratio > 0.05
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "{{ $labels.service }} error rate above 5% for 5 minutes"
+
+      - alert: HighLatencyP95
+        expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, service)) > 1
+        for: 10m
+        labels:
+          severity: notify
+        annotations:
+          summary: "{{ $labels.service }} P95 latency above 1s for 10 minutes"
+
+      - alert: PodCrashLooping
+        expr: increase(kube_pod_container_status_restarts_total[15m]) > 3
+        for: 0m
+        labels:
+          severity: page
+        annotations:
+          summary: "Pod {{ $labels.pod }} is crash-looping"
+
+  - name: mongodb-health
+    rules:
+      - alert: MongoConnectionPoolSaturated
+        expr: mongodb_driver_pool_checkedout / mongodb_driver_pool_size > 0.9
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "MongoDB connection pool for {{ $labels.service }} above 90% utilization"
+
+  - name: business-alerts
+    rules:
+      - alert: SLABreachDetected
+        expr: increase(business_sla_breaches_total[15m]) > 0
+        for: 0m
+        labels:
+          severity: notify
+        annotations:
+          summary: "One or more SLA breaches recorded in the last 15 minutes"
+
+      - alert: LowStockItemsIncreasing
+        expr: business_low_stock_items > 0
+        for: 30m
+        labels:
+          severity: notify
+        annotations:
+          summary: "Low-stock items outstanding for over 30 minutes"

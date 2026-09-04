@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/PO_CLOSED.schema.json",
+  "title": "PO_CLOSED",
+  "description": "Raised when a Purchase Order is fully closed (all items received/reconciled).",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "PO_CLOSED" },
+        "payload": {
+          "type": "object",
+          "required": ["poId", "closedBy"],
+          "properties": {
+            "poId": { "type": "string" },
+            "closedBy": { "type": "string" },
+            "closureReason": { "type": "string" }
+          }
+        }
+      }
+    }
+  ]
+}

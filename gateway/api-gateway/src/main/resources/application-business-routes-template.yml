@@ -1,0 +1,20 @@
+# FUTURE TEMPLATE ONLY.
+# This file is intentionally NOT imported by default.
+# When business microservices are introduced, copy the required route blocks
+# into an environment-specific configuration or import this file explicitly.
+#
+# Example:
+# spring:
+#   cloud:
+#     gateway:
+#       routes:
+#         - id: inventory-service
+#           uri: ${INVENTORY_SERVICE_URL:http://inventory-service:8080}
+#           predicates:
+#             - Path=/api/v1/inventory/**
+#           filters:
+#             - StripPrefix=2
+#             - name: CircuitBreaker
+#               args:
+#                 name: inventoryservice
+#                 fallbackUri: forward:/fallback/inventory

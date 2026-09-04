@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+  labels:
+    environment: dev
+    platform: procurement-inventory
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    environment: production
+    platform: procurement-inventory
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging
+  labels:
+    environment: staging
+    platform: procurement-inventory
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  labels:
+    platform: procurement-inventory
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    platform: procurement-inventory
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-system
+  labels:
+    platform: procurement-inventory

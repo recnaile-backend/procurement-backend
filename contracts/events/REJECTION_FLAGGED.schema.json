@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/REJECTION_FLAGGED.schema.json",
+  "title": "REJECTION_FLAGGED",
+  "description": "Raised alongside GOODS_RECEIVED when a GRN includes rejected quantity — moves to Defect Stock.",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "REJECTION_FLAGGED" },
+        "payload": {
+          "type": "object",
+          "required": ["grnId", "poId", "itemId", "rejectedQuantity", "reason"],
+          "properties": {
+            "grnId": { "type": "string" },
+            "poId": { "type": "string" },
+            "itemId": { "type": "string" },
+            "rejectedQuantity": { "type": "number" },
+            "reason": { "type": "string" }
+          }
+        }
+      }
+    }
+  ]
+}

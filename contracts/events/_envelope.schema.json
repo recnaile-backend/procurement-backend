@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/_envelope.schema.json",
+  "title": "EventEnvelope",
+  "type": "object",
+  "required": ["eventId", "eventType", "eventVersion", "occurredAt", "producer", "correlationId", "traceId", "payload"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid", "description": "Globally unique id for this event occurrence; the idempotency key for consumers." },
+    "eventType": { "type": "string", "description": "e.g. INDENT_APPROVED" },
+    "eventVersion": { "type": "integer", "minimum": 1 },
+    "occurredAt": { "type": "string", "format": "date-time", "description": "UTC timestamp, ISO-8601" },
+    "producer": { "type": "string", "description": "Producing service name, e.g. indent-service" },
+    "correlationId": { "type": "string", "format": "uuid", "description": "Stable across a full business transaction/saga" },
+    "traceId": { "type": "string", "description": "OpenTelemetry trace id for the originating request" },
+    "payload": { "type": "object" }
+  }
+}

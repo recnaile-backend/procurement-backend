@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/RETURN_RECORDED.schema.json",
+  "title": "RETURN_RECORDED",
+  "description": "Raised when a returned item is recorded — Good condition adds to Available Stock, Damaged adds to Defect Stock.",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "RETURN_RECORDED" },
+        "payload": {
+          "type": "object",
+          "required": ["returnId", "itemId", "quantity", "condition"],
+          "properties": {
+            "returnId": { "type": "string" },
+            "itemId": { "type": "string" },
+            "quantity": { "type": "number" },
+            "condition": { "type": "string", "enum": ["GOOD", "DAMAGED"] },
+            "returnedBy": { "type": "string" },
+            "assetId": { "type": "string", "description": "Present when the returned item was asset-tracked" }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: namespace-quota
+  namespace: dev
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    pods: "40"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-container-limits
+  namespace: dev
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "500m"
+        memory: 512Mi
+      defaultRequest:
+        cpu: "100m"
+        memory: 256Mi
+      max:
+        cpu: "2"
+        memory: 2Gi
+---
+# ResourceQuota + LimitRange + PriorityClass — applied per application namespace so no
+# single workload (or a misconfigured HPA) can starve the rest of the namespace/cluster.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: namespace-quota
+  namespace: production
+spec:
+  hard:
+    requests.cpu: "20"
+    requests.memory: 40Gi
+    limits.cpu: "40"
+    limits.memory: 80Gi
+    pods: "150"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: namespace-quota
+  namespace: staging
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16"
+    limits.memory: 32Gi
+    pods: "80"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-container-limits
+  namespace: production
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "500m"
+        memory: 512Mi
+      defaultRequest:
+        cpu: "100m"
+        memory: 256Mi
+      max:
+        cpu: "2"
+        memory: 2Gi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-container-limits
+  namespace: staging
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "500m"
+        memory: 512Mi
+      defaultRequest:
+        cpu: "100m"
+        memory: 256Mi
+      max:
+        cpu: "2"
+        memory: 2Gi
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: platform-critical
+value: 1000000
+globalDefault: false
+description: "API Gateway, auth-service — must be scheduled/evicted last."
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: platform-standard
+value: 100000
+globalDefault: true
+description: "Default priority for the remaining domain services."

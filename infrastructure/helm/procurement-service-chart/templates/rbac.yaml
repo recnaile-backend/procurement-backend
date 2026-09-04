@@ -1,0 +1,32 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Values.serviceName }}-role
+  namespace: {{ .Values.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    resourceNames:
+      - {{ .Values.serviceName }}-config
+      {{- range .Values.secretRefs }}
+      {{- range $k, $v := . }}
+      {{- if $v }}
+      - {{ $v }}
+      {{- end }}
+      {{- end }}
+      {{- end }}
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.serviceName }}-rolebinding
+  namespace: {{ .Values.namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceName }}
+    namespace: {{ .Values.namespace }}
+roleRef:
+  kind: Role
+  name: {{ .Values.serviceName }}-role
+  apiGroup: rbac.authorization.k8s.io

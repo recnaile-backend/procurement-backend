@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.14.5'
+      # gradle-wrapper.jar is intentionally not committed to this repo (see README),
+      # so the wrapper script can't bootstrap Gradle itself. setup-gradle above
+      # installs Gradle 8.14.5 directly onto PATH, so we invoke `gradle` rather
+      # than the (non-executable, jar-less) `./gradlew`.
+      - run: gradle clean test build --no-daemon
+
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+        with:
+          version: v3.17.3
+      - run: helm lint infrastructure/helm/procurement-service-chart
+
+  terraform-validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [dev, staging, production]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: '1.9.8'
+      - working-directory: infrastructure/terraform/environments/${{ matrix.environment }}
+        run: |
+          terraform init -backend=false
+          terraform validate

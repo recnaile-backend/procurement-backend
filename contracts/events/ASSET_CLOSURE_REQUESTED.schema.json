@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/ASSET_CLOSURE_REQUESTED.schema.json",
+  "title": "ASSET_CLOSURE_REQUESTED",
+  "description": "Raised alongside a DAMAGED return for an asset-tracked item, requesting asset closure.",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "ASSET_CLOSURE_REQUESTED" },
+        "payload": {
+          "type": "object",
+          "required": ["assetId", "returnId", "reason"],
+          "properties": {
+            "assetId": { "type": "string" },
+            "returnId": { "type": "string" },
+            "reason": { "type": "string" }
+          }
+        }
+      }
+    }
+  ]
+}

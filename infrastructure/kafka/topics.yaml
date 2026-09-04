@@ -1,0 +1,56 @@
+# Authoritative Kafka topic catalogue (architecture/event-driven-architecture.md,
+# docs/events/kafka-architecture.md). Applied via the topic-provisioning job
+# (scripts/kafka-provision-topics.sh) in every environment so topic configuration is
+# version-controlled and identical across dev/staging/production (retention aside).
+#
+# Each primary topic automatically gets a paired `.retry` and `.dlt` topic with the
+# settings under `retryTopicDefaults` / `dltTopicDefaults` unless overridden.
+
+defaults:
+  partitions: 6
+  replicationFactor: 3
+  minInsyncReplicas: 2
+  retentionMs: 604800000     # 7 days
+  cleanupPolicy: delete
+
+retryTopicDefaults:
+  partitions: 6
+  replicationFactor: 3
+  minInsyncReplicas: 2
+  retentionMs: 604800000     # 7 days
+
+dltTopicDefaults:
+  partitions: 3
+  replicationFactor: 3
+  minInsyncReplicas: 2
+  retentionMs: 2592000000    # 30 days
+
+topics:
+  - name: procurement.indent.events
+    description: Indent submission, verification, approval, rejection
+  - name: procurement.po.events
+    description: Purchase Order created, issued, closed
+  - name: procurement.inward.events
+    description: Goods receipt / GRN, rejection flags
+  - name: procurement.inventory.events
+    description: Low stock alerts and stock-ledger-relevant notifications
+  - name: procurement.outward.events
+    description: Outward issue events
+  - name: procurement.return.events
+    description: Return recorded, asset closure requested
+  - name: procurement.asset.events
+    description: Asset creation requested, asset status changed
+  - name: procurement.notification.events
+    description: Notification dispatch triggers
+  - name: procurement.audit.events
+    description: Immutable audit trail entries
+  - name: procurement.dashboard.events
+    description: Aggregation triggers for dashboard-service
+    partitions: 3            # lower-throughput, aggregation-only consumer
+
+# Schema Registry subjects follow the naming convention
+# "<topic-name>-value" and enforce BACKWARD compatibility by default
+# (architecture/event-driven-architecture.md §7).
+schemaRegistry:
+  compatibilityMode: BACKWARD
+  subjectNamingStrategy: TopicNameStrategy

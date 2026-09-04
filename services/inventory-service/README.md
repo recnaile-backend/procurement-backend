@@ -1,0 +1,1 @@
+# inventory-service\n\nStock ledger, availability, min/max stock and low-stock state.\n\nPort: `8086`. MongoDB database: `inventory`. Public API is exposed through the API Gateway under `/api/v1/inventory`.\n

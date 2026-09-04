@@ -1,0 +1,55 @@
+# Argo CD AppProjects. Replace PLACEHOLDER_REPO_URL with the real repository URL before applying.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: procurement-dev
+  namespace: argocd
+spec:
+  sourceRepos:
+    - PLACEHOLDER_REPO_URL
+  destinations:
+    - namespace: dev
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: procurement-staging
+  namespace: argocd
+spec:
+  sourceRepos:
+    - PLACEHOLDER_REPO_URL
+  destinations:
+    - namespace: staging
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: procurement-production
+  namespace: argocd
+spec:
+  sourceRepos:
+    - PLACEHOLDER_REPO_URL
+  destinations:
+    - namespace: production
+      server: https://kubernetes.default.svc
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  # Production sync is manual and should be restricted to authorized operators.

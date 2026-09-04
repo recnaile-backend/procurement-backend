@@ -1,0 +1,72 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: procurement-domain-services
+  namespace: argocd
+spec:
+  # Generates one Argo CD Application per (service x environment) pair, instead of
+  # hand-maintaining 12 services x 3 environments = 36 near-identical Application
+  # manifests (mirrors the reusable-Helm-chart philosophy in
+  # infrastructure/helm/procurement-service-chart for the GitOps layer — MASTER PROMPT §14/§15).
+  generators:
+    - matrix:
+        generators:
+          - list:
+              elements:
+                - service: auth-service
+                - service: master-data-service
+                - service: indent-service
+                - service: po-service
+                - service: inward-service
+                - service: inventory-service
+                - service: outward-service
+                - service: return-service
+                - service: asset-service
+                - service: notification-service
+                - service: audit-service
+                - service: dashboard-service
+          - list:
+              elements:
+                - env: dev
+                  namespace: dev
+                  project: procurement-dev
+                  autoSync: "true"
+                - env: staging
+                  namespace: staging
+                  project: procurement-staging
+                  autoSync: "true"
+                - env: production
+                  namespace: production
+                  project: procurement-production
+                  autoSync: "false"
+  template:
+    metadata:
+      name: "{{service}}-{{env}}"
+      namespace: argocd
+    spec:
+      project: "{{project}}"
+      source:
+        repoURL: PLACEHOLDER_REPO_URL
+        targetRevision: main
+        path: "infrastructure/helm/procurement-service-chart"
+        helm:
+          releaseName: "{{service}}"
+          valueFiles:
+            - "values-{{env}}.yaml"
+          parameters:
+            - name: serviceName
+              value: "{{service}}"
+            - name: namespace
+              value: "{{namespace}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{namespace}}"
+      syncPolicy:
+        # Retry policy is shared. Production automation remains disabled by the
+        # production Argo CD project/operator workflow; explicit sync is required there.
+        retry:
+          limit: 3
+          backoff:
+            duration: 15s
+            factor: 2
+            maxDuration: 5m

@@ -1,0 +1,189 @@
+openapi: 3.0.3
+info:
+  title: Procurement & Inventory Management Platform API
+  description: >
+    Aggregate API contract surfaced through the API Gateway. Each domain service owns
+    and versions its own path prefix; this document is the platform-level index and
+    shared component contract. Per-service detailed operation definitions are added by
+    each service team as it is implemented (see contracts/openapi/services/ once
+    populated) and must conform to the shared components defined here.
+  version: "1.0"
+servers:
+  - url: https://api.{environment}.procurement.example.com/api/v1
+    variables:
+      environment:
+        default: production
+        enum: [dev, staging, production]
+
+tags:
+  - name: auth
+  - name: master-data
+  - name: indents
+  - name: pos
+  - name: inward
+  - name: stock
+  - name: outward
+  - name: returns
+  - name: assets
+  - name: notifications
+  - name: audit
+  - name: dashboard
+
+paths:
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Authenticate and obtain an access/refresh token pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessEnvelope" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /indents:
+    get:
+      tags: [indents]
+      summary: List indents visible to the caller (scoped by role/department)
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/SizeParam"
+        - $ref: "#/components/parameters/SortParam"
+        - in: query
+          name: status
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated indent list
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SuccessEnvelope" }
+    post:
+      tags: [indents]
+      summary: Submit a new indent (role EMPLOYEE)
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/SuccessEnvelope" } } } }
+        "400": { $ref: "#/components/responses/ValidationError" }
+
+  /indents/{indentId}/approve:
+    post:
+      tags: [indents]
+      summary: Approve an indent (role TL or MD, per configured threshold)
+      parameters:
+        - in: path
+          name: indentId
+          required: true
+          schema: { type: string }
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema: { type: string }
+      responses:
+        "200": { description: Approved, content: { application/json: { schema: { $ref: "#/components/schemas/SuccessEnvelope" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /pos:
+    get:
+      tags: [pos]
+      summary: List Purchase Orders
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/SizeParam"
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/SuccessEnvelope" } } } }
+
+  /stock/{itemId}:
+    get:
+      tags: [stock]
+      summary: Get current available/defect stock for an item
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/SuccessEnvelope" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /dashboard/summary:
+    get:
+      tags: [dashboard]
+      summary: Aggregated procurement/inventory KPIs
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/SuccessEnvelope" } } } }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PageParam:
+      in: query
+      name: page
+      schema: { type: integer, minimum: 0, default: 0 }
+    SizeParam:
+      in: query
+      name: size
+      schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+    SortParam:
+      in: query
+      name: sort
+      schema: { type: string, example: "createdAt,desc" }
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required: [success, data, error]
+      properties:
+        success: { const: true }
+        data: {}
+        error: { const: null }
+    ErrorEnvelope:
+      $ref: "../schemas/error.schema.json"
+
+  responses:
+    ValidationError:
+      description: Request failed validation
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Forbidden:
+      description: Authenticated but not authorized for this action
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Conflict:
+      description: Conflicting state (e.g., duplicate or already-actioned request)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+security:
+  - bearerAuth: []

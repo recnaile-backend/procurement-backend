@@ -1,0 +1,19 @@
+{
+  "title": "Business KPIs",
+  "uid": "business-kpis",
+  "tags": ["procurement-platform", "business"],
+  "panels": [
+    { "type": "stat", "title": "Indents Pending Approval", "targets": [{ "expr": "business_indents_pending_approval" }] },
+    { "type": "timeseries", "title": "Indents Submitted / Approved / Rejected", "targets": [
+        { "expr": "rate(business_indents_submitted_total[1d])" },
+        { "expr": "rate(business_indents_approved_total[1d])" },
+        { "expr": "rate(business_indents_rejected_total[1d])" }
+    ]},
+    { "type": "timeseries", "title": "POs Created / Issued", "targets": [
+        { "expr": "rate(business_pos_created_total[1d])" },
+        { "expr": "rate(business_pos_issued_total[1d])" }
+    ]},
+    { "type": "stat", "title": "Low Stock Items", "targets": [{ "expr": "business_low_stock_items" }] },
+    { "type": "stat", "title": "SLA Breaches (24h)", "targets": [{ "expr": "increase(business_sla_breaches_total[1d])" }] }
+  ]
+}

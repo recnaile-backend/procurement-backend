@@ -1,0 +1,24 @@
+# Example of a documented, explicit synchronous-dependency NetworkPolicy
+# (architecture/network-architecture.md §4): outward-service is allowed to call
+# inventory-service directly for a real-time available-stock check before approving an
+# outward issue. This is layered ON TOP of the default-deny + gateway-only-ingress rules
+# in infrastructure/kubernetes/base/network-policy-default-deny.yaml — never a replacement
+# for them.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-outward-to-inventory
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: inventory-service
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: outward-service
+      ports:
+        - protocol: TCP
+          port: 8080

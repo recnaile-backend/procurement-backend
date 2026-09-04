@@ -1,0 +1,1 @@
+The repository uses the Gradle Wrapper configuration. The wrapper JAR is intentionally not vendored in this generated archive; CI provisions Gradle 8.14.5 using the official setup action. Developers may install Gradle 8.14.5 locally or regenerate the wrapper with `gradle wrapper --gradle-version 8.14.5`.

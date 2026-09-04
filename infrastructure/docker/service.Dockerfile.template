@@ -1,0 +1,48 @@
+# syntax=docker/dockerfile:1.7
+#
+# TEMPLATE — standard Dockerfile for any of the 12 domain microservices, once
+# implemented. Copy this file into <service>/Dockerfile and adjust the module path
+# (":indent-service" etc.) and jar name. Do not diverge from this base without a
+# documented reason (container-security.md / MASTER PROMPT §36).
+#
+# Build-time argument lets CI parameterize the service without maintaining 12 near-
+# identical Dockerfiles by hand if a team prefers a single templated file + `--build-arg`.
+ARG SERVICE_MODULE=CHANGE_ME
+ARG SERVICE_JAR_NAME=CHANGE_ME.jar
+
+# ---- Build stage --------------------------------------------------------------
+FROM eclipse-temurin:21-jdk-jammy AS build
+ARG SERVICE_MODULE
+WORKDIR /workspace
+
+COPY gradlew settings.gradle build.gradle gradle.properties ./
+COPY gradle ./gradle
+COPY libs ./libs
+COPY ${SERVICE_MODULE} ./${SERVICE_MODULE}
+
+RUN chmod +x gradlew && \
+    ./gradlew :${SERVICE_MODULE}:bootJar --no-daemon -x test
+
+# ---- Runtime stage -------------------------------------------------------------
+FROM eclipse-temurin:21-jre-jammy AS runtime
+ARG SERVICE_MODULE
+ARG SERVICE_JAR_NAME
+
+RUN groupadd --gid 10001 app && \
+    useradd --uid 10001 --gid app --shell /usr/sbin/nologin --no-create-home app
+
+WORKDIR /app
+COPY --from=build /workspace/${SERVICE_MODULE}/build/libs/${SERVICE_JAR_NAME} /app/app.jar
+
+USER 10001:10001
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=5 \
+  CMD wget -qO- http://127.0.0.1:8080/actuator/health/liveness || exit 1
+
+ENTRYPOINT ["java", \
+  "-XX:+UseContainerSupport", \
+  "-XX:MaxRAMPercentage=75.0", \
+  "-Djava.security.egd=file:/dev/./urandom", \
+  "-jar", "/app/app.jar"]

@@ -1,0 +1,81 @@
+version: 2
+
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:30"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "gradle"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      spring:
+        patterns:
+          - "org.springframework*"
+          - "org.springframework.boot*"
+          - "org.springframework.cloud*"
+      testing:
+        patterns:
+          - "*junit*"
+          - "*mockito*"
+          - "*assertj*"
+          - "*testcontainers*"
+      observability:
+        patterns:
+          - "*micrometer*"
+          - "*opentelemetry*"
+      logging:
+        patterns:
+          - "*logback*"
+          - "*slf4j*"
+    ignore:
+      - dependency-name: "gradle-wrapper"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.springframework.boot"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.springframework.cloud:spring-cloud-dependencies"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.sonarqube"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "docker"
+    directory: "/gateway/api-gateway"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "deps(docker)"
+      include: "scope"
+    ignore:
+      - dependency-name: "gradle"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:30"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"

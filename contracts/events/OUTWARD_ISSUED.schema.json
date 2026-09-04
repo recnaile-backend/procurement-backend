@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/OUTWARD_ISSUED.schema.json",
+  "title": "OUTWARD_ISSUED",
+  "description": "Raised when an approved outward issue request decreases Available Stock (and creates an Asset for reusable items).",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "OUTWARD_ISSUED" },
+        "payload": {
+          "type": "object",
+          "required": ["outwardId", "itemId", "quantity", "issuedTo", "reusable"],
+          "properties": {
+            "outwardId": { "type": "string" },
+            "itemId": { "type": "string" },
+            "quantity": { "type": "number" },
+            "issuedTo": { "type": "string" },
+            "departmentId": { "type": "string" },
+            "reusable": { "type": "boolean", "description": "If true, triggers ASSET_CREATION_REQUESTED handling in asset-service" }
+          }
+        }
+      }
+    }
+  ]
+}

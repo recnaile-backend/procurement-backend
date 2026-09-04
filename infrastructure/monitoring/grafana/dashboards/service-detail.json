@@ -1,0 +1,27 @@
+{
+  "title": "Service Detail",
+  "uid": "service-detail",
+  "tags": ["procurement-platform", "service"],
+  "templating": {
+    "list": [
+      { "name": "service", "type": "query", "query": "label_values(http_server_requests_seconds_count, service)" }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Request Rate — $service",
+      "targets": [{ "expr": "sum(rate(http_server_requests_seconds_count{service=\"$service\"}[5m]))" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "JVM Memory — $service",
+      "targets": [{ "expr": "jvm_memory_used_bytes{service=\"$service\"}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "MongoDB Op Latency — $service",
+      "targets": [{ "expr": "mongodb_operation_duration_seconds{service=\"$service\"}" }]
+    }
+  ]
+}

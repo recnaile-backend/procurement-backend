@@ -1,0 +1,94 @@
+# Default values — every environment (values-dev.yaml / values-staging.yaml /
+# values-production.yaml) overrides only what differs. Never put real secrets here;
+# secretRefs point at Kubernetes Secrets synced by External Secrets Operator.
+
+serviceName: CHANGE_ME
+namespace: staging
+tier: domain-service   # "gateway" for the API Gateway, "domain-service" for the 12 services
+
+image:
+  repository: CHANGE_ME.dkr.ecr.us-east-1.amazonaws.com/CHANGE_ME
+  tag: CHANGE_ME        # always an immutable git-sha, never "latest" alone
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  # For Kafka-consumer-heavy services, prefer KEDA lag-based scaling instead of/alongside
+  # CPU-based HPA — see keda block below.
+  keda:
+    enabled: false
+    kafkaBootstrapServers: ""
+    consumerGroup: ""
+    topic: ""
+    lagThreshold: 1000
+
+podDisruptionBudget:
+  minAvailable: 1
+
+probes:
+  liveness:
+    path: /actuator/health/liveness
+    initialDelaySeconds: 20
+    periodSeconds: 10
+  readiness:
+    path: /actuator/health/readiness
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  startup:
+    path: /actuator/health/readiness
+    failureThreshold: 30
+    periodSeconds: 5
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
+service:
+  port: 8080
+  targetPort: 8080
+
+env:
+  # Non-secret configuration only; secretRefs below handle sensitive values.
+  ENVIRONMENT: staging
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.observability.svc.cluster.local:4317"
+
+envFromConfigMap: "" # name of an additional ConfigMap to project as env vars, if any
+
+secretRefs:
+  # Names of Kubernetes Secrets (populated by External Secrets Operator from AWS
+  # Secrets Manager) to project as env vars. Never inline actual secret values here.
+  - mongodbCredentialsSecretName: ""
+  - kafkaCredentialsSecretName: ""
+  - jwtSigningKeySecretName: ""
+
+aws:
+  iamRoleArn: "" # IRSA role ARN, least-privilege, scoped per service
+
+serviceAccount:
+  create: true
+  annotations: {}
+
+networkPolicy:
+  allowFromGateway: true
+  additionalAllowedPeers: [] # e.g. outward-service allowing inventory-service to call it
+
+priorityClassName: platform-standard

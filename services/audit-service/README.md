@@ -1,0 +1,1 @@
+# audit-service\n\nImmutable audit trail for create/edit/approve/reject operations.\n\nPort: `8091`. MongoDB database: `audit`. Public API is exposed through the API Gateway under `/api/v1/audit`.\n

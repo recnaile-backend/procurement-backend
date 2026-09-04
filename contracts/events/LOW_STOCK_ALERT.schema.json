@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/LOW_STOCK_ALERT.schema.json",
+  "title": "LOW_STOCK_ALERT",
+  "description": "Raised by inventory-service when an item's available stock crosses its configured reorder threshold.",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "LOW_STOCK_ALERT" },
+        "payload": {
+          "type": "object",
+          "required": ["itemId", "availableQuantity", "reorderThreshold"],
+          "properties": {
+            "itemId": { "type": "string" },
+            "availableQuantity": { "type": "number" },
+            "reorderThreshold": { "type": "number" }
+          }
+        }
+      }
+    }
+  ]
+}

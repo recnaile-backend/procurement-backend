@@ -1,0 +1,66 @@
+plugins {
+    id 'java'
+    id 'org.sonarqube' version '7.4.0.8496'
+    id 'org.springframework.boot' version '3.5.16' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
+}
+
+allprojects {
+    group = 'com.procurement.platform'
+    version = System.getenv('PLATFORM_VERSION') ?: '0.1.0-SNAPSHOT'
+    repositories { mavenCentral() }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'io.spring.dependency-management'
+    apply plugin: 'jacoco'
+
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+
+    dependencies {
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.release = 21
+        options.compilerArgs += ['-parameters']
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        finalizedBy tasks.named('jacocoTestReport')
+    }
+
+    jacoco {
+        toolVersion = '0.8.13'
+    }
+
+    tasks.named('jacocoTestReport') {
+        dependsOn tasks.named('test')
+        reports {
+            xml.required = true
+            html.required = true
+        }
+    }
+}
+
+// SonarQube is applied once at the root for this multi-project Gradle build.
+sonar {
+    properties {
+        property 'sonar.projectKey', System.getenv('SONAR_PROJECT_KEY') ?: 'procurement-platform-foundation'
+        property 'sonar.projectName', System.getenv('SONAR_PROJECT_NAME') ?: 'Procurement Platform Foundation'
+        property 'sonar.host.url', System.getenv('SONAR_HOST_URL') ?: 'http://localhost:9000'
+        property 'sonar.sourceEncoding', 'UTF-8'
+        property 'sonar.coverage.jacoco.xmlReportPaths', subprojects.collect { project ->
+            project.layout.buildDirectory.file('reports/jacoco/test/jacocoTestReport.xml').get().asFile.absolutePath
+        }.join(',')
+        property 'sonar.exclusions', '**/build/**,**/generated/**,**/src/test/**'
+    }
+}
+
+tasks.named('sonar') {
+    dependsOn subprojects.collect { it.tasks.named('test') }
+    dependsOn subprojects.collect { it.tasks.named('jacocoTestReport') }
+}

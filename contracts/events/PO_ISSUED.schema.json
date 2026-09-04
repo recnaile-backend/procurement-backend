@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/PO_ISSUED.schema.json",
+  "title": "PO_ISSUED",
+  "description": "Raised when a Purchase Order is issued to the vendor.",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "PO_ISSUED" },
+        "payload": {
+          "type": "object",
+          "required": ["poId", "issuedBy", "issuedAt"],
+          "properties": {
+            "poId": { "type": "string" },
+            "issuedBy": { "type": "string" },
+            "issuedAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      }
+    }
+  ]
+}

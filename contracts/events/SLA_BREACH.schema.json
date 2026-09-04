@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/SLA_BREACH.schema.json",
+  "title": "SLA_BREACH",
+  "description": "Raised when an indent or approval remains unactioned past its configured SLA window.",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "SLA_BREACH" },
+        "payload": {
+          "type": "object",
+          "required": ["entityType", "entityId", "slaWindowHours"],
+          "properties": {
+            "entityType": { "type": "string", "enum": ["INDENT", "PO_APPROVAL"] },
+            "entityId": { "type": "string" },
+            "slaWindowHours": { "type": "number" },
+            "overdueSinceHours": { "type": "number" }
+          }
+        }
+      }
+    }
+  ]
+}

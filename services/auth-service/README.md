@@ -1,0 +1,1 @@
+# auth-service\n\nAuthentication, users, roles, permissions, login/token integration.\n\nPort: `8081`. MongoDB database: `auth`. Public API is exposed through the API Gateway under `/api/v1/auth`.\n

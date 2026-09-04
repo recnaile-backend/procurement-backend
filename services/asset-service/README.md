@@ -1,0 +1,1 @@
+# asset-service\n\nReusable asset lifecycle and employee assignment.\n\nPort: `8089`. MongoDB database: `asset`. Public API is exposed through the API Gateway under `/api/v1/asset`.\n

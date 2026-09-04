@@ -1,0 +1,22 @@
+{{- if and .Values.autoscaling.enabled .Values.autoscaling.keda.enabled }}
+# Kafka-consumer-lag-driven autoscaling for event-consumer-heavy services
+# (MASTER PROMPT §33/§34) — used instead of plain CPU-based HPA when consumer
+# throughput, not CPU, is the true scaling signal.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ .Values.serviceName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  scaleTargetRef:
+    name: {{ .Values.serviceName }}
+  minReplicaCount: {{ .Values.autoscaling.minReplicas }}
+  maxReplicaCount: {{ .Values.autoscaling.maxReplicas }}
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ .Values.autoscaling.keda.kafkaBootstrapServers }}
+        consumerGroup: {{ .Values.autoscaling.keda.consumerGroup }}
+        topic: {{ .Values.autoscaling.keda.topic }}
+        lagThreshold: "{{ .Values.autoscaling.keda.lagThreshold }}"
+{{- end }}

@@ -1,0 +1,1 @@
+# master-data-service\n\nDepartments, projects, vendors and item master.\n\nPort: `8082`. MongoDB database: `master_data`. Public API is exposed through the API Gateway under `/api/v1/master-data`.\n

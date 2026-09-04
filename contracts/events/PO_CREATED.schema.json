@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/PO_CREATED.schema.json",
+  "title": "PO_CREATED",
+  "description": "Raised when po-service creates a Purchase Order from an approved indent.",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "PO_CREATED" },
+        "payload": {
+          "type": "object",
+          "required": ["poId", "indentId", "vendorId", "items"],
+          "properties": {
+            "poId": { "type": "string" },
+            "indentId": { "type": "string" },
+            "vendorId": { "type": "string" },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["itemId", "quantity", "unitPrice"],
+                "properties": {
+                  "itemId": { "type": "string" },
+                  "quantity": { "type": "number" },
+                  "unitPrice": { "type": "number" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

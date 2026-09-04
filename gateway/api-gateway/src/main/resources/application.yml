@@ -1,0 +1,95 @@
+spring:
+  application:
+    name: api-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cloud:
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: false
+          routes:
+            - id: auth-service
+              uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+              predicates: [Path=/api/v1/auth/**]
+            - id: master-data-service
+              uri: ${MASTER_DATA_SERVICE_URL:http://localhost:8082}
+              predicates: [Path=/api/v1/master-data/**]
+            - id: indent-service
+              uri: ${INDENT_SERVICE_URL:http://localhost:8083}
+              predicates: [Path=/api/v1/indent/**]
+            - id: purchase-order-service
+              uri: ${PURCHASE_ORDER_SERVICE_URL:http://localhost:8084}
+              predicates: [Path=/api/v1/purchase-order/**]
+            - id: inward-service
+              uri: ${INWARD_SERVICE_URL:http://localhost:8085}
+              predicates: [Path=/api/v1/inward/**]
+            - id: inventory-service
+              uri: ${INVENTORY_SERVICE_URL:http://localhost:8086}
+              predicates: [Path=/api/v1/inventory/**]
+            - id: outward-service
+              uri: ${OUTWARD_SERVICE_URL:http://localhost:8087}
+              predicates: [Path=/api/v1/outward/**]
+            - id: return-service
+              uri: ${RETURN_SERVICE_URL:http://localhost:8088}
+              predicates: [Path=/api/v1/return/**]
+            - id: asset-service
+              uri: ${ASSET_SERVICE_URL:http://localhost:8089}
+              predicates: [Path=/api/v1/asset/**]
+            - id: notification-service
+              uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8090}
+              predicates: [Path=/api/v1/notification/**]
+            - id: audit-service
+              uri: ${AUDIT_SERVICE_URL:http://localhost:8091}
+              predicates: [Path=/api/v1/audit/**]
+            - id: reporting-service
+              uri: ${REPORTING_SERVICE_URL:http://localhost:8092}
+              predicates: [Path=/api/v1/reporting/**]
+          default-filters:
+            - RemoveRequestHeader=Cookie
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@clientKeyResolver}"
+                redis-rate-limiter.replenishRate: ${RATE_LIMIT_REPLENISH_RATE:20}
+                redis-rate-limiter.burstCapacity: ${RATE_LIMIT_BURST_CAPACITY:40}
+
+server:
+  port: ${API_GATEWAY_PORT:8080}
+  shutdown: graceful
+  max-http-request-header-size: 16KB
+
+spring.codec.max-in-memory-size: 2MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,gateway
+  endpoint:
+    health:
+      probes:
+        enabled: true
+    gateway:
+      access: read-only
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLE_RATE:0.1}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      default:
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+  timelimiter:
+    instances:
+      default:
+        timeoutDuration: 5s

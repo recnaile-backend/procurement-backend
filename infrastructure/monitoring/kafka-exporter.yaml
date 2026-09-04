@@ -1,0 +1,46 @@
+# Kafka Exporter Deployment — scrapes broker/consumer-group metrics into Prometheus
+# (consumer lag, DLT volume via topic-level metrics, rebalance counts).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-exporter
+  namespace: observability
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: kafka-exporter }
+  template:
+    metadata:
+      labels: { app: kafka-exporter }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9308"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: kafka-exporter
+          image: danielqsj/kafka-exporter:v1.7.0
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          args:
+            - "--kafka.server=$(KAFKA_BOOTSTRAP_SERVERS)"
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: kafka-connection
+                  key: bootstrap-servers
+          ports:
+            - containerPort: 9308
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 250m, memory: 256Mi }
