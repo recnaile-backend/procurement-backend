@@ -13,7 +13,7 @@ A production-oriented Spring Boot 3 / Java 21 platform foundation containing:
 - Docker build
 - GitHub PR/CI/security workflows
 - Terraform/Kubernetes/Helm foundation
-- No business microservices included
+
 
 ## Important
 
