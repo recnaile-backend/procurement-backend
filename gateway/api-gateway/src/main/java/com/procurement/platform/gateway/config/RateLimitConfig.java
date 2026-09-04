@@ -1,4 +1,4 @@
-package com.procurement.platform.gateway.config;
+package com.recnaile.gateway.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

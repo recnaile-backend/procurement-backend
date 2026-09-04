@@ -1,4 +1,4 @@
-package com.procurement.platform.masterdata;
+package com.recnaile.masterdata;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 

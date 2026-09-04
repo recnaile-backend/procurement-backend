@@ -1,4 +1,4 @@
-package com.procurement.platform.notification;
+package com.recnaile.notification;
 
 import org.springframework.data.annotation.Id;
 import java.time.Instant;

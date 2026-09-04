@@ -1,4 +1,4 @@
-package com.procurement.platform.indent;
+package com.recnaile.indent;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 

@@ -1,4 +1,4 @@
-package com.procurement.platform.asset;
+package com.recnaile.asset;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 

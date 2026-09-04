@@ -1,4 +1,4 @@
-package com.procurement.platform.notification;
+package com.recnaile.notification;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

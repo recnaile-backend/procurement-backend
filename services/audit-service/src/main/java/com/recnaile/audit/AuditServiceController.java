@@ -1,4 +1,4 @@
-package com.procurement.platform.audit;
+package com.recnaile.audit;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

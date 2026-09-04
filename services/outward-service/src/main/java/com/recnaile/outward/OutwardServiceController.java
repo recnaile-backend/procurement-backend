@@ -1,4 +1,4 @@
-package com.procurement.platform.outward;
+package com.recnaile.outward;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

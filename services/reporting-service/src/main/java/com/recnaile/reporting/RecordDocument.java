@@ -1,4 +1,4 @@
-package com.procurement.platform.reporting;
+package com.recnaile.reporting;
 
 import org.springframework.data.annotation.Id;
 import java.time.Instant;

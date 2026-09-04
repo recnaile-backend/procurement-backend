@@ -1,4 +1,4 @@
-package com.procurement.platform.observability;
+package com.recnaile.observability;
 import java.util.*;
 public final class LogRedaction { private LogRedaction(){}
  private static final Set<String> SENSITIVE=Set.of("password","passwd","secret","token","accesstoken","refreshtoken","authorization","apikey","privatekey");

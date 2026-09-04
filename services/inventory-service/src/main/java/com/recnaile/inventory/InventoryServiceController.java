@@ -1,4 +1,4 @@
-package com.procurement.platform.inventory;
+package com.recnaile.inventory;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

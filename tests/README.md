@@ -28,9 +28,9 @@ export E2E_TL_USER=... E2E_TL_PASSWORD=...
 export E2E_MD_USER=... E2E_MD_PASSWORD=...
 
 ./gradlew test
-java -cp <compiled-classpath> com.procurement.platform.e2e.flows.ProcurementWorkflowE2EKt
-java -cp <compiled-classpath> com.procurement.platform.e2e.flows.InventoryWorkflowE2EKt
-java -cp <compiled-classpath> com.procurement.platform.e2e.flows.NegativeWorkflowsE2EKt
+java -cp <compiled-classpath> com.recnaile.e2e.flows.ProcurementWorkflowE2EKt
+java -cp <compiled-classpath> com.recnaile.e2e.flows.InventoryWorkflowE2EKt
+java -cp <compiled-classpath> com.recnaile.e2e.flows.NegativeWorkflowsE2EKt
 ```
 
 CI (`.github/workflows/main-branch-build.yml`, staging stage — added once domain

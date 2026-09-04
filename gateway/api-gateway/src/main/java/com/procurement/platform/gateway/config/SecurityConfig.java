@@ -1,4 +1,4 @@
-package com.procurement.platform.gateway.config;
+package com.recnaile.gateway.config;
 
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,4 +1,4 @@
-package com.procurement.platform.masterdata;
+package com.recnaile.masterdata;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

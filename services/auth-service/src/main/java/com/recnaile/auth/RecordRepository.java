@@ -1,4 +1,4 @@
-package com.procurement.platform.auth;
+package com.recnaile.auth;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 

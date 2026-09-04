@@ -1,4 +1,4 @@
-package com.procurement.platform.audit;
+package com.recnaile.audit;
 
 import org.springframework.data.annotation.Id;
 import java.time.Instant;

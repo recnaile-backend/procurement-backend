@@ -1,4 +1,4 @@
-package com.procurement.platform.outward;
+package com.recnaile.outward;
 
 import org.springframework.data.annotation.Id;
 import java.time.Instant;
