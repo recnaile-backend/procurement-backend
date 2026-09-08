@@ -1,25 +1,34 @@
 spring:
   application:
     name: auth-service
+
   data:
     mongodb:
-      uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:auth}?retryWrites=true&w=majority&appName=recnaile
+      uri: ${MONGODB_URI}
+      auto-index-creation: true
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+
 server:
   port: ${SERVICE_PORT:8081}
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info,prometheus,metrics
+
   endpoint:
     health:
       probes:
         enabled: true
+      show-details: always
+
   tracing:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
+
 otel:
   exporter:
     otlp:
@@ -28,3 +37,15 @@ otel:
 app:
   service-name: auth-service
   description: "Authentication, users, roles, permissions, login/token integration"
+
+  jwt:
+    issuer: ${JWT_ISSUER:auth-service}
+    access-token-minutes: ${JWT_ACCESS_TOKEN_MINUTES:15}
+
+    keystore:
+      path: ${JWT_KEYSTORE_PATH:classpath:keys/jwt-keystore.p12}
+      alias: ${JWT_KEYSTORE_ALIAS:jwt}
+      password: ${JWT_KEYSTORE_PASSWORD}
+
+  refresh-token:
+    cleanup-interval-ms: ${REFRESH_TOKEN_CLEANUP_INTERVAL_MS:3600000}
