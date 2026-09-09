@@ -1,15 +1,15 @@
 package com.recnaile.auth.dto;
 
-import com.recnaile.auth.model.Role;
-
 import java.util.Set;
+
+import com.recnaile.auth.model.Role;
 
 public record RegisterResponse(
     String id,
-    String email,
+    String employeeId,
     String firstName,
     String lastName,
-    String departmentId,
+    String departmentName,
     Set<Role> roles,
     boolean enabled
 ) {

@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -22,8 +23,17 @@ public class User {
     @Id
     private String id;
 
+    /**
+     * Unique employee identifier.
+     *
+     * Example:
+     * EMP1001
+     * EMP1002
+     * TL1001
+     * MD1001
+     */
     @Indexed(unique = true)
-    private String email;
+    private String employeeId;
 
     /**
      * BCrypt encoded password.
@@ -35,7 +45,15 @@ public class User {
 
     private String lastName;
 
-    private String departmentId;
+    private String departmentName;
+
+    /**
+     * ID of the TL who manages this employee.
+     *
+     * Null for MD and TL accounts.
+     */
+    @Indexed
+    private String teamLeaderId;
 
     @Builder.Default
     private Set<Role> roles = new HashSet<>();

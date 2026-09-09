@@ -6,13 +6,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record JwtProperties(
     String issuer,
     long accessTokenMinutes,
-    Keystore keystore
+    String secretKey
 ) {
-
-    public record Keystore(
-        String path,
-        String alias,
-        String password
-    ) {
-    }
 }

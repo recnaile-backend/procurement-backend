@@ -11,7 +11,7 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
 
 server:
-  port: ${SERVICE_PORT:8081}
+  port: ${AUTH_SERVICE_PORT:8081}
 
 management:
   endpoints:
@@ -41,11 +41,7 @@ app:
   jwt:
     issuer: ${JWT_ISSUER:auth-service}
     access-token-minutes: ${JWT_ACCESS_TOKEN_MINUTES:15}
-
-    keystore:
-      path: ${JWT_KEYSTORE_PATH:classpath:keys/jwt-keystore.p12}
-      alias: ${JWT_KEYSTORE_ALIAS:jwt}
-      password: ${JWT_KEYSTORE_PASSWORD}
+    secret-key: ${JWT_SECRET_KEY}
 
   refresh-token:
     cleanup-interval-ms: ${REFRESH_TOKEN_CLEANUP_INTERVAL_MS:3600000}

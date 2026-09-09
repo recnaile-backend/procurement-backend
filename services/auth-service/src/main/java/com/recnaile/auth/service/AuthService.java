@@ -1,11 +1,25 @@
 package com.recnaile.auth.service;
 
-import com.recnaile.auth.config.JwtProperties;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.recnaile.auth.dto.AddTeamMemberRequest;
 import com.recnaile.auth.dto.LoginRequest;
 import com.recnaile.auth.dto.LoginResponse;
 import com.recnaile.auth.dto.RefreshTokenRequest;
 import com.recnaile.auth.dto.RegisterRequest;
 import com.recnaile.auth.dto.RegisterResponse;
+import com.recnaile.auth.dto.TeamMemberResponse;
+import com.recnaile.auth.dto.TeamMemberUpdateRequest;
 import com.recnaile.auth.model.RefreshToken;
 import com.recnaile.auth.model.Role;
 import com.recnaile.auth.model.User;
@@ -14,57 +28,66 @@ import com.recnaile.auth.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-import org.springframework.stereotype.Service;
-
-import java.time.Instant;
-import java.util.Locale;
-import java.util.Set;
-
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private static final long REFRESH_TOKEN_DAYS = 30L;
-    private static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
+    private static final long REFRESH_TOKEN_DAYS = 7L;
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtEncoder jwtEncoder;
-    private final JwtProperties jwtProperties;
+    private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+
 
     // =========================================================
     // REGISTER
     // =========================================================
 
-    public RegisterResponse register(RegisterRequest request) {
+    public RegisterResponse register(
+        RegisterRequest request
+    ) {
 
-        String normalizedEmail = request.email()
-            .trim()
-            .toLowerCase(Locale.ROOT);
+        /*
+         * Employee ID must be unique.
+         */
+        if (
+            userRepository.existsByEmployeeId(
+                request.employeeId()
+            )
+        ) {
 
-        if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
             throw new IllegalArgumentException(
-                "Email already registered"
+                "Employee ID already registered"
             );
         }
+
+        /*
+         * Every newly registered user is automatically
+         * assigned the EMPLOYEE role.
+         *
+         * Users cannot choose their role during registration.
+         * Only authorized management APIs can modify roles later.
+         */
+        Set<Role> roles = new HashSet<>();
+
+        roles.add(Role.EMPLOYEE);
 
         Instant now = Instant.now();
 
         User user = User.builder()
-            .email(normalizedEmail)
+            .employeeId(request.employeeId())
             .passwordHash(
-                passwordEncoder.encode(request.password())
+                passwordEncoder.encode(
+                    request.password()
+                )
             )
-            .firstName(request.firstName().trim())
-            .lastName(request.lastName().trim())
-            .departmentId(request.departmentId().trim())
-            .roles(Set.of(Role.EMPLOYEE))
+            .firstName(request.firstName())
+            .lastName(request.lastName())
+            .departmentName(request.departmentName())
+            .teamLeaderId(null)
+            .roles(roles)
             .enabled(true)
             .accountLocked(false)
             .failedLoginAttempts(0)
@@ -72,195 +95,207 @@ public class AuthService {
             .updatedAt(now)
             .build();
 
-        User savedUser = userRepository.save(user);
+        User savedUser =
+            userRepository.save(user);
 
         return new RegisterResponse(
             savedUser.getId(),
-            savedUser.getEmail(),
+            savedUser.getEmployeeId(),
             savedUser.getFirstName(),
             savedUser.getLastName(),
-            savedUser.getDepartmentId(),
+            savedUser.getDepartmentName(),
             savedUser.getRoles(),
-            savedUser.getEnabled()
+            Boolean.TRUE.equals(
+                savedUser.getEnabled()
+            )
         );
     }
+
 
     // =========================================================
     // LOGIN
     // =========================================================
 
-    public LoginResponse login(LoginRequest request) {
+    public LoginResponse login(
+        LoginRequest request
+    ) {
 
-        String normalizedEmail = request.email()
-            .trim()
-            .toLowerCase(Locale.ROOT);
-
-        User user = userRepository
-            .findByEmailIgnoreCase(normalizedEmail)
-            .orElseThrow(() ->
-                new IllegalArgumentException(
-                    "Invalid email or password"
+        User user =
+            userRepository
+                .findByEmployeeId(
+                    request.employeeId()
                 )
-            );
+                .orElseThrow(() ->
+                    new IllegalArgumentException(
+                        "Invalid employee ID or password"
+                    )
+                );
 
-        if (!user.getEnabled()) {
+        if (
+            !Boolean.TRUE.equals(
+                user.getEnabled()
+            )
+        ) {
+
             throw new IllegalArgumentException(
                 "Account is disabled"
             );
         }
 
-        if (user.getAccountLocked()) {
+        if (
+            Boolean.TRUE.equals(
+                user.getAccountLocked()
+            )
+        ) {
+
             throw new IllegalArgumentException(
                 "Account is locked"
             );
         }
 
-        /*
-         * Check password.
-         */
-        if (!passwordEncoder.matches(
-            request.password(),
-            user.getPasswordHash()
-        )) {
+        if (
+            !passwordEncoder.matches(
+                request.password(),
+                user.getPasswordHash()
+            )
+        ) {
 
-            int failedAttempts =
-                user.getFailedLoginAttempts() == null
-                    ? 0
-                    : user.getFailedLoginAttempts();
-
-            failedAttempts++;
-
-            user.setFailedLoginAttempts(failedAttempts);
-
-            /*
-             * Lock account after maximum failed attempts.
-             */
-            if (failedAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
-                user.setAccountLocked(true);
-            }
-
-            user.setUpdatedAt(Instant.now());
-
-            userRepository.save(user);
-
-            if (user.getAccountLocked()) {
-                throw new IllegalArgumentException(
-                    "Account is locked"
-                );
-            }
+            handleFailedLogin(user);
 
             throw new IllegalArgumentException(
-                "Invalid email or password"
+                "Invalid employee ID or password"
             );
         }
 
-        /*
-         * Password is correct.
-         * Reset failed login attempts.
-         */
-        user.setFailedLoginAttempts(0);
-        user.setUpdatedAt(Instant.now());
+        resetFailedLoginAttempts(user);
 
-        userRepository.save(user);
+        String accessToken =
+            jwtService.generateAccessToken(user);
 
-        return createTokenResponse(user);
+        String refreshToken =
+            refreshTokenService.generateToken();
+
+        saveRefreshToken(
+            user.getId(),
+            refreshToken
+        );
+
+        return new LoginResponse(
+            accessToken,
+            refreshToken,
+            "Bearer",
+            jwtService
+                .getAccessTokenExpirationSeconds()
+        );
     }
+
 
     // =========================================================
     // REFRESH TOKEN
     // =========================================================
 
-    public LoginResponse refresh(RefreshTokenRequest request) {
+    public LoginResponse refresh(
+        RefreshTokenRequest request
+    ) {
 
-        String refreshToken = request.refreshToken();
-
-        /*
-         * Never store the raw refresh token in MongoDB.
-         * Hash it before looking it up.
-         */
         String tokenHash =
-            refreshTokenService.hashToken(refreshToken);
+            refreshTokenService.hashToken(
+                request.refreshToken()
+            );
 
         Instant now = Instant.now();
 
-        /*
-         * Find only an active refresh token.
-         *
-         * Repository query guarantees:
-         *
-         * - tokenHash matches
-         * - revokedAt is null
-         * - expiresAt is still in the future
-         */
         RefreshToken storedToken =
             refreshTokenRepository
-                .findActiveToken(tokenHash, now)
+                .findActiveToken(
+                    tokenHash,
+                    now
+                )
                 .orElseThrow(() ->
                     new IllegalArgumentException(
                         "Invalid, expired, or revoked refresh token"
                     )
                 );
 
-        /*
-         * Load the associated user.
-         */
         User user =
-            userRepository.findById(storedToken.getUserId())
+            userRepository
+                .findById(
+                    storedToken.getUserId()
+                )
                 .orElseThrow(() ->
                     new IllegalArgumentException(
                         "User not found"
                     )
                 );
 
-        /*
-         * Do not issue new tokens for disabled accounts.
-         */
-        if (!user.getEnabled()) {
+        if (
+            !Boolean.TRUE.equals(
+                user.getEnabled()
+            )
+        ) {
+
             throw new IllegalArgumentException(
                 "Account is disabled"
             );
         }
 
-        /*
-         * Do not issue new tokens for locked accounts.
-         */
-        if (user.getAccountLocked()) {
+        if (
+            Boolean.TRUE.equals(
+                user.getAccountLocked()
+            )
+        ) {
+
             throw new IllegalArgumentException(
                 "Account is locked"
             );
         }
 
         /*
-         * Refresh-token rotation.
+         * Rotate refresh token.
          *
-         * The old refresh token becomes unusable immediately.
+         * Old token becomes unusable immediately.
          */
         storedToken.setRevokedAt(now);
 
-        refreshTokenRepository.save(storedToken);
+        refreshTokenRepository.save(
+            storedToken
+        );
 
-        /*
-         * Issue a completely new access token
-         * and refresh token.
-         */
-        return createTokenResponse(user);
+        String newAccessToken =
+            jwtService.generateAccessToken(user);
+
+        String newRefreshToken =
+            refreshTokenService.generateToken();
+
+        saveRefreshToken(
+            user.getId(),
+            newRefreshToken
+        );
+
+        return new LoginResponse(
+            newAccessToken,
+            newRefreshToken,
+            "Bearer",
+            jwtService
+                .getAccessTokenExpirationSeconds()
+        );
     }
+
 
     // =========================================================
     // LOGOUT
     // =========================================================
 
-    public void logout(RefreshTokenRequest request) {
+    public void logout(
+        RefreshTokenRequest request
+    ) {
 
-        String refreshToken = request.refreshToken();
-
-        /*
-         * Hash the supplied refresh token before querying MongoDB.
-         */
         String tokenHash =
-            refreshTokenService.hashToken(refreshToken);
+            refreshTokenService.hashToken(
+                request.refreshToken()
+            );
 
-        RefreshToken storedToken =
+        RefreshToken token =
             refreshTokenRepository
                 .findByTokenHash(tokenHash)
                 .orElseThrow(() ->
@@ -269,116 +304,988 @@ public class AuthService {
                     )
                 );
 
-        /*
-         * Prevent repeated logout/revocation operations.
-         */
-        if (storedToken.getRevokedAt() != null) {
+        if (
+            token.getRevokedAt() != null
+        ) {
+
             throw new IllegalArgumentException(
-                "Refresh token has already been revoked"
+                "Refresh token already revoked"
+            );
+        }
+
+        token.setRevokedAt(
+            Instant.now()
+        );
+
+        refreshTokenRepository.save(
+            token
+        );
+    }
+
+
+    // =========================================================
+    // TEAM MANAGEMENT
+    // TL + MD
+    // =========================================================
+
+
+    /**
+     * Returns team members.
+     *
+     * TL:
+     *     Returns only employees belonging
+     *     to the authenticated TL.
+     *
+     * MD:
+     *     Returns employees from all TL teams.
+     *
+     * The response contains teamLeaderId so the
+     * frontend can identify which TL owns each team.
+     */
+    public List<TeamMemberResponse> getMyTeam(
+        Authentication authentication
+    ) {
+
+        User manager =
+            getAuthenticatedUser(
+                authentication
+            );
+
+        requireTeamManagementRole(manager);
+
+        /*
+         * =====================================================
+         * MD
+         * =====================================================
+         *
+         * MD can see all employees that are currently
+         * assigned to a team.
+         *
+         * We intentionally use teamLeaderId != null
+         * so unassigned employees are not treated as
+         * members of a team.
+         */
+        if (
+            manager.getRoles()
+                .contains(Role.MD)
+        ) {
+
+            return userRepository
+                .findAll()
+                .stream()
+                .filter(user ->
+                    user.getTeamLeaderId() != null
+                )
+                .filter(user ->
+                    user.getRoles() != null &&
+                    user.getRoles()
+                        .contains(Role.EMPLOYEE)
+                )
+                .map(this::toTeamMemberResponse)
+                .toList();
+        }
+
+        /*
+         * =====================================================
+         * TL
+         * =====================================================
+         *
+         * TL can see only employees assigned to
+         * their own MongoDB user ID.
+         *
+         * teamLeaderId stores the internal MongoDB ID.
+         */
+        return userRepository
+            .findByTeamLeaderId(
+                manager.getId()
+            )
+            .stream()
+            .filter(user ->
+                user.getRoles() != null &&
+                user.getRoles()
+                    .contains(Role.EMPLOYEE)
+            )
+            .map(this::toTeamMemberResponse)
+            .toList();
+    }
+
+
+    /**
+     * Adds an existing employee to a team.
+     *
+     * TL:
+     *     teamLeaderEmployeeId must be the
+     *     authenticated TL's employee ID.
+     *
+     * MD:
+     *     Can select which TL should receive
+     *     the employee.
+     */
+    public TeamMemberResponse addTeamMember(
+        AddTeamMemberRequest request,
+        Authentication authentication
+    ) {
+
+        User manager =
+            getAuthenticatedUser(
+                authentication
+            );
+
+        requireTeamManagementRole(manager);
+
+        /*
+         * Find the TL using the TL's EMPLOYEE ID.
+         *
+         * This is NOT the MongoDB _id.
+         */
+        User teamLeader =
+            userRepository
+                .findByEmployeeId(
+                    request.teamLeaderEmployeeId()
+                )
+                .orElseThrow(() ->
+                    new IllegalArgumentException(
+                        "Team leader not found"
+                    )
+                );
+
+        /*
+         * The selected user must actually
+         * have the TL role.
+         */
+        if (
+            teamLeader.getRoles() == null ||
+            !teamLeader.getRoles()
+                .contains(Role.TL)
+        ) {
+
+            throw new IllegalArgumentException(
+                "Specified user is not a team leader"
             );
         }
 
         /*
-         * Revoke the refresh token.
+         * TL can only add employees to
+         * their own team.
          */
-        storedToken.setRevokedAt(Instant.now());
+        if (
+            manager.getRoles()
+                .contains(Role.TL) &&
+            !manager.getId()
+                .equals(teamLeader.getId())
+        ) {
 
-        refreshTokenRepository.save(storedToken);
+            throw new AccessDeniedException(
+                "TL can only manage their own team"
+            );
+        }
+
+        /*
+         * Find employee using employee ID.
+         */
+        User employee =
+            userRepository
+                .findByEmployeeId(
+                    request.employeeId()
+                )
+                .orElseThrow(() ->
+                    new IllegalArgumentException(
+                        "Employee not found"
+                    )
+                );
+
+        /*
+         * Only EMPLOYEE accounts can
+         * be assigned to a team.
+         */
+        if (
+            employee.getRoles() == null ||
+            !employee.getRoles()
+                .contains(Role.EMPLOYEE) ||
+            employee.getRoles()
+                .contains(Role.TL) ||
+            employee.getRoles()
+                .contains(Role.MD)
+        ) {
+
+            throw new IllegalArgumentException(
+                "Only employees can be added to a team"
+            );
+        }
+
+        /*
+         * Prevent assigning an employee
+         * to another team.
+         */
+        if (
+            employee.getTeamLeaderId() != null &&
+            !employee.getTeamLeaderId()
+                .equals(teamLeader.getId())
+        ) {
+
+            throw new AccessDeniedException(
+                "Employee already belongs to another team"
+            );
+        }
+
+        /*
+         * Assign employee to selected TL.
+         *
+         * Internally we store the TL MongoDB ID.
+         */
+        employee.setTeamLeaderId(
+            teamLeader.getId()
+        );
+
+        employee.setUpdatedAt(
+            Instant.now()
+        );
+
+        User saved =
+            userRepository.save(employee);
+
+        return toTeamMemberResponse(
+            saved
+        );
     }
+
+
+    /**
+     * Updates an employee in a specific team.
+     *
+     * Both TL and MD can use this operation.
+     *
+     * teamLeaderEmployeeId:
+     *     Employee ID of the TL whose team
+     *     contains the employee.
+     *
+     * employeeId:
+     *     Employee ID of the employee being updated.
+     */
+    public TeamMemberResponse updateTeamMember(
+        String teamLeaderEmployeeId,
+        String employeeId,
+        TeamMemberUpdateRequest request,
+        Authentication authentication
+    ) {
+
+        User manager =
+            getAuthenticatedUser(
+                authentication
+            );
+
+        requireTeamManagementRole(manager);
+
+        /*
+         * Find the selected TL by employee ID.
+         */
+        User teamLeader =
+            userRepository
+                .findByEmployeeId(
+                    teamLeaderEmployeeId
+                )
+                .orElseThrow(() ->
+                    new IllegalArgumentException(
+                        "Team leader not found"
+                    )
+                );
+
+        /*
+         * Selected user must be a TL.
+         */
+        if (
+            teamLeader.getRoles() == null ||
+            !teamLeader.getRoles()
+                .contains(Role.TL)
+        ) {
+
+            throw new IllegalArgumentException(
+                "Specified user is not a team leader"
+            );
+        }
+
+        /*
+         * TL can update only employees
+         * in their own team.
+         */
+        if (
+            manager.getRoles()
+                .contains(Role.TL) &&
+            !manager.getId()
+                .equals(teamLeader.getId())
+        ) {
+
+            throw new AccessDeniedException(
+                "TL can only manage their own team"
+            );
+        }
+
+        /*
+         * Find employee using BOTH:
+         *
+         * employeeId
+         * +
+         * teamLeaderId
+         *
+         * This prevents updating an employee
+         * from another team.
+         */
+        User employee =
+            userRepository
+                .findByEmployeeIdAndTeamLeaderId(
+                    employeeId,
+                    teamLeader.getId()
+                )
+                .orElseThrow(() ->
+                    new AccessDeniedException(
+                        "Employee does not belong to the specified team"
+                    )
+                );
+
+        /*
+         * Update first name.
+         */
+        if (
+            request.firstName() != null
+        ) {
+
+            employee.setFirstName(
+                request.firstName()
+            );
+        }
+
+        /*
+         * Update last name.
+         */
+        if (
+            request.lastName() != null
+        ) {
+
+            employee.setLastName(
+                request.lastName()
+            );
+        }
+
+        /*
+         * Update department.
+         *
+         * Employee remains inside the same
+         * team, so department must match
+         * the TL department.
+         */
+        if (
+            request.departmentName() != null
+        ) {
+
+            if (
+                teamLeader.getDepartmentName() != null &&
+                !teamLeader
+                    .getDepartmentName()
+                    .equalsIgnoreCase(
+                        request.departmentName()
+                    )
+            ) {
+
+                throw new IllegalArgumentException(
+                    "Employee department must match the team leader department"
+                );
+            }
+
+            employee.setDepartmentName(
+                request.departmentName()
+            );
+        }
+
+        employee.setUpdatedAt(
+            Instant.now()
+        );
+
+        User saved =
+            userRepository.save(employee);
+
+        return toTeamMemberResponse(
+            saved
+        );
+    }
+
+
+    /**
+     * Removes an employee from a specific team.
+     *
+     * This does NOT delete the employee account.
+     *
+     * It only clears teamLeaderId.
+     */
+    public void removeTeamMember(
+        String teamLeaderEmployeeId,
+        String employeeId,
+        Authentication authentication
+    ) {
+
+        User manager =
+            getAuthenticatedUser(
+                authentication
+            );
+
+        requireTeamManagementRole(manager);
+
+        /*
+         * Find TL using employee ID.
+         */
+        User teamLeader =
+            userRepository
+                .findByEmployeeId(
+                    teamLeaderEmployeeId
+                )
+                .orElseThrow(() ->
+                    new IllegalArgumentException(
+                        "Team leader not found"
+                    )
+                );
+
+        /*
+         * Selected user must be a TL.
+         */
+        if (
+            teamLeader.getRoles() == null ||
+            !teamLeader.getRoles()
+                .contains(Role.TL)
+        ) {
+
+            throw new IllegalArgumentException(
+                "Specified user is not a team leader"
+            );
+        }
+
+        /*
+         * TL can remove only from
+         * their own team.
+         */
+        if (
+            manager.getRoles()
+                .contains(Role.TL) &&
+            !manager.getId()
+                .equals(teamLeader.getId())
+        ) {
+
+            throw new AccessDeniedException(
+                "TL can only manage their own team"
+            );
+        }
+
+        /*
+         * Find employee using BOTH:
+         *
+         * employeeId
+         * +
+         * teamLeaderId
+         */
+        User employee =
+            userRepository
+                .findByEmployeeIdAndTeamLeaderId(
+                    employeeId,
+                    teamLeader.getId()
+                )
+                .orElseThrow(() ->
+                    new AccessDeniedException(
+                        "Employee does not belong to the specified team"
+                    )
+                );
+
+        /*
+         * Remove team relationship.
+         *
+         * Employee account is NOT deleted.
+         */
+        employee.setTeamLeaderId(null);
+
+        employee.setUpdatedAt(
+            Instant.now()
+        );
+
+        userRepository.save(employee);
+    }
+
+
+    // =========================================================
+    // GET AUTHENTICATED USER
+    // =========================================================
+
+    private User getAuthenticatedUser(
+        Authentication authentication
+    ) {
+
+        /*
+         * JWT subject remains the internal
+         * MongoDB user ID.
+         *
+         * Employee ID is the public business identifier.
+         */
+        return userRepository
+            .findById(
+                authentication.getName()
+            )
+            .orElseThrow(() ->
+                new IllegalArgumentException(
+                    "Authenticated user not found"
+                )
+            );
+    }
+
+
+    // =========================================================
+    // TEAM MANAGEMENT ROLE CHECK
+    // =========================================================
+
+    private void requireTeamManagementRole(
+        User user
+    ) {
+
+        if (
+            user.getRoles() == null ||
+            (
+                !user.getRoles()
+                    .contains(Role.TL) &&
+                !user.getRoles()
+                    .contains(Role.MD)
+            )
+        ) {
+
+            throw new AccessDeniedException(
+                "Only TL and MD can manage teams"
+            );
+        }
+    }
+
+
+    // =========================================================
+    // TEAM MEMBER RESPONSE
+    // =========================================================
+
+    private TeamMemberResponse toTeamMemberResponse(
+        User user
+    ) {
+
+        return new TeamMemberResponse(
+            user.getId(),
+            user.getEmployeeId(),
+            user.getFirstName(),
+            user.getLastName(),
+            user.getDepartmentName(),
+            user.getRoles(),
+            Boolean.TRUE.equals(
+                user.getEnabled()
+            ),
+            Boolean.TRUE.equals(
+                user.getAccountLocked()
+            ),
+            user.getTeamLeaderId()
+        );
+    }
+
+
+    // =========================================================
+    // GET ALL EMPLOYEES
+    // =========================================================
+
+    /**
+     * Returns all employee accounts.
+     *
+     * MD accounts are excluded.
+     *
+     * Password hashes are never returned.
+     */
+    public List<RegisterResponse> getAllEmployees() {
+
+        return userRepository
+            .findAll()
+            .stream()
+            .filter(user ->
+                user.getRoles() == null ||
+                !user.getRoles()
+                    .contains(Role.MD)
+            )
+            .map(user ->
+                new RegisterResponse(
+                    user.getId(),
+                    user.getEmployeeId(),
+                    user.getFirstName(),
+                    user.getLastName(),
+                    user.getDepartmentName(),
+                    user.getRoles(),
+                    Boolean.TRUE.equals(
+                        user.getEnabled()
+                    )
+                )
+            )
+            .toList();
+    }
+
 
     // =========================================================
     // UNLOCK ACCOUNT
     // =========================================================
 
-    public void unlockAccount(String userId) {
+    /**
+     * Unlocks an employee account
+     * using employeeId.
+     */
+    public void unlockAccount(
+        String employeeId
+    ) {
 
-        User user = userRepository.findById(userId)
-            .orElseThrow(() ->
-                new IllegalArgumentException(
-                    "User not found"
+        User user =
+            userRepository
+                .findByEmployeeId(
+                    employeeId
                 )
-            );
+                .orElseThrow(() ->
+                    new IllegalArgumentException(
+                        "Employee not found"
+                    )
+                );
 
         user.setAccountLocked(false);
+
         user.setFailedLoginAttempts(0);
-        user.setUpdatedAt(Instant.now());
+
+        user.setUpdatedAt(
+            Instant.now()
+        );
 
         userRepository.save(user);
     }
 
+
     // =========================================================
-    // CREATE ACCESS + REFRESH TOKENS
+    // DELETE EMPLOYEE
     // =========================================================
 
-    private LoginResponse createTokenResponse(User user) {
+    @Transactional
+    public void deleteEmployee(
+        String employeeId
+    ) {
+
+        User user =
+            userRepository
+                .findByEmployeeId(
+                    employeeId
+                )
+                .orElseThrow(() ->
+                    new IllegalArgumentException(
+                        "Employee not found"
+                    )
+                );
+
+        /*
+         * MD accounts must never be deleted
+         * through employee-management API.
+         */
+        if (
+            user.getRoles() != null &&
+            user.getRoles()
+                .contains(Role.MD)
+        ) {
+
+            throw new IllegalArgumentException(
+                "MD account cannot be deleted"
+            );
+        }
+
+        /*
+         * Remove every refresh token belonging
+         * to the employee.
+         */
+        refreshTokenRepository.deleteByUserId(
+            user.getId()
+        );
+
+        /*
+         * Delete employee account.
+         */
+        userRepository.delete(user);
+    }
+
+
+    // =========================================================
+    // UPDATE EMPLOYEE ROLE
+    // =========================================================
+
+    /**
+     * Updates an employee's role using
+     * employeeId.
+     */
+    public void updateEmployeeRole(
+        String employeeId,
+        Role newRole
+    ) {
+
+        if (
+            newRole == null
+        ) {
+
+            throw new IllegalArgumentException(
+                "Role must not be null"
+            );
+        }
+
+        /*
+         * MD role cannot be assigned through
+         * employee-management API.
+         */
+        if (
+            newRole == Role.MD
+        ) {
+
+            throw new IllegalArgumentException(
+                "MD role cannot be assigned through this API"
+            );
+        }
+
+        User user =
+            userRepository
+                .findByEmployeeId(
+                    employeeId
+                )
+                .orElseThrow(() ->
+                    new IllegalArgumentException(
+                        "Employee not found"
+                    )
+                );
+
+        /*
+         * Existing MD account cannot be
+         * modified through role API.
+         */
+        if (
+            user.getRoles() != null &&
+            user.getRoles()
+                .contains(Role.MD)
+        ) {
+
+            throw new IllegalArgumentException(
+                "MD account role cannot be modified"
+            );
+        }
+
+        /*
+         * User receives exactly one role.
+         */
+        Set<Role> roles =
+            new HashSet<>();
+
+        roles.add(newRole);
+
+        user.setRoles(roles);
+
+        user.setUpdatedAt(
+            Instant.now()
+        );
+
+        userRepository.save(user);
+    }
+
+
+    // =========================================================
+    // UPDATE EMPLOYEE DETAILS
+    // =========================================================
+
+    /**
+     * Updates employee details using
+     * employeeId.
+     *
+     * currentEmployeeId:
+     *     Existing employee ID.
+     *
+     * employeeId:
+     *     New employee ID.
+     */
+    public void updateEmployeeDetails(
+        String currentEmployeeId,
+        String employeeId,
+        String firstName,
+        String lastName,
+        String departmentName
+    ) {
+
+        User user =
+            userRepository
+                .findByEmployeeId(
+                    currentEmployeeId
+                )
+                .orElseThrow(() ->
+                    new IllegalArgumentException(
+                        "Employee not found"
+                    )
+                );
+
+        /*
+         * MD accounts cannot be modified
+         * through employee-management API.
+         */
+        if (
+            user.getRoles() != null &&
+            user.getRoles()
+                .contains(Role.MD)
+        ) {
+
+            throw new IllegalArgumentException(
+                "MD account cannot be modified"
+            );
+        }
+
+        /*
+         * Employee ID cannot be empty.
+         */
+        if (
+            employeeId == null ||
+            employeeId.isBlank()
+        ) {
+
+            throw new IllegalArgumentException(
+                "Employee ID must not be empty"
+            );
+        }
+
+        /*
+         * If employee ID changes, make sure
+         * another account does not already
+         * use it.
+         */
+        if (
+            !employeeId.equals(
+                user.getEmployeeId()
+            ) &&
+            userRepository.existsByEmployeeId(
+                employeeId
+            )
+        ) {
+
+            throw new IllegalArgumentException(
+                "Employee ID already registered"
+            );
+        }
+
+        user.setEmployeeId(
+            employeeId
+        );
+
+        user.setFirstName(
+            firstName
+        );
+
+        user.setLastName(
+            lastName
+        );
+
+        user.setDepartmentName(
+            departmentName
+        );
+
+        user.setUpdatedAt(
+            Instant.now()
+        );
+
+        userRepository.save(user);
+    }
+
+
+    // =========================================================
+    // SAVE REFRESH TOKEN
+    // =========================================================
+
+    private void saveRefreshToken(
+        String userId,
+        String rawRefreshToken
+    ) {
 
         Instant now = Instant.now();
 
-        long expiresInSeconds =
-            jwtProperties.accessTokenMinutes() * 60;
-
-        Instant expiresAt =
-            now.plusSeconds(expiresInSeconds);
-
-        /*
-         * Create JWT access token.
-         */
-        JwtClaimsSet claims = JwtClaimsSet.builder()
-            .issuer(jwtProperties.issuer())
-            .issuedAt(now)
-            .expiresAt(expiresAt)
-            .subject(user.getId())
-            .claim("email", user.getEmail())
-            .claim(
-                "roles",
-                user.getRoles()
-                    .stream()
-                    .map(Role::name)
-                    .toList()
-            )
-            .build();
-
-        String accessToken = jwtEncoder
-            .encode(
-                JwtEncoderParameters.from(claims)
-            )
-            .getTokenValue();
-
-        /*
-         * Generate a cryptographically secure refresh token.
-         */
-        String refreshToken =
-            refreshTokenService.generateToken();
-
-        /*
-         * Store ONLY the SHA-256 hash.
-         * The raw refresh token is returned only to the client.
-         */
-        String refreshTokenHash =
-            refreshTokenService.hashToken(refreshToken);
-
-        /*
-         * Refresh token expires after 30 days.
-         */
-        RefreshToken refreshTokenEntity =
+        RefreshToken refreshToken =
             RefreshToken.builder()
-                .tokenHash(refreshTokenHash)
-                .userId(user.getId())
-                .expiresAt(
-                    now.plusSeconds(
-                        REFRESH_TOKEN_DAYS * 24 * 60 * 60
+                .tokenHash(
+                    refreshTokenService.hashToken(
+                        rawRefreshToken
                     )
                 )
+                .userId(userId)
                 .createdAt(now)
+                .expiresAt(
+                    now.plus(
+                        REFRESH_TOKEN_DAYS,
+                        ChronoUnit.DAYS
+                    )
+                )
+                .revokedAt(null)
                 .build();
 
-        refreshTokenRepository.save(refreshTokenEntity);
-
-        return new LoginResponse(
-            accessToken,
-            refreshToken,
-            "Bearer",
-            expiresInSeconds
+        refreshTokenRepository.save(
+            refreshToken
         );
+    }
+
+
+    // =========================================================
+    // FAILED LOGIN
+    // =========================================================
+
+    private void handleFailedLogin(
+        User user
+    ) {
+
+        int attempts =
+            user.getFailedLoginAttempts() == null
+                ? 0
+                : user.getFailedLoginAttempts();
+
+        attempts++;
+
+        user.setFailedLoginAttempts(
+            attempts
+        );
+
+        /*
+         * Account-lock threshold.
+         */
+        if (
+            attempts >= 5
+        ) {
+
+            user.setAccountLocked(
+                true
+            );
+        }
+
+        user.setUpdatedAt(
+            Instant.now()
+        );
+
+        userRepository.save(user);
+    }
+
+
+    // =========================================================
+    // RESET FAILED LOGIN ATTEMPTS
+    // =========================================================
+
+    private void resetFailedLoginAttempts(
+        User user
+    ) {
+
+        if (
+            user.getFailedLoginAttempts() != null &&
+            user.getFailedLoginAttempts() > 0
+        ) {
+
+            user.setFailedLoginAttempts(
+                0
+            );
+
+            user.setUpdatedAt(
+                Instant.now()
+            );
+
+            userRepository.save(user);
+        }
     }
 }
