@@ -1,0 +1,1040 @@
+openapi: 3.0.3
+
+info:
+  title: RECNAILE Master Data Service API
+  description: >
+    Master data APIs for departments, projects, vendors and item master.
+    This service is the authoritative owner of master-data records.
+  version: "1.0"
+
+servers:
+  - url: /api/v1
+
+tags:
+  - name: master-data-departments
+    description: Department master data
+  - name: master-data-projects
+    description: Project master data
+  - name: master-data-vendors
+    description: Vendor master data
+  - name: master-data-items
+    description: Item master data
+
+paths:
+
+  # ============================================================
+  # DEPARTMENTS
+  # ============================================================
+
+  /master-data/departments:
+    post:
+      tags:
+        - master-data-departments
+      summary: Create a department
+      description: Creates a new active department.
+      operationId: createDepartment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDepartmentRequest"
+      responses:
+        "201":
+          description: Department created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepartmentResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /master-data/departments/{departmentId}:
+    get:
+      tags:
+        - master-data-departments
+      summary: Get a department
+      operationId: getDepartment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DepartmentId"
+      responses:
+        "200":
+          description: Department returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepartmentResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags:
+        - master-data-departments
+      summary: Update a department
+      description: Updates department master data using optimistic concurrency.
+      operationId: updateDepartment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DepartmentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDepartmentRequest"
+      responses:
+        "200":
+          description: Department updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepartmentResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /master-data/departments/{departmentId}/deactivate:
+    post:
+      tags:
+        - master-data-departments
+      summary: Deactivate a department
+      description: >
+        Marks the department inactive without physically deleting the record,
+        preserving historical references.
+      operationId: deactivateDepartment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DepartmentId"
+      responses:
+        "200":
+          description: Department deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepartmentResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+
+  # ============================================================
+  # PROJECTS
+  # ============================================================
+
+  /master-data/projects:
+    post:
+      tags:
+        - master-data-projects
+      summary: Create a project
+      description: Creates a new active project.
+      operationId: createProject
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /master-data/projects/{projectId}:
+    get:
+      tags:
+        - master-data-projects
+      summary: Get a project
+      operationId: getProject
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags:
+        - master-data-projects
+      summary: Update a project
+      description: Updates project master data using optimistic concurrency.
+      operationId: updateProject
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+      responses:
+        "200":
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /master-data/projects/{projectId}/deactivate:
+    post:
+      tags:
+        - master-data-projects
+      summary: Deactivate a project
+      description: Marks the project inactive without deleting the record.
+      operationId: deactivateProject
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+
+  # ============================================================
+  # VENDORS
+  # ============================================================
+
+  /master-data/vendors:
+    post:
+      tags:
+        - master-data-vendors
+      summary: Create a vendor
+      description: Creates a new active vendor.
+      operationId: createVendor
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVendorRequest"
+      responses:
+        "201":
+          description: Vendor created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /master-data/vendors/{vendorId}:
+    get:
+      tags:
+        - master-data-vendors
+      summary: Get a vendor
+      operationId: getVendor
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      responses:
+        "200":
+          description: Vendor returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags:
+        - master-data-vendors
+      summary: Update a vendor
+      description: Updates vendor master data using optimistic concurrency.
+      operationId: updateVendor
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVendorRequest"
+      responses:
+        "200":
+          description: Vendor updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /master-data/vendors/{vendorId}/deactivate:
+    post:
+      tags:
+        - master-data-vendors
+      summary: Deactivate a vendor
+      description: Marks the vendor inactive without deleting the record.
+      operationId: deactivateVendor
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      responses:
+        "200":
+          description: Vendor deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+
+  # ============================================================
+  # ITEMS
+  # ============================================================
+
+  /master-data/items:
+    post:
+      tags:
+        - master-data-items
+      summary: Create an item
+      description: Creates a new active item master record.
+      operationId: createItem
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateItemRequest"
+      responses:
+        "201":
+          description: Item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /master-data/items/{itemId}:
+    get:
+      tags:
+        - master-data-items
+      summary: Get an item
+      operationId: getItem
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ItemId"
+      responses:
+        "200":
+          description: Item returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags:
+        - master-data-items
+      summary: Update an item
+      description: Updates item master data using optimistic concurrency.
+      operationId: updateItem
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateItemRequest"
+      responses:
+        "200":
+          description: Item updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /master-data/items/{itemId}/deactivate:
+    post:
+      tags:
+        - master-data-items
+      summary: Deactivate an item
+      description: Marks the item inactive without deleting the record.
+      operationId: deactivateItem
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ItemId"
+      responses:
+        "200":
+          description: Item deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+
+# ==============================================================
+# COMPONENTS
+# ==============================================================
+
+components:
+
+  # ------------------------------------------------------------
+  # SECURITY
+  # ------------------------------------------------------------
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+
+  # ------------------------------------------------------------
+  # PARAMETERS
+  # ------------------------------------------------------------
+
+  parameters:
+
+    DepartmentId:
+      name: departmentId
+      in: path
+      required: true
+      description: Stable department identifier
+      schema:
+        type: string
+
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      description: Stable project identifier
+      schema:
+        type: string
+
+    VendorId:
+      name: vendorId
+      in: path
+      required: true
+      description: Stable vendor identifier
+      schema:
+        type: string
+
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      description: Stable item identifier / SKU
+      schema:
+        type: string
+
+
+  # ------------------------------------------------------------
+  # SCHEMAS
+  # ------------------------------------------------------------
+
+  schemas:
+
+    # ==========================================================
+    # COMMON
+    # ==========================================================
+
+    MasterDataStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - INACTIVE
+
+    ItemType:
+      type: string
+      enum:
+        - REUSABLE
+        - CONSUMABLE
+
+
+    # ==========================================================
+    # DEPARTMENT
+    # ==========================================================
+
+    CreateDepartmentRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+
+    UpdateDepartmentRequest:
+      type: object
+      required:
+        - name
+        - version
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+
+    DepartmentResponse:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - createdAt
+        - updatedAt
+        - version
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/MasterDataStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+
+
+    # ==========================================================
+    # PROJECT
+    # ==========================================================
+
+    CreateProjectRequest:
+      type: object
+      required:
+        - projectId
+        - projectName
+      properties:
+        projectId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        projectName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        teamLeadId:
+          type: string
+          nullable: true
+
+    UpdateProjectRequest:
+      type: object
+      required:
+        - projectName
+        - version
+      properties:
+        projectName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        teamLeadId:
+          type: string
+          nullable: true
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+
+    ProjectResponse:
+      type: object
+      required:
+        - projectId
+        - projectName
+        - status
+        - createdAt
+        - updatedAt
+        - version
+      properties:
+        projectId:
+          type: string
+        projectName:
+          type: string
+        teamLeadId:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/MasterDataStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+
+
+    # ==========================================================
+    # VENDOR
+    # ==========================================================
+
+    CreateVendorRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        email:
+          type: string
+          format: email
+        category:
+          type: string
+          maxLength: 100
+        gstNumber:
+          type: string
+          maxLength: 50
+        notes:
+          type: string
+          maxLength: 1000
+        orderSource:
+          type: string
+          maxLength: 200
+        webUrl:
+          type: string
+          format: uri
+
+    UpdateVendorRequest:
+      type: object
+      required:
+        - name
+        - version
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        email:
+          type: string
+          format: email
+        category:
+          type: string
+          maxLength: 100
+        gstNumber:
+          type: string
+          maxLength: 50
+        notes:
+          type: string
+          maxLength: 1000
+        orderSource:
+          type: string
+          maxLength: 200
+        webUrl:
+          type: string
+          format: uri
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+
+    VendorResponse:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - createdAt
+        - updatedAt
+        - version
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        gstNumber:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        orderSource:
+          type: string
+          nullable: true
+        webUrl:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/MasterDataStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+
+
+    # ==========================================================
+    # ITEM
+    # ==========================================================
+
+    CreateItemRequest:
+      type: object
+      required:
+        - itemId
+        - name
+        - type
+        - assetTracked
+      properties:
+        itemId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        category:
+          type: string
+          maxLength: 100
+        unitOfMeasure:
+          type: string
+          maxLength: 50
+        type:
+          $ref: "#/components/schemas/ItemType"
+        assetTracked:
+          type: boolean
+        defaultUnitPrice:
+          type: number
+          format: double
+          minimum: 0
+        gstRate:
+          type: number
+          format: double
+          minimum: 0
+        barcodeQrIdentifier:
+          type: string
+          maxLength: 200
+          nullable: true
+        minimumStock:
+          type: number
+          format: double
+          minimum: 0
+        maximumStock:
+          type: number
+          format: double
+          minimum: 0
+
+    UpdateItemRequest:
+      type: object
+      required:
+        - name
+        - type
+        - assetTracked
+        - version
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        category:
+          type: string
+          maxLength: 100
+        unitOfMeasure:
+          type: string
+          maxLength: 50
+        type:
+          $ref: "#/components/schemas/ItemType"
+        assetTracked:
+          type: boolean
+        defaultUnitPrice:
+          type: number
+          format: double
+          minimum: 0
+        gstRate:
+          type: number
+          format: double
+          minimum: 0
+        barcodeQrIdentifier:
+          type: string
+          maxLength: 200
+          nullable: true
+        minimumStock:
+          type: number
+          format: double
+          minimum: 0
+        maximumStock:
+          type: number
+          format: double
+          minimum: 0
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+
+    ItemResponse:
+      type: object
+      required:
+        - itemId
+        - name
+        - type
+        - assetTracked
+        - status
+        - createdAt
+        - updatedAt
+        - version
+      properties:
+        itemId:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+          nullable: true
+        unitOfMeasure:
+          type: string
+          nullable: true
+        type:
+          $ref: "#/components/schemas/ItemType"
+        assetTracked:
+          type: boolean
+        defaultUnitPrice:
+          type: number
+          format: double
+          nullable: true
+        gstRate:
+          type: number
+          format: double
+          nullable: true
+        barcodeQrIdentifier:
+          type: string
+          nullable: true
+        minimumStock:
+          type: number
+          format: double
+          nullable: true
+        maximumStock:
+          type: number
+          format: double
+          nullable: true
+        status:
+          $ref: "#/components/schemas/MasterDataStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+
+
+    # ==========================================================
+    # ERROR
+    # ==========================================================
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          nullable: true
+        error:
+          type: object
+          nullable: true
+
+
+  # ------------------------------------------------------------
+  # RESPONSES
+  # ------------------------------------------------------------
+
+  responses:
+
+    ValidationError:
+      description: Request failed validation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    Forbidden:
+      description: Authenticated but not authorized for this action
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    Conflict:
+      description: >
+        Conflicting state such as duplicate identifier, duplicate name,
+        duplicate barcode/QR identifier, or optimistic concurrency conflict.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
