@@ -108,7 +108,7 @@ All command POSTs require:
 
 ## Phase 10 — Kafka Events
 
-The Purchase Order Service publishes the documented purchase-order domain events:
+The Purchase Order Service defines the documented purchase-order domain events:
 
 - `PO_CREATED` after a Purchase Order is successfully persisted.
 - `PO_ISSUED` after a Purchase Order transitions to `ISSUED` and is persisted.
@@ -129,9 +129,24 @@ Override with:
 Producer reliability settings use `acks=all`, Kafka idempotence, compression, retries and a bounded
 delivery timeout.
 
-### Phase 10 reliability boundary
 
-The publisher registers an `afterCommit` callback when a Spring transaction synchronization is active.
-If no transaction synchronization is active, it publishes after the successful repository save. The
-transactional-outbox implementation is intentionally reserved for Phase 11; Phase 10 therefore does
-not claim atomic MongoDB + Kafka delivery.
+## Phase 11 — Transactional Outbox
+
+Kafka publication now uses a MongoDB-backed transactional outbox.
+
+- Purchase Order state changes and their corresponding outbox records are persisted in the same MongoDB transaction.
+- `PO_CREATED`, `PO_ISSUED`, and `PO_CLOSED` are stored as `PENDING` outbox events before Kafka publication.
+- A scheduled outbox publisher sends pending events to `procurement.purchase-order.events` using the PO ID as the Kafka key.
+- Successful publication marks the outbox event `PUBLISHED`.
+- Kafka failures keep the event `PENDING`, record the error, increment the attempt count, and schedule exponential backoff.
+- Events for the same Purchase Order are published in creation order so a later lifecycle event does not bypass an earlier pending event.
+- Correlation ID, trace ID, actor identity and actor role are retained with the outbox record for troubleshooting and auditability.
+- MongoDB transactions are enabled through `MongoTransactionManager`; MongoDB Atlas must support transactions (replica set/sharded deployment).
+
+Outbox tuning:
+- `OUTBOX_POLL_INTERVAL_MS` — default `1000`
+- `OUTBOX_BATCH_SIZE` — default `50`
+- `OUTBOX_INITIAL_BACKOFF_SECONDS` — default `2`
+- `OUTBOX_MAX_BACKOFF_SECONDS` — default `300`
+
+The service does not directly publish PO events from the business transaction anymore. The business transaction only persists the Purchase Order and its outbox event; the scheduled publisher handles Kafka delivery afterward.

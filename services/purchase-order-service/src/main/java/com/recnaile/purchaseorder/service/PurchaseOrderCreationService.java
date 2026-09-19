@@ -25,18 +25,18 @@ public class PurchaseOrderCreationService {
     private final PurchaseOrderNumberGenerator numberGenerator;
     private final PurchaseOrderCommercialCalculator commercialCalculator;
     private final PurchaseOrderIdempotencyService idempotencyService;
-    private final PurchaseOrderEventPublisher eventPublisher;
+    private final PurchaseOrderOutboxService outboxService;
 
     public PurchaseOrderCreationService(PurchaseOrderRepository repository,
                                         PurchaseOrderNumberGenerator numberGenerator,
                                         PurchaseOrderCommercialCalculator commercialCalculator,
                                         PurchaseOrderIdempotencyService idempotencyService,
-                                        PurchaseOrderEventPublisher eventPublisher) {
+                                        PurchaseOrderOutboxService outboxService) {
         this.repository = repository;
         this.numberGenerator = numberGenerator;
         this.commercialCalculator = commercialCalculator;
         this.idempotencyService = idempotencyService;
-        this.eventPublisher = eventPublisher;
+        this.outboxService = outboxService;
     }
 
     @Transactional
@@ -65,7 +65,7 @@ public class PurchaseOrderCreationService {
         try {
             PurchaseOrder po = create(command, actorId);
             PurchaseOrder saved = repository.save(po);
-            eventPublisher.publishCreated(saved, actorId);
+            outboxService.enqueueCreated(saved, actorId);
             idempotencyService.complete(record, saved.getPoId(), 201);
             return saved;
         } catch (RuntimeException ex) {

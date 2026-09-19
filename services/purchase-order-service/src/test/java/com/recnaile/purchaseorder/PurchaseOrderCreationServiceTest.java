@@ -8,7 +8,7 @@ import com.recnaile.purchaseorder.service.PurchaseOrderCommercialCalculator;
 import com.recnaile.purchaseorder.exception.BusinessRuleException;
 import com.recnaile.purchaseorder.repository.PurchaseOrderRepository;
 import com.recnaile.purchaseorder.service.PurchaseOrderIdempotencyService;
-import com.recnaile.purchaseorder.service.PurchaseOrderEventPublisher;
+import com.recnaile.purchaseorder.service.PurchaseOrderOutboxService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -37,7 +37,7 @@ class PurchaseOrderCreationServiceTest {
     PurchaseOrderIdempotencyService idempotencyService;
 
     @Mock
-    PurchaseOrderEventPublisher eventPublisher;
+    PurchaseOrderOutboxService outboxService;
 
     @Spy
     PurchaseOrderCommercialCalculator commercialCalculator;

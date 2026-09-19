@@ -54,3 +54,8 @@ app:
     jwt:
       jwk-set-uri: ${APP_SECURITY_JWT_JWK_SET_URI:}
       issuer-uri: ${APP_SECURITY_JWT_ISSUER_URI:}
+  outbox:
+    poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:1000}
+    batch-size: ${OUTBOX_BATCH_SIZE:50}
+    initial-backoff-seconds: ${OUTBOX_INITIAL_BACKOFF_SECONDS:2}
+    max-backoff-seconds: ${OUTBOX_MAX_BACKOFF_SECONDS:300}

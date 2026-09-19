@@ -8,6 +8,7 @@ import com.recnaile.purchaseorder.exception.ConcurrentPurchaseOrderModificationE
 import com.recnaile.purchaseorder.repository.PurchaseOrderRepository;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -19,27 +20,28 @@ public class PurchaseOrderLifecycleService {
     private final PurchaseOrderRepository repository;
     private final PurchaseOrderQueryService queryService;
     private final PurchaseOrderIdempotencyService idempotencyService;
-    private final PurchaseOrderEventPublisher eventPublisher;
+    private final PurchaseOrderOutboxService outboxService;
 
     public PurchaseOrderLifecycleService(PurchaseOrderRepository repository,
                                          PurchaseOrderQueryService queryService,
                                          PurchaseOrderIdempotencyService idempotencyService,
-                                         PurchaseOrderEventPublisher eventPublisher) {
-        this(repository, queryService, idempotencyService, eventPublisher, Clock.systemUTC());
+                                         PurchaseOrderOutboxService outboxService) {
+        this(repository, queryService, idempotencyService, outboxService, Clock.systemUTC());
     }
 
     PurchaseOrderLifecycleService(PurchaseOrderRepository repository,
                                    PurchaseOrderQueryService queryService,
                                    PurchaseOrderIdempotencyService idempotencyService,
-                                   PurchaseOrderEventPublisher eventPublisher,
+                                   PurchaseOrderOutboxService outboxService,
                                    Clock clock) {
         this.repository = repository;
         this.queryService = queryService;
         this.idempotencyService = idempotencyService;
-        this.eventPublisher = eventPublisher;
+        this.outboxService = outboxService;
         this.clock = clock;
     }
 
+    @Transactional
     public PurchaseOrder transitionAndSave(String poId,
                                            PurchaseOrderStatus targetStatus,
                                            String actorId,
@@ -84,8 +86,8 @@ public class PurchaseOrderLifecycleService {
                                        PurchaseOrderStatus targetStatus,
                                        String actorId) {
         switch (targetStatus) {
-            case ISSUED -> eventPublisher.publishIssued(purchaseOrder, actorId);
-            case CLOSED -> eventPublisher.publishClosed(purchaseOrder, actorId);
+            case ISSUED -> outboxService.enqueueIssued(purchaseOrder, actorId);
+            case CLOSED -> outboxService.enqueueClosed(purchaseOrder, actorId);
             default -> {
                 // PO_CREATED/PO_ISSUED/PO_CLOSED are the documented PO events.
                 // Other lifecycle states remain internal until a contract exists.
