@@ -7,6 +7,7 @@ import com.recnaile.purchaseorder.domain.model.PurchaseOrder;
 import com.recnaile.purchaseorder.service.PurchaseOrderCommercialCalculator;
 import com.recnaile.purchaseorder.exception.BusinessRuleException;
 import com.recnaile.purchaseorder.repository.PurchaseOrderRepository;
+import com.recnaile.purchaseorder.service.PurchaseOrderIdempotencyService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -31,6 +32,9 @@ class PurchaseOrderCreationServiceTest {
     @Mock
     PurchaseOrderNumberGenerator numberGenerator;
 
+    @Mock
+    PurchaseOrderIdempotencyService idempotencyService;
+
     @Spy
     PurchaseOrderCommercialCalculator commercialCalculator;
 
@@ -39,6 +43,10 @@ class PurchaseOrderCreationServiceTest {
 
     @Test
     void shouldCreatePoFromReadyForPoIndent() {
+        when(idempotencyService.requestHash(any(), any(), any())).thenReturn("hash-1");
+        when(idempotencyService.reserve(any(), any(), any(), any()))
+                .thenReturn(new PurchaseOrderIdempotencyService.Reservation(
+                        new com.recnaile.purchaseorder.domain.model.IdempotencyRecord(), true));
         when(repository.findBySourceIndentIdsIn(any())).thenReturn(List.of());
         when(numberGenerator.nextNumber(any())).thenReturn("PO-2026-0001");
         when(repository.save(any(PurchaseOrder.class)))
@@ -50,7 +58,7 @@ class PurchaseOrderCreationServiceTest {
                         "ITEM-001", "Laptop", new BigDecimal("2"),
                         new BigDecimal("10000"), new BigDecimal("18"))));
 
-        PurchaseOrder result = service.createFromApprovedIndent(command, "user-1");
+        PurchaseOrder result = service.createFromApprovedIndent(command, "user-1", "create-key-1");
 
         assertThat(result.getPoNumber()).isEqualTo("PO-2026-0001");
         assertThat(result.getSourceIndentIds()).containsExactly("IND-001");
@@ -69,7 +77,7 @@ class PurchaseOrderCreationServiceTest {
                         "ITEM-001", "Laptop", new BigDecimal("1"),
                         new BigDecimal("100"), BigDecimal.ZERO)));
 
-        assertThatThrownBy(() -> service.createFromApprovedIndent(command, "user-1"))
+        assertThatThrownBy(() -> service.createFromApprovedIndent(command, "user-1", "create-key-test"))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("READY_FOR_PO");
     }
@@ -85,11 +93,16 @@ class PurchaseOrderCreationServiceTest {
                         "ITEM-001", "Laptop", BigDecimal.ONE,
                         new BigDecimal("100"), BigDecimal.ZERO)));
 
+        when(idempotencyService.requestHash(any(), any(), any())).thenReturn("hash-2");
+        when(idempotencyService.reserve(any(), any(), any(), any()))
+                .thenReturn(new PurchaseOrderIdempotencyService.Reservation(
+                        new com.recnaile.purchaseorder.domain.model.IdempotencyRecord(), true));
+
         PurchaseOrder existing = new PurchaseOrder();
         existing.setSourceIndentIds(List.of("IND-001"));
         when(repository.findBySourceIndentIdsIn(any())).thenReturn(List.of(existing));
 
-        assertThatThrownBy(() -> service.createFromApprovedIndent(command, "user-1"))
+        assertThatThrownBy(() -> service.createFromApprovedIndent(command, "user-1", "create-key-test"))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("already linked");
     }

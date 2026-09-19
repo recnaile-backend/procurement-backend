@@ -81,3 +81,27 @@ Configure:
 Only Actuator health/info are public. All PO APIs require a valid Bearer token.
 Raw identity headers are not trusted; the authenticated JWT subject is used as the actor ID.
 Entity-level authorization and retry/idempotency controls are strengthened in later phases.
+
+
+## Phase 9 — Idempotency & Optimistic Concurrency
+
+Implemented:
+- `Idempotency-Key` is required on all retry-safe PO POST commands.
+- MongoDB-backed idempotency records are scoped by authenticated actor + key.
+- Request fingerprints use SHA-256 and include operation/resource/request data.
+- Reusing a key with a different request returns `409 IDEMPOTENCY_KEY_REUSED`.
+- Concurrent reuse while the original request is running returns `409 IDEMPOTENCY_REQUEST_IN_PROGRESS`.
+- Successful retries replay the previously created/updated PO resource.
+- `PurchaseOrder.version` uses Spring Data MongoDB `@Version`.
+- Stale lifecycle writes are mapped to `409 PO_CONCURRENT_MODIFICATION`.
+- `sourceIndentIds` has a unique MongoDB multikey index to prevent duplicate PO conversion of the same indent.
+- Controller contains transport concerns only; lifecycle persistence now belongs to `PurchaseOrderLifecycleService`.
+- All service classes remain under the single top-level `com.recnaile.purchaseorder.service` package.
+- Roles remain `Employee`, `Procurement`, `TL`, and `MD`; no Admin role is introduced.
+
+### Required headers
+All command POSTs require:
+`Idempotency-Key: <unique-client-key>`
+
+### Mongo index note
+`uk_source_indent` is a unique multikey index. If an older non-unique `idx_source_indent` index already exists in an existing database, drop that obsolete index before enabling automatic index creation for the new unique index.

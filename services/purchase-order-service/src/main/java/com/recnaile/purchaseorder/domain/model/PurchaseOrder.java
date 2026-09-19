@@ -22,7 +22,7 @@ import java.util.List;
 @CompoundIndex(name = "idx_vendor_status", def = "{'vendorId': 1, 'status': 1}")
 @CompoundIndex(name = "idx_project_status", def = "{'projectId': 1, 'status': 1}")
 @CompoundIndex(name = "idx_status_created_at", def = "{'status': 1, 'createdAt': -1}")
-@CompoundIndex(name = "idx_source_indent", def = "{'sourceIndentIds': 1}")
+@CompoundIndex(name = "uk_source_indent", def = "{'sourceIndentIds': 1}", unique = true)
 public class PurchaseOrder {
 
     @Id
