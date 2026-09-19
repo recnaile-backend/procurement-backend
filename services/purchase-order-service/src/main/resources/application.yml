@@ -15,6 +15,10 @@ spring:
       delivery-timeout-ms: 120000
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
 
 server:
   port: ${PURCHASE_ORDER_SERVICE_PORT:${SERVICE_PORT:8084}}
@@ -33,14 +37,39 @@ management:
       probes:
         enabled: true
       show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+    mongo:
+      command:
+        enabled: false
   tracing:
+    enabled: true
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
+    propagation:
+      type: w3c
+  observations:
+    annotations:
+      enabled: true
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}}
+    metrics:
+      export:
+        enabled: ${OTEL_METRICS_EXPORT_ENABLED:true}
+        url: ${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}}
+        step: ${OTEL_METRICS_EXPORT_STEP:30s}
 
-otel:
-  exporter:
-    otlp:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
+logging:
+  structured:
+    format:
+      console: ecs
 
 app:
   service-name: purchase-order-service

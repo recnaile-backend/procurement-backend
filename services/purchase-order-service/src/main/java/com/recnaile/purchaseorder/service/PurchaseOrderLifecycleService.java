@@ -5,8 +5,10 @@ import com.recnaile.purchaseorder.domain.model.IdempotencyRecord;
 import com.recnaile.purchaseorder.domain.model.PurchaseOrder;
 import com.recnaile.purchaseorder.domain.state.PurchaseOrderStateMachine;
 import com.recnaile.purchaseorder.exception.ConcurrentPurchaseOrderModificationException;
+import com.recnaile.purchaseorder.observability.PurchaseOrderMetrics;
 import com.recnaile.purchaseorder.repository.PurchaseOrderRepository;
 import org.springframework.dao.OptimisticLockingFailureException;
+import io.micrometer.observation.annotation.Observed;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,12 +23,14 @@ public class PurchaseOrderLifecycleService {
     private final PurchaseOrderQueryService queryService;
     private final PurchaseOrderIdempotencyService idempotencyService;
     private final PurchaseOrderOutboxService outboxService;
+    private final PurchaseOrderMetrics metrics;
 
     public PurchaseOrderLifecycleService(PurchaseOrderRepository repository,
                                          PurchaseOrderQueryService queryService,
                                          PurchaseOrderIdempotencyService idempotencyService,
-                                         PurchaseOrderOutboxService outboxService) {
-        this(repository, queryService, idempotencyService, outboxService, Clock.systemUTC());
+                                         PurchaseOrderOutboxService outboxService,
+                                         PurchaseOrderMetrics metrics) {
+        this(repository, queryService, idempotencyService, outboxService, Clock.systemUTC(), metrics);
     }
 
     PurchaseOrderLifecycleService(PurchaseOrderRepository repository,
@@ -34,14 +38,25 @@ public class PurchaseOrderLifecycleService {
                                    PurchaseOrderIdempotencyService idempotencyService,
                                    PurchaseOrderOutboxService outboxService,
                                    Clock clock) {
+        this(repository, queryService, idempotencyService, outboxService, clock, null);
+    }
+
+    PurchaseOrderLifecycleService(PurchaseOrderRepository repository,
+                                   PurchaseOrderQueryService queryService,
+                                   PurchaseOrderIdempotencyService idempotencyService,
+                                   PurchaseOrderOutboxService outboxService,
+                                   Clock clock,
+                                   PurchaseOrderMetrics metrics) {
         this.repository = repository;
         this.queryService = queryService;
         this.idempotencyService = idempotencyService;
         this.outboxService = outboxService;
         this.clock = clock;
+        this.metrics = metrics;
     }
 
     @Transactional
+    @Observed(name = "purchase.order.command")
     public PurchaseOrder transitionAndSave(String poId,
                                            PurchaseOrderStatus targetStatus,
                                            String actorId,
@@ -71,6 +86,9 @@ public class PurchaseOrderLifecycleService {
             PurchaseOrder saved = repository.save(po);
             publishLifecycleEvent(saved, targetStatus, actorId);
             idempotencyService.complete(record, saved.getPoId(), 200);
+            if (metrics != null) {
+                metrics.recordLifecycleTransition(targetStatus.name());
+            }
             return saved;
         } catch (OptimisticLockingFailureException ex) {
             idempotencyService.release(record);

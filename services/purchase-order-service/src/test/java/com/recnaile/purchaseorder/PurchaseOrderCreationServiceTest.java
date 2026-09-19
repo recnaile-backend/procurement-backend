@@ -10,6 +10,7 @@ import com.recnaile.purchaseorder.exception.BusinessRuleException;
 import com.recnaile.purchaseorder.repository.PurchaseOrderRepository;
 import com.recnaile.purchaseorder.service.PurchaseOrderIdempotencyService;
 import com.recnaile.purchaseorder.service.PurchaseOrderOutboxService;
+import com.recnaile.purchaseorder.observability.PurchaseOrderMetrics;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -42,6 +43,9 @@ class PurchaseOrderCreationServiceTest {
 
     @Mock
     MasterDataVendorClient masterDataVendorClient;
+
+    @Mock
+    PurchaseOrderMetrics metrics;
 
     @Spy
     PurchaseOrderCommercialCalculator commercialCalculator;

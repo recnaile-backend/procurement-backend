@@ -8,7 +8,9 @@ import com.recnaile.purchaseorder.domain.model.IdempotencyRecord;
 import com.recnaile.purchaseorder.domain.model.PurchaseOrder;
 import com.recnaile.purchaseorder.domain.model.PurchaseOrderLine;
 import com.recnaile.purchaseorder.exception.BusinessRuleException;
+import com.recnaile.purchaseorder.observability.PurchaseOrderMetrics;
 import com.recnaile.purchaseorder.repository.PurchaseOrderRepository;
+import io.micrometer.observation.annotation.Observed;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,22 +30,26 @@ public class PurchaseOrderCreationService {
     private final PurchaseOrderIdempotencyService idempotencyService;
     private final PurchaseOrderOutboxService outboxService;
     private final MasterDataVendorClient masterDataVendorClient;
+    private final PurchaseOrderMetrics metrics;
 
     public PurchaseOrderCreationService(PurchaseOrderRepository repository,
                                         PurchaseOrderNumberGenerator numberGenerator,
                                         PurchaseOrderCommercialCalculator commercialCalculator,
                                         PurchaseOrderIdempotencyService idempotencyService,
                                         PurchaseOrderOutboxService outboxService,
-                                        MasterDataVendorClient masterDataVendorClient) {
+                                        MasterDataVendorClient masterDataVendorClient,
+                                        PurchaseOrderMetrics metrics) {
         this.repository = repository;
         this.numberGenerator = numberGenerator;
         this.commercialCalculator = commercialCalculator;
         this.idempotencyService = idempotencyService;
         this.outboxService = outboxService;
         this.masterDataVendorClient = masterDataVendorClient;
+        this.metrics = metrics;
     }
 
     @Transactional
+    @Observed(name = "purchase.order.command")
     public PurchaseOrder createFromApprovedIndent(
             CreatePurchaseOrderFromApprovedIndentCommand command,
             String actorId,
@@ -72,6 +78,7 @@ public class PurchaseOrderCreationService {
             PurchaseOrder saved = repository.save(po);
             outboxService.enqueueCreated(saved, actorId);
             idempotencyService.complete(record, saved.getPoId(), 201);
+            metrics.recordCreated();
             return saved;
         } catch (RuntimeException ex) {
             idempotencyService.release(record);

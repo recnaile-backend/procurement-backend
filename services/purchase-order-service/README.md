@@ -181,3 +181,22 @@ The controller contains only HTTP transport logic. Application commands remain u
 `com.recnaile.purchaseorder.application.command`, integration response models remain
 under `com.recnaile.purchaseorder.client.masterdata`, and business services remain
 under the single top-level `com.recnaile.purchaseorder.service` package.
+
+
+## Phase 14 — Audit + Notification Integration Readiness
+
+Audit and notification are separate microservices in the platform architecture. The Purchase Order Service does not duplicate their persistence or delivery responsibilities.
+
+This phase therefore keeps the PO service responsible for publishing its documented PO lifecycle events through the transactional outbox. The existing `PO_CREATED`, `PO_ISSUED`, and `PO_CLOSED` events are the integration points for the future audit-service and notification-service. No private audit collection, audit API, notification database, or undocumented notification event is introduced here.
+
+The dedicated `audit-service` and `notification-service` can consume the shared event contracts when those services are implemented. Inward/GRN integration remains deferred until the Inward Service and its contracts are implemented.
+
+
+## Phase 15 — Observability
+
+- Micrometer business counters for PO creation, lifecycle transitions, and outbox publish success/failure.
+- Prometheus/Actuator metrics remain enabled.
+- W3C trace propagation is explicitly configured.
+- Correlation, trace, and span IDs are placed in MDC for structured logging.
+- HTTP server request histogram/percentiles are enabled for operational latency visibility.
+- No new business endpoints or service boundaries were introduced.
