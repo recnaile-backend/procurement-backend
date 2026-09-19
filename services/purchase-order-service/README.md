@@ -105,3 +105,33 @@ All command POSTs require:
 
 ### Mongo index note
 `uk_source_indent` is a unique multikey index. If an older non-unique `idx_source_indent` index already exists in an existing database, drop that obsolete index before enabling automatic index creation for the new unique index.
+
+## Phase 10 — Kafka Events
+
+The Purchase Order Service publishes the documented purchase-order domain events:
+
+- `PO_CREATED` after a Purchase Order is successfully persisted.
+- `PO_ISSUED` after a Purchase Order transitions to `ISSUED` and is persisted.
+- `PO_CLOSED` after a Purchase Order transitions to `CLOSED` and is persisted.
+
+Event envelope fields follow the platform event guidance: `eventId`, `eventType`, `eventVersion`,
+`occurredAt`, `producerService`, `aggregateType`, `aggregateId`, `correlationId`, `causationId`,
+`actorId`, `actorRole`, `schemaVersion`, and a typed Purchase Order payload.
+
+Default Kafka topic:
+
+`procurement.purchase-order.events`
+
+Override with:
+
+`PURCHASE_ORDER_EVENTS_TOPIC`
+
+Producer reliability settings use `acks=all`, Kafka idempotence, compression, retries and a bounded
+delivery timeout.
+
+### Phase 10 reliability boundary
+
+The publisher registers an `afterCommit` callback when a Spring transaction synchronization is active.
+If no transaction synchronization is active, it publishes after the successful repository save. The
+transactional-outbox implementation is intentionally reserved for Phase 11; Phase 10 therefore does
+not claim atomic MongoDB + Kafka delivery.

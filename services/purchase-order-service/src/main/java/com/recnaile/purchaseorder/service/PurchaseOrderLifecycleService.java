@@ -19,20 +19,24 @@ public class PurchaseOrderLifecycleService {
     private final PurchaseOrderRepository repository;
     private final PurchaseOrderQueryService queryService;
     private final PurchaseOrderIdempotencyService idempotencyService;
+    private final PurchaseOrderEventPublisher eventPublisher;
 
     public PurchaseOrderLifecycleService(PurchaseOrderRepository repository,
                                          PurchaseOrderQueryService queryService,
-                                         PurchaseOrderIdempotencyService idempotencyService) {
-        this(repository, queryService, idempotencyService, Clock.systemUTC());
+                                         PurchaseOrderIdempotencyService idempotencyService,
+                                         PurchaseOrderEventPublisher eventPublisher) {
+        this(repository, queryService, idempotencyService, eventPublisher, Clock.systemUTC());
     }
 
     PurchaseOrderLifecycleService(PurchaseOrderRepository repository,
                                    PurchaseOrderQueryService queryService,
                                    PurchaseOrderIdempotencyService idempotencyService,
+                                   PurchaseOrderEventPublisher eventPublisher,
                                    Clock clock) {
         this.repository = repository;
         this.queryService = queryService;
         this.idempotencyService = idempotencyService;
+        this.eventPublisher = eventPublisher;
         this.clock = clock;
     }
 
@@ -63,6 +67,7 @@ public class PurchaseOrderLifecycleService {
             po.setUpdatedBy(actorId);
 
             PurchaseOrder saved = repository.save(po);
+            publishLifecycleEvent(saved, targetStatus, actorId);
             idempotencyService.complete(record, saved.getPoId(), 200);
             return saved;
         } catch (OptimisticLockingFailureException ex) {
@@ -72,6 +77,19 @@ public class PurchaseOrderLifecycleService {
         } catch (RuntimeException ex) {
             idempotencyService.release(record);
             throw ex;
+        }
+    }
+
+    private void publishLifecycleEvent(PurchaseOrder purchaseOrder,
+                                       PurchaseOrderStatus targetStatus,
+                                       String actorId) {
+        switch (targetStatus) {
+            case ISSUED -> eventPublisher.publishIssued(purchaseOrder, actorId);
+            case CLOSED -> eventPublisher.publishClosed(purchaseOrder, actorId);
+            default -> {
+                // PO_CREATED/PO_ISSUED/PO_CLOSED are the documented PO events.
+                // Other lifecycle states remain internal until a contract exists.
+            }
         }
     }
 
