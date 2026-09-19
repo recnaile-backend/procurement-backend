@@ -2,6 +2,7 @@ package com.recnaile.purchaseorder;
 
 import com.recnaile.purchaseorder.application.command.CreatePurchaseOrderFromApprovedIndentCommand;
 import com.recnaile.purchaseorder.service.PurchaseOrderCreationService;
+import com.recnaile.purchaseorder.client.masterdata.MasterDataVendorClient;
 import com.recnaile.purchaseorder.service.PurchaseOrderNumberGenerator;
 import com.recnaile.purchaseorder.domain.model.PurchaseOrder;
 import com.recnaile.purchaseorder.service.PurchaseOrderCommercialCalculator;
@@ -39,6 +40,9 @@ class PurchaseOrderCreationServiceTest {
     @Mock
     PurchaseOrderOutboxService outboxService;
 
+    @Mock
+    MasterDataVendorClient masterDataVendorClient;
+
     @Spy
     PurchaseOrderCommercialCalculator commercialCalculator;
 
@@ -47,6 +51,7 @@ class PurchaseOrderCreationServiceTest {
 
     @Test
     void shouldCreatePoFromReadyForPoIndent() {
+        when(masterDataVendorClient.requireActiveVendor(any())).thenReturn(null);
         when(idempotencyService.requestHash(any(), any(), any())).thenReturn("hash-1");
         when(idempotencyService.reserve(any(), any(), any(), any()))
                 .thenReturn(new PurchaseOrderIdempotencyService.Reservation(
@@ -97,6 +102,7 @@ class PurchaseOrderCreationServiceTest {
                         "ITEM-001", "Laptop", BigDecimal.ONE,
                         new BigDecimal("100"), BigDecimal.ZERO)));
 
+        when(masterDataVendorClient.requireActiveVendor(any())).thenReturn(null);
         when(idempotencyService.requestHash(any(), any(), any())).thenReturn("hash-2");
         when(idempotencyService.reserve(any(), any(), any(), any()))
                 .thenReturn(new PurchaseOrderIdempotencyService.Reservation(

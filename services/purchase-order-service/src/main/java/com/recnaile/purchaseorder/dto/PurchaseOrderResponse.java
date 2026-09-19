@@ -1,4 +1,4 @@
-package com.recnaile.purchaseorder.controller.dto;
+package com.recnaile.purchaseorder.dto;
 
 import com.recnaile.purchaseorder.domain.enums.PurchaseOrderStatus;
 import com.recnaile.purchaseorder.domain.enums.PurchaseType;

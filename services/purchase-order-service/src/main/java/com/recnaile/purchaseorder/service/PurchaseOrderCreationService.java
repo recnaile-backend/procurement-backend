@@ -1,6 +1,7 @@
 package com.recnaile.purchaseorder.service;
 
 import com.recnaile.purchaseorder.application.command.CreatePurchaseOrderFromApprovedIndentCommand;
+import com.recnaile.purchaseorder.client.masterdata.MasterDataVendorClient;
 import com.recnaile.purchaseorder.domain.enums.PurchaseOrderStatus;
 import com.recnaile.purchaseorder.domain.enums.PurchaseType;
 import com.recnaile.purchaseorder.domain.model.IdempotencyRecord;
@@ -26,17 +27,20 @@ public class PurchaseOrderCreationService {
     private final PurchaseOrderCommercialCalculator commercialCalculator;
     private final PurchaseOrderIdempotencyService idempotencyService;
     private final PurchaseOrderOutboxService outboxService;
+    private final MasterDataVendorClient masterDataVendorClient;
 
     public PurchaseOrderCreationService(PurchaseOrderRepository repository,
                                         PurchaseOrderNumberGenerator numberGenerator,
                                         PurchaseOrderCommercialCalculator commercialCalculator,
                                         PurchaseOrderIdempotencyService idempotencyService,
-                                        PurchaseOrderOutboxService outboxService) {
+                                        PurchaseOrderOutboxService outboxService,
+                                        MasterDataVendorClient masterDataVendorClient) {
         this.repository = repository;
         this.numberGenerator = numberGenerator;
         this.commercialCalculator = commercialCalculator;
         this.idempotencyService = idempotencyService;
         this.outboxService = outboxService;
+        this.masterDataVendorClient = masterDataVendorClient;
     }
 
     @Transactional
@@ -63,6 +67,7 @@ public class PurchaseOrderCreationService {
         }
 
         try {
+            masterDataVendorClient.requireActiveVendor(command.vendorId().trim());
             PurchaseOrder po = create(command, actorId);
             PurchaseOrder saved = repository.save(po);
             outboxService.enqueueCreated(saved, actorId);

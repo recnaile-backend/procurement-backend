@@ -59,3 +59,8 @@ app:
     batch-size: ${OUTBOX_BATCH_SIZE:50}
     initial-backoff-seconds: ${OUTBOX_INITIAL_BACKOFF_SECONDS:2}
     max-backoff-seconds: ${OUTBOX_MAX_BACKOFF_SECONDS:300}
+
+  master-data:
+    base-url: ${MASTER_DATA_SERVICE_BASE_URL:http://master-data-service:8082}
+    connect-timeout-ms: ${MASTER_DATA_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${MASTER_DATA_READ_TIMEOUT_MS:5000}

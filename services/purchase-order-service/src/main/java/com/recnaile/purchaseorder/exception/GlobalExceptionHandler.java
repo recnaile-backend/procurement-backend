@@ -31,6 +31,15 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.CONFLICT, ex.getCode(), ex.getMessage(), request);
     }
 
+    @ExceptionHandler(MasterDataIntegrationException.class)
+    ResponseEntity<ApiResponse<Void>> handleMasterDataIntegration(
+            MasterDataIntegrationException ex, HttpServletRequest request) {
+        return response(HttpStatus.SERVICE_UNAVAILABLE,
+                ex.getCode(),
+                ex.getMessage(),
+                request);
+    }
+
     @ExceptionHandler(ConcurrentPurchaseOrderModificationException.class)
     ResponseEntity<ApiResponse<Void>> handleConcurrency(
             ConcurrentPurchaseOrderModificationException ex, HttpServletRequest request) {

@@ -71,7 +71,6 @@ Purchase-order access follows the documented module responsibilities:
 - Employee: no PO API access.
 - Procurement: create, view, issue/send, cancel, complete and close POs.
 - TL: view POs.
-- MD: view POs.
 - MD: full PO access.
 
 Configure:
@@ -150,3 +149,35 @@ Outbox tuning:
 - `OUTBOX_MAX_BACKOFF_SECONDS` — default `300`
 
 The service does not directly publish PO events from the business transaction anymore. The business transaction only persists the Purchase Order and its outbox event; the scheduled publisher handles Kafka delivery afterward.
+
+
+## Phase 12 — Master Data Integration
+
+The Purchase Order Service now resolves the supplier/vendor through the documented master-data API before creating a PO.
+
+- Calls `GET /master-data/vendors/{vendorId}` on `master-data-service`.
+- Forwards the authenticated JWT to the downstream service.
+- Forwards `X-Correlation-Id` for distributed request tracing.
+- Rejects missing vendors and inactive vendors.
+- Uses bounded connection/read timeouts.
+- Does not read the master-data MongoDB directly.
+- PO service stores the vendor reference (`vendorId`) and keeps master-data ownership in `master-data-service`.
+- Downstream availability failures return a stable integration error instead of silently creating a PO.
+
+Configuration:
+
+- `MASTER_DATA_SERVICE_BASE_URL` (default `http://master-data-service:8082`)
+- `MASTER_DATA_CONNECT_TIMEOUT_MS` (default `2000`)
+- `MASTER_DATA_READ_TIMEOUT_MS` (default `5000`)
+
+
+### DTO/package boundary
+
+Transport DTOs are independent of the controller package and live under:
+
+`com.recnaile.purchaseorder.dto`
+
+The controller contains only HTTP transport logic. Application commands remain under
+`com.recnaile.purchaseorder.application.command`, integration response models remain
+under `com.recnaile.purchaseorder.client.masterdata`, and business services remain
+under the single top-level `com.recnaile.purchaseorder.service` package.
