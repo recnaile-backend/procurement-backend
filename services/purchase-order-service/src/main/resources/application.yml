@@ -4,10 +4,17 @@ spring:
   data:
     mongodb:
       uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:purchase_order}?retryWrites=true&w=majority&appName=recnaile
+      auto-index-creation: ${MONGODB_AUTO_INDEX_CREATION:false}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+
 server:
-  port: ${SERVICE_PORT:8084}
+  port: ${PURCHASE_ORDER_SERVICE_PORT:${SERVICE_PORT:8084}}
+  shutdown: graceful
+
+spring.lifecycle:
+  timeout-per-shutdown-phase: 30s
+
 management:
   endpoints:
     web:
@@ -17,9 +24,11 @@ management:
     health:
       probes:
         enabled: true
+      show-details: never
   tracing:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
+
 otel:
   exporter:
     otlp:
@@ -28,3 +37,10 @@ otel:
 app:
   service-name: purchase-order-service
   description: "PO creation, supplier ordering, status and invoice metadata"
+  business-timezone: ${BUSINESS_TIMEZONE:Asia/Kolkata}
+  observability:
+    correlation-header: X-Correlation-Id
+  security:
+    jwt:
+      jwk-set-uri: ${APP_SECURITY_JWT_JWK_SET_URI:}
+      issuer-uri: ${APP_SECURITY_JWT_ISSUER_URI:}
