@@ -1,6 +1,5 @@
 package com.recnaile.purchaseorder.service;
 
-import com.recnaile.purchaseorder.domain.enums.PurchaseOrderStatus;
 import com.recnaile.purchaseorder.domain.model.PurchaseOrder;
 import com.recnaile.purchaseorder.exception.ResourceNotFoundException;
 import com.recnaile.purchaseorder.repository.PurchaseOrderRepository;
@@ -18,28 +17,60 @@ public class PurchaseOrderQueryService {
     }
 
     public PurchaseOrder getById(String poId) {
-        return repository.findById(poId)
+        String id = normalize(poId);
+        return repository.findCurrentByPoId(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "PO_NOT_FOUND", "Purchase Order not found: " + poId));
+                        "PO_NOT_FOUND", "Purchase Order not found: " + id));
     }
 
-    public List<PurchaseOrder> find(PurchaseOrderStatus status, String vendorId, String projectId) {
-        if (status != null) {
-            if (vendorId != null && !vendorId.isBlank()) {
-                return repository.findByVendorIdAndStatus(vendorId.trim(), status);
-            }
-            if (projectId != null && !projectId.isBlank()) {
-                return repository.findByProjectIdAndStatus(projectId.trim(), status);
-            }
-            return repository.findByStatus(status);
-        }
+    /**
+     * GET-all supports only vendorName, projectId and departmentName.
+     * Filters are combined with AND semantics.
+     *
+     * Legacy CLOSED records are excluded at repository level because CLOSED is
+     * no longer a valid PurchaseOrderStatus in the current lifecycle.
+     */
+    public List<PurchaseOrder> find(String vendorName, String projectId, String departmentName) {
+        boolean hasVendor = hasText(vendorName);
+        boolean hasProject = hasText(projectId);
+        boolean hasDepartment = hasText(departmentName);
 
-        if (vendorId != null && !vendorId.isBlank()) {
-            return repository.findByVendorId(vendorId.trim());
+        if (hasVendor && hasProject && hasDepartment) {
+            return repository.findCurrentByVendorNameAndProjectIdAndDepartmentName(
+                    vendorName.trim(), projectId.trim(), departmentName.trim());
         }
-        if (projectId != null && !projectId.isBlank()) {
-            return repository.findByProjectId(projectId.trim());
+        if (hasVendor && hasProject) {
+            return repository.findCurrentByVendorNameAndProjectId(
+                    vendorName.trim(), projectId.trim());
         }
-        return repository.findAll();
+        if (hasVendor && hasDepartment) {
+            return repository.findCurrentByVendorNameAndDepartmentName(
+                    vendorName.trim(), departmentName.trim());
+        }
+        if (hasProject && hasDepartment) {
+            return repository.findCurrentByProjectIdAndDepartmentName(
+                    projectId.trim(), departmentName.trim());
+        }
+        if (hasVendor) {
+            return repository.findCurrentByVendorName(vendorName.trim());
+        }
+        if (hasProject) {
+            return repository.findCurrentByProjectId(projectId.trim());
+        }
+        if (hasDepartment) {
+            return repository.findCurrentByDepartmentName(departmentName.trim());
+        }
+        return repository.findAllCurrent();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private String normalize(String value) {
+        if (!hasText(value)) {
+            throw new ResourceNotFoundException("PO_ID_REQUIRED", "Purchase Order ID is required");
+        }
+        return value.trim();
     }
 }

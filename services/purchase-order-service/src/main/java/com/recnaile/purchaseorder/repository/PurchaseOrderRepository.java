@@ -1,8 +1,8 @@
 package com.recnaile.purchaseorder.repository;
 
-import com.recnaile.purchaseorder.domain.enums.PurchaseOrderStatus;
 import com.recnaile.purchaseorder.domain.model.PurchaseOrder;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 
 import java.util.Collection;
 import java.util.List;
@@ -10,19 +10,41 @@ import java.util.Optional;
 
 public interface PurchaseOrderRepository extends MongoRepository<PurchaseOrder, String> {
 
-    Optional<PurchaseOrder> findByPoNumber(String poNumber);
+    /*
+     * CLOSED was removed from the current PO lifecycle. These queries deliberately
+     * exclude legacy CLOSED documents that may still exist in MongoDB from an older
+     * deployment. Without this guard, Spring Data tries to deserialize the legacy
+     * "CLOSED" enum value into the current PurchaseOrderStatus enum and the entire
+     * GET-all request can fail with HTTP 500.
+     */
+    @Query("{ '_id': ?0, 'status': { '$ne': 'CLOSED' } }")
+    Optional<PurchaseOrder> findCurrentByPoId(String poId);
 
-    boolean existsByPoNumber(String poNumber);
+    @Query("{ 'status': { '$ne': 'CLOSED' } }")
+    List<PurchaseOrder> findAllCurrent();
 
-    List<PurchaseOrder> findByStatus(PurchaseOrderStatus status);
+    @Query("{ 'vendorName': ?0, 'status': { '$ne': 'CLOSED' } }")
+    List<PurchaseOrder> findCurrentByVendorName(String vendorName);
 
-    List<PurchaseOrder> findByVendorIdAndStatus(String vendorId, PurchaseOrderStatus status);
+    @Query("{ 'projectId': ?0, 'status': { '$ne': 'CLOSED' } }")
+    List<PurchaseOrder> findCurrentByProjectId(String projectId);
 
-    List<PurchaseOrder> findByVendorId(String vendorId);
+    @Query("{ 'departmentName': ?0, 'status': { '$ne': 'CLOSED' } }")
+    List<PurchaseOrder> findCurrentByDepartmentName(String departmentName);
 
-    List<PurchaseOrder> findByProjectIdAndStatus(String projectId, PurchaseOrderStatus status);
+    @Query("{ 'vendorName': ?0, 'projectId': ?1, 'status': { '$ne': 'CLOSED' } }")
+    List<PurchaseOrder> findCurrentByVendorNameAndProjectId(String vendorName, String projectId);
 
-    List<PurchaseOrder> findByProjectId(String projectId);
+    @Query("{ 'vendorName': ?0, 'departmentName': ?1, 'status': { '$ne': 'CLOSED' } }")
+    List<PurchaseOrder> findCurrentByVendorNameAndDepartmentName(String vendorName, String departmentName);
 
-    List<PurchaseOrder> findBySourceIndentIdsIn(Collection<String> sourceIndentIds);
+    @Query("{ 'projectId': ?0, 'departmentName': ?1, 'status': { '$ne': 'CLOSED' } }")
+    List<PurchaseOrder> findCurrentByProjectIdAndDepartmentName(String projectId, String departmentName);
+
+    @Query("{ 'vendorName': ?0, 'projectId': ?1, 'departmentName': ?2, 'status': { '$ne': 'CLOSED' } }")
+    List<PurchaseOrder> findCurrentByVendorNameAndProjectIdAndDepartmentName(
+            String vendorName, String projectId, String departmentName);
+
+    @Query("{ 'sourceIndentIds': { '$in': ?0 }, 'status': { '$ne': 'CLOSED' } }")
+    List<PurchaseOrder> findCurrentBySourceIndentIdsIn(Collection<String> sourceIndentIds);
 }

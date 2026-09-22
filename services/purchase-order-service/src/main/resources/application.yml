@@ -3,7 +3,7 @@ spring:
     name: purchase-order-service
   data:
     mongodb:
-      uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:purchase_order}?retryWrites=true&w=majority&appName=recnaile
+      uri: ${MONGODB_URI:${MONGODB_BASE_URI}/${MONGODB_DATABASE:purchase_order}?retryWrites=true&w=majority&appName=recnaile}
       auto-index-creation: ${MONGODB_AUTO_INDEX_CREATION:false}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
@@ -81,15 +81,26 @@ app:
     correlation-header: X-Correlation-Id
   security:
     jwt:
-      jwk-set-uri: ${APP_SECURITY_JWT_JWK_SET_URI:}
-      issuer-uri: ${APP_SECURITY_JWT_ISSUER_URI:}
+      issuer-uri: ${APP_SECURITY_JWT_ISSUER_URI:${JWT_ISSUER:auth-service}}
   outbox:
     poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:1000}
     batch-size: ${OUTBOX_BATCH_SIZE:50}
     initial-backoff-seconds: ${OUTBOX_INITIAL_BACKOFF_SECONDS:2}
     max-backoff-seconds: ${OUTBOX_MAX_BACKOFF_SECONDS:300}
-
+  indent:
+    base-url: ${INDENT_SERVICE_BASE_URL:http://indent-service:8083/api/v1}
+    connect-timeout-ms: ${INDENT_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${INDENT_READ_TIMEOUT_MS:5000}
   master-data:
-    base-url: ${MASTER_DATA_SERVICE_BASE_URL:http://master-data-service:8082}
+    base-url: ${MASTER_DATA_SERVICE_BASE_URL:http://master-data-service:8082/api/v1}
     connect-timeout-ms: ${MASTER_DATA_CONNECT_TIMEOUT_MS:2000}
     read-timeout-ms: ${MASTER_DATA_READ_TIMEOUT_MS:5000}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    display-request-duration: true
+    operations-sorter: method
+    tags-sorter: alpha

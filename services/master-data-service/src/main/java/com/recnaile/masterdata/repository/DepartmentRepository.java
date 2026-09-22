@@ -9,9 +9,9 @@ import com.recnaile.masterdata.model.MasterDataStatus;
 
 public interface DepartmentRepository extends MongoRepository<Department, String> {
 
-    Optional<Department> findByName(String name);
+    Optional<Department> findByDepartmentName(String departmentName);
 
-    boolean existsByName(String name);
+    boolean existsByDepartmentName(String departmentName);
 
     boolean existsByIdAndStatus(String id, MasterDataStatus status);
 }

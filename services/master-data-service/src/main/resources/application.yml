@@ -4,7 +4,7 @@ spring:
 
   data:
     mongodb:
-      uri: ${MASTER_DATA_MONGODB_URI}
+      uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:master_data}?retryWrites=true&w=majority&appName=recnaile
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}

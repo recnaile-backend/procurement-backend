@@ -32,7 +32,6 @@ class PurchaseOrderOutboxServiceTest {
 
         PurchaseOrder po = new PurchaseOrder();
         po.setPoId("PO-ID-001");
-        po.setPoNumber("PO-2026-0001");
         po.setPoDate(LocalDate.of(2026, 9, 19));
         po.transitionStatus(PurchaseOrderStatus.DRAFT);
 
@@ -57,6 +56,6 @@ class PurchaseOrderOutboxServiceTest {
         assertThat(envelope.get("aggregateId").asText()).isEqualTo("PO-ID-001");
         assertThat(envelope.get("actorId").asText()).isEqualTo("user-001");
         assertThat(envelope.get("schemaVersion").asText()).isEqualTo("1");
-        assertThat(envelope.get("payload").get("poNumber").asText()).isEqualTo("PO-2026-0001");
+        assertThat(envelope.get("payload").get("poId").asText()).isEqualTo("PO-ID-001");
     }
 }

@@ -6,6 +6,8 @@ import com.recnaile.purchaseorder.observability.CorrelationIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DuplicateKeyException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,8 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ResourceNotFoundException.class)
     ResponseEntity<ApiResponse<Void>> handleNotFound(
@@ -72,8 +76,8 @@ public class GlobalExceptionHandler {
             MissingRequestHeaderException ex, HttpServletRequest request) {
         if ("Idempotency-Key".equalsIgnoreCase(ex.getHeaderName())) {
             return response(HttpStatus.BAD_REQUEST,
-                    "IDEMPOTENCY_KEY_REQUIRED",
-                    "Idempotency-Key header is required for this operation",
+                    "IDEMPOTENCY_KEY_INVALID",
+                    "Idempotency-Key was requested but could not be read",
                     request);
         }
         return response(HttpStatus.BAD_REQUEST,
@@ -100,6 +104,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiResponse<Void>> handleUnexpected(
             Exception ex, HttpServletRequest request) {
+        log.error("Unhandled exception while processing Purchase Order API request: {} {}",
+                request.getMethod(), request.getRequestURI(), ex);
         return response(HttpStatus.INTERNAL_SERVER_ERROR,
                 "INTERNAL_ERROR",
                 "An unexpected error occurred",

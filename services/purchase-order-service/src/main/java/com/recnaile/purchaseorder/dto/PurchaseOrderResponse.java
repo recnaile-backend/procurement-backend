@@ -13,82 +13,94 @@ import java.util.List;
 
 public record PurchaseOrderResponse(
         String poId,
-        String poNumber,
         LocalDate poDate,
-        List<String> sourceIndentIds,
-        String vendorId,
+        String indentNumber,
+        String indentStatus,
+        String vendorName,
         String projectId,
-        String departmentId,
+        String departmentName,
         PurchaseType purchaseType,
-        List<PurchaseOrderLineResponse> lines,
+        List<PurchaseOrderItemResponse> items,
         BigDecimal subtotal,
         BigDecimal gstAmount,
         BigDecimal totalAmount,
         LocalDate expectedDeliveryDate,
         InvoiceMetadata invoiceMetadata,
-        String remarks,
         PurchaseOrderStatus status,
         Instant createdAt,
         Instant updatedAt,
         Instant issuedAt,
         Instant partiallyReceivedAt,
         Instant completedAt,
-        Instant closedAt,
         Instant cancelledAt,
+        String issueReason,
+        String cancellationReason,
         String createdBy,
         String updatedBy,
         Long version) {
 
     public static PurchaseOrderResponse from(PurchaseOrder po) {
+        if (po == null) {
+            throw new IllegalArgumentException("Purchase Order cannot be null");
+        }
+
+        List<String> sourceIndentIds = po.getSourceIndentIds() == null
+                ? List.of()
+                : po.getSourceIndentIds().stream()
+                        .filter(java.util.Objects::nonNull)
+                        .toList();
+        List<PurchaseOrderLine> lines = po.getLines() == null
+                ? List.of()
+                : po.getLines();
+
+        String indentNumber = po.getIndentNumber();
+        if ((indentNumber == null || indentNumber.isBlank()) && !sourceIndentIds.isEmpty()) {
+            indentNumber = sourceIndentIds.get(0);
+        }
+
         return new PurchaseOrderResponse(
                 po.getPoId(),
-                po.getPoNumber(),
                 po.getPoDate(),
-                po.getSourceIndentIds(),
-                po.getVendorId(),
+                indentNumber,
+                po.getIndentStatus(),
+                po.getVendorName(),
                 po.getProjectId(),
-                po.getDepartmentId(),
+                po.getDepartmentName(),
                 po.getPurchaseType(),
-                po.getLines().stream().map(PurchaseOrderLineResponse::from).toList(),
+                lines.stream().filter(java.util.Objects::nonNull).map(PurchaseOrderItemResponse::from).toList(),
                 po.getSubtotal(),
                 po.getGstAmount(),
                 po.getTotalAmount(),
                 po.getExpectedDeliveryDate(),
                 po.getInvoiceMetadata(),
-                po.getRemarks(),
                 po.getStatus(),
                 po.getCreatedAt(),
                 po.getUpdatedAt(),
                 po.getIssuedAt(),
                 po.getPartiallyReceivedAt(),
                 po.getCompletedAt(),
-                po.getClosedAt(),
                 po.getCancelledAt(),
+                po.getIssueReason(),
+                po.getCancellationReason(),
                 po.getCreatedBy(),
                 po.getUpdatedBy(),
                 po.getVersion());
     }
 
-    public record PurchaseOrderLineResponse(
+    public record PurchaseOrderItemResponse(
             String itemId,
             String itemName,
-            BigDecimal orderedQuantity,
-            BigDecimal receivedQuantity,
-            BigDecimal remainingQuantity,
+            BigDecimal quantity,
             BigDecimal unitPrice,
-            BigDecimal gstRate,
-            BigDecimal lineTotal) {
+            BigDecimal gstRate) {
 
-        static PurchaseOrderLineResponse from(PurchaseOrderLine line) {
-            return new PurchaseOrderLineResponse(
+        static PurchaseOrderItemResponse from(PurchaseOrderLine line) {
+            return new PurchaseOrderItemResponse(
                     line.getItemId(),
                     line.getItemName(),
                     line.getOrderedQuantity(),
-                    line.getReceivedQuantity(),
-                    line.getRemainingQuantity(),
                     line.getUnitPrice(),
-                    line.getGstRate(),
-                    line.getLineTotal());
+                    line.getGstRate());
         }
     }
 }

@@ -9,7 +9,6 @@ import java.util.List;
 
 public record PurchaseOrderEventPayload(
         String poId,
-        String poNumber,
         LocalDate poDate,
         List<String> sourceIndentIds,
         String vendorId,
@@ -26,22 +25,28 @@ public record PurchaseOrderEventPayload(
         Long version) {
 
     public static PurchaseOrderEventPayload from(PurchaseOrder po) {
+        List<String> sourceIndentIds = po.getSourceIndentIds() == null
+                ? List.of()
+                : po.getSourceIndentIds();
+        List<PurchaseOrderLine> lines = po.getLines() == null
+                ? List.of()
+                : po.getLines();
+
         return new PurchaseOrderEventPayload(
                 po.getPoId(),
-                po.getPoNumber(),
                 po.getPoDate(),
-                List.copyOf(po.getSourceIndentIds()),
+                List.copyOf(sourceIndentIds),
                 po.getVendorId(),
                 po.getProjectId(),
                 po.getDepartmentId(),
                 po.getPurchaseType() == null ? null : po.getPurchaseType().name(),
-                po.getLines().stream().map(Line::from).toList(),
+                lines.stream().filter(java.util.Objects::nonNull).map(Line::from).toList(),
                 po.getSubtotal(),
                 po.getGstAmount(),
                 po.getTotalAmount(),
                 po.getExpectedDeliveryDate(),
                 po.getStatus() == null ? null : po.getStatus().name(),
-                po.getRemarks(),
+                po.getIssueReason() != null ? po.getIssueReason() : po.getCancellationReason(),
                 po.getVersion());
     }
 

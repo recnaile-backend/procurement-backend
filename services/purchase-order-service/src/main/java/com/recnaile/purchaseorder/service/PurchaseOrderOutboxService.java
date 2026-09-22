@@ -51,9 +51,6 @@ public class PurchaseOrderOutboxService {
         enqueue("PO_ISSUED", purchaseOrder, actorId);
     }
 
-    public void enqueueClosed(PurchaseOrder purchaseOrder, String actorId) {
-        enqueue("PO_CLOSED", purchaseOrder, actorId);
-    }
 
     private void enqueue(String eventType, PurchaseOrder purchaseOrder, String actorId) {
         Instant now = Instant.now();

@@ -7,7 +7,7 @@ public record CreateDepartmentRequest(
 
         @NotBlank
         @Size(max = 100)
-        String name,
+        String departmentName,
 
         @Size(max = 500)
         String description

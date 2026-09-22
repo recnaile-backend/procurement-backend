@@ -31,8 +31,15 @@ import java.util.List;
 public class SecurityConfig {
 
     private static final String[] PUBLIC_ENDPOINTS = {
+            "/swagger-ui.html",
+            "/swagger-ui/**",
+            "/v3/api-docs",
+            "/v3/api-docs/**",
+            "/v3/api-docs.yaml",
+            "/actuator/health",
             "/actuator/health/**",
-            "/actuator/info"
+            "/actuator/info",
+            "/actuator/prometheus"
     };
 
     @Bean
@@ -63,8 +70,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/purchase-orders/*/cancel")
                             .hasAnyRole("PROCUREMENT", "MD")
                         .requestMatchers(HttpMethod.POST, "/api/v1/purchase-orders/*/complete")
-                            .hasAnyRole("PROCUREMENT", "MD")
-                        .requestMatchers(HttpMethod.POST, "/api/v1/purchase-orders/*/close")
                             .hasAnyRole("PROCUREMENT", "MD")
                         .anyRequest().authenticated())
                 .exceptionHandling(exceptions -> exceptions
@@ -101,21 +106,31 @@ public class SecurityConfig {
 
     @Bean
     JwtDecoder jwtDecoder(
-            @Value("${app.security.jwt.jwk-set-uri:}") String jwkSetUri,
-            @Value("${app.security.jwt.issuer-uri:}") String issuerUri) {
-        if (jwkSetUri == null || jwkSetUri.isBlank()) {
+            @Value("${JWT_SECRET_KEY:}") String jwtSecret,
+            @Value("${app.security.jwt.issuer-uri:auth-service}") String issuerUri) {
+
+        if (jwtSecret == null || jwtSecret.isBlank()) {
             throw new IllegalStateException(
-                    "JWT JWK Set URI is required. Configure APP_SECURITY_JWT_JWK_SET_URI for RS256 validation.");
+                    "JWT secret is required. Configure JWT_SECRET_KEY for token validation.");
         }
 
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
-
-        OAuth2TokenValidator<Jwt> validator;
-        if (issuerUri != null && !issuerUri.isBlank()) {
-            validator = JwtValidators.createDefaultWithIssuer(issuerUri);
-        } else {
-            validator = JwtValidators.createDefault();
+        byte[] secretBytes = jwtSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        if (secretBytes.length < 32) {
+            throw new IllegalStateException(
+                    "JWT_SECRET_KEY must be at least 256 bits (32 bytes).");
         }
+
+        javax.crypto.SecretKey secretKey =
+                new javax.crypto.spec.SecretKeySpec(secretBytes, "HmacSHA256");
+
+        NimbusJwtDecoder decoder = NimbusJwtDecoder
+                .withSecretKey(secretKey)
+                .macAlgorithm(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256)
+                .build();
+
+        OAuth2TokenValidator<Jwt> validator =
+                JwtValidators.createDefaultWithIssuer(issuerUri);
+
         decoder.setJwtValidator(validator);
         return decoder;
     }

@@ -6,6 +6,9 @@ import com.recnaile.purchaseorder.exception.BusinessRuleException;
 import com.recnaile.purchaseorder.exception.MasterDataIntegrationException;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -23,6 +26,7 @@ class MasterDataVendorClientTest {
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("inactive");
     }
+
     @Test
     void requireActiveVendor_shouldRejectEmptyVendorResponse() {
         MasterDataVendorClient client =
@@ -34,4 +38,15 @@ class MasterDataVendorClientTest {
                 .hasMessageContaining("empty vendor response");
     }
 
+    @Test
+    void requireActiveVendorByName_shouldResolveActiveVendor() {
+        MasterDataVendorClient client =
+                mock(MasterDataVendorClient.class, org.mockito.Answers.CALLS_REAL_METHODS);
+        VendorResponse vendor = new VendorResponse(
+                "VEN-001", "ABC Supplies", null, null, null, null, null, null,
+                "ACTIVE", null, null, 1L);
+        when(client.getAllVendors()).thenReturn(List.of(vendor));
+
+        assertThat(client.requireActiveVendorByName("abc supplies")).isEqualTo(vendor);
+    }
 }

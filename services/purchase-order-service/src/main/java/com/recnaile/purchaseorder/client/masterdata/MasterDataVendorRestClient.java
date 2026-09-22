@@ -2,6 +2,7 @@ package com.recnaile.purchaseorder.client.masterdata;
 
 import com.recnaile.purchaseorder.exception.MasterDataIntegrationException;
 import com.recnaile.purchaseorder.exception.ResourceNotFoundException;
+import java.util.List;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -49,4 +50,29 @@ public class MasterDataVendorRestClient implements MasterDataVendorClient {
                     ex);
         }
     }
+    @Override
+    public List<VendorResponse> getAllVendors() {
+        try {
+            return restClient.get()
+                    .uri("/master-data/vendors")
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, (request, response) ->
+                            new MasterDataIntegrationException(
+                                    "MASTER_DATA_CLIENT_ERROR",
+                                    "Master-data-service rejected the vendor list lookup with HTTP "
+                                            + response.getStatusCode().value()))
+                    .onStatus(HttpStatusCode::is5xxServerError, (request, response) ->
+                            new MasterDataIntegrationException(
+                                    "MASTER_DATA_UNAVAILABLE",
+                                    "Master-data-service is unavailable while resolving vendors"))
+                    .body(new org.springframework.core.ParameterizedTypeReference<List<VendorResponse>>() {});
+        } catch (MasterDataIntegrationException ex) {
+            throw ex;
+        } catch (RestClientException ex) {
+            throw new MasterDataIntegrationException(
+                    "MASTER_DATA_UNAVAILABLE",
+                    "Unable to reach master-data-service while resolving vendors", ex);
+        }
+    }
+
 }

@@ -9,7 +9,6 @@ import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
@@ -19,8 +18,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Document(collection = "purchase_orders")
-@CompoundIndex(name = "idx_vendor_status", def = "{'vendorId': 1, 'status': 1}")
+@CompoundIndex(name = "idx_vendor_name_status", def = "{'vendorName': 1, 'status': 1}")
 @CompoundIndex(name = "idx_project_status", def = "{'projectId': 1, 'status': 1}")
+@CompoundIndex(name = "idx_department_status", def = "{'departmentName': 1, 'status': 1}")
 @CompoundIndex(name = "idx_status_created_at", def = "{'status': 1, 'createdAt': -1}")
 @CompoundIndex(name = "uk_source_indent", def = "{'sourceIndentIds': 1}", unique = true)
 public class PurchaseOrder {
@@ -28,16 +28,18 @@ public class PurchaseOrder {
     @Id
     private String poId;
 
-    @Indexed(unique = true)
-    private String poNumber;
-
     private LocalDate poDate;
 
     private List<String> sourceIndentIds = new ArrayList<>();
 
+    private String indentNumber;
+    // Snapshot of the authoritative Indent Service status at PO creation time.
+    private String indentStatus;
     private String vendorId;
+    private String vendorName;
     private String projectId;
     private String departmentId;
+    private String departmentName;
     private PurchaseType purchaseType;
 
     private List<PurchaseOrderLine> lines = new ArrayList<>();
@@ -50,7 +52,9 @@ public class PurchaseOrder {
 
     private InvoiceMetadata invoiceMetadata;
 
-    private String remarks;
+    // Lifecycle reasons are persisted for auditability and exposed by the PO response.
+    private String issueReason;
+    private String cancellationReason;
 
     private PurchaseOrderStatus status = PurchaseOrderStatus.DRAFT;
 
@@ -63,7 +67,6 @@ public class PurchaseOrder {
     private Instant issuedAt;
     private Instant partiallyReceivedAt;
     private Instant completedAt;
-    private Instant closedAt;
     private Instant cancelledAt;
 
     @CreatedBy
@@ -78,17 +81,25 @@ public class PurchaseOrder {
     public String getPoId() { return poId; }
     public void setPoId(String poId) { this.poId = poId; }
 
-    public String getPoNumber() { return poNumber; }
-    public void setPoNumber(String poNumber) { this.poNumber = poNumber; }
-
     public LocalDate getPoDate() { return poDate; }
     public void setPoDate(LocalDate poDate) { this.poDate = poDate; }
 
     public List<String> getSourceIndentIds() { return sourceIndentIds; }
-    public void setSourceIndentIds(List<String> sourceIndentIds) { this.sourceIndentIds = sourceIndentIds; }
+    public void setSourceIndentIds(List<String> sourceIndentIds) {
+        this.sourceIndentIds = sourceIndentIds == null ? new ArrayList<>() : sourceIndentIds;
+    }
+
+    public String getIndentNumber() { return indentNumber; }
+    public void setIndentNumber(String indentNumber) { this.indentNumber = indentNumber; }
+
+    public String getIndentStatus() { return indentStatus; }
+    public void setIndentStatus(String indentStatus) { this.indentStatus = indentStatus; }
 
     public String getVendorId() { return vendorId; }
     public void setVendorId(String vendorId) { this.vendorId = vendorId; }
+
+    public String getVendorName() { return vendorName; }
+    public void setVendorName(String vendorName) { this.vendorName = vendorName; }
 
     public String getProjectId() { return projectId; }
     public void setProjectId(String projectId) { this.projectId = projectId; }
@@ -96,11 +107,16 @@ public class PurchaseOrder {
     public String getDepartmentId() { return departmentId; }
     public void setDepartmentId(String departmentId) { this.departmentId = departmentId; }
 
+    public String getDepartmentName() { return departmentName; }
+    public void setDepartmentName(String departmentName) { this.departmentName = departmentName; }
+
     public PurchaseType getPurchaseType() { return purchaseType; }
     public void setPurchaseType(PurchaseType purchaseType) { this.purchaseType = purchaseType; }
 
     public List<PurchaseOrderLine> getLines() { return lines; }
-    public void setLines(List<PurchaseOrderLine> lines) { this.lines = lines; }
+    public void setLines(List<PurchaseOrderLine> lines) {
+        this.lines = lines == null ? new ArrayList<>() : lines;
+    }
 
     public BigDecimal getSubtotal() { return subtotal; }
     public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
@@ -117,8 +133,11 @@ public class PurchaseOrder {
     public InvoiceMetadata getInvoiceMetadata() { return invoiceMetadata; }
     public void setInvoiceMetadata(InvoiceMetadata invoiceMetadata) { this.invoiceMetadata = invoiceMetadata; }
 
-    public String getRemarks() { return remarks; }
-    public void setRemarks(String remarks) { this.remarks = remarks; }
+    public String getIssueReason() { return issueReason; }
+    public void setIssueReason(String issueReason) { this.issueReason = issueReason; }
+
+    public String getCancellationReason() { return cancellationReason; }
+    public void setCancellationReason(String cancellationReason) { this.cancellationReason = cancellationReason; }
 
     public PurchaseOrderStatus getStatus() { return status; }
 
@@ -142,8 +161,6 @@ public class PurchaseOrder {
     public Instant getCompletedAt() { return completedAt; }
     public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
 
-    public Instant getClosedAt() { return closedAt; }
-    public void setClosedAt(Instant closedAt) { this.closedAt = closedAt; }
 
     public Instant getCancelledAt() { return cancelledAt; }
     public void setCancelledAt(Instant cancelledAt) { this.cancelledAt = cancelledAt; }

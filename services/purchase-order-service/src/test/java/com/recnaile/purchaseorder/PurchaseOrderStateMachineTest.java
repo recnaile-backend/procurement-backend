@@ -35,15 +35,19 @@ class PurchaseOrderStateMachineTest {
     }
 
     @Test
-    void allowsPartialToCompletedAndCompletedToClosed() {
+    void allowsPartialToCompletedAndCompletedIsTerminal() {
         PurchaseOrder po = order(PurchaseOrderStatus.PARTIALLY_RECEIVED);
 
         PurchaseOrderStateMachine.transition(po, PurchaseOrderStatus.COMPLETED, TIME);
-        PurchaseOrderStateMachine.transition(po, PurchaseOrderStatus.CLOSED, TIME);
 
-        assertEquals(PurchaseOrderStatus.CLOSED, po.getStatus());
+        assertEquals(PurchaseOrderStatus.COMPLETED, po.getStatus());
         assertEquals(TIME, po.getCompletedAt());
-        assertEquals(TIME, po.getClosedAt());
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> PurchaseOrderStateMachine.transition(po, PurchaseOrderStatus.ISSUED, TIME));
+
+        assertEquals("INVALID_PO_STATE_TRANSITION", ex.getCode());
+        assertEquals(PurchaseOrderStatus.COMPLETED, po.getStatus());
     }
 
     @Test
@@ -65,17 +69,6 @@ class PurchaseOrderStateMachineTest {
 
         assertEquals("INVALID_PO_STATE_TRANSITION", ex.getCode());
         assertEquals(PurchaseOrderStatus.ISSUED, po.getStatus());
-    }
-
-    @Test
-    void rejectsTransitionFromTerminalState() {
-        PurchaseOrder po = order(PurchaseOrderStatus.CLOSED);
-
-        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
-                () -> PurchaseOrderStateMachine.transition(po, PurchaseOrderStatus.ISSUED, TIME));
-
-        assertEquals("INVALID_PO_STATE_TRANSITION", ex.getCode());
-        assertEquals(PurchaseOrderStatus.CLOSED, po.getStatus());
     }
 
     private PurchaseOrder order(PurchaseOrderStatus status) {

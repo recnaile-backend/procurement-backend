@@ -69,7 +69,6 @@ public final class PurchaseOrderStateMachine {
             case ISSUED -> purchaseOrder.setIssuedAt(transitionTime);
             case PARTIALLY_RECEIVED -> purchaseOrder.setPartiallyReceivedAt(transitionTime);
             case COMPLETED -> purchaseOrder.setCompletedAt(transitionTime);
-            case CLOSED -> purchaseOrder.setClosedAt(transitionTime);
             case CANCELLED -> purchaseOrder.setCancelledAt(transitionTime);
             case DRAFT -> throw new IllegalStateException("DRAFT is only an initial state");
         }
@@ -94,8 +93,6 @@ public final class PurchaseOrderStateMachine {
         transitions.put(PurchaseOrderStatus.PARTIALLY_RECEIVED,
                 EnumSet.of(PurchaseOrderStatus.COMPLETED));
         transitions.put(PurchaseOrderStatus.COMPLETED,
-                EnumSet.of(PurchaseOrderStatus.CLOSED));
-        transitions.put(PurchaseOrderStatus.CLOSED,
                 EnumSet.noneOf(PurchaseOrderStatus.class));
         transitions.put(PurchaseOrderStatus.CANCELLED,
                 EnumSet.noneOf(PurchaseOrderStatus.class));
