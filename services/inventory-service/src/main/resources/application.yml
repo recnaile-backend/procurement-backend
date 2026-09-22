@@ -50,3 +50,6 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: method
     tags-sorter: alpha
+    try-it-out-enabled: true
+    display-request-duration: true
+    deep-linking: true
