@@ -3,15 +3,12 @@ name: Security & Code Quality
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-
   push:
     branches:
       - develop
       - main
-
   schedule:
     - cron: '30 2 * * 1'
-
   workflow_dispatch:
 
 permissions:
@@ -26,17 +23,10 @@ env:
   GRADLE_VERSION: '8.14.5'
 
 jobs:
-
-  # ============================================================
-  # SONARQUBE
-  # ============================================================
-
   sonar:
     name: SonarQube Analysis
     runs-on: ubuntu-latest
-
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -80,26 +70,12 @@ jobs:
           SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
           SONAR_PROJECT_NAME: ${{ vars.SONAR_PROJECT_NAME }}
         run: |
-          gradle sonar \
-            --no-daemon \
-            -Dsonar.host.url="$SONAR_HOST_URL" \
-            -Dsonar.token="$SONAR_TOKEN" \
-            -Dsonar.projectKey="${SONAR_PROJECT_KEY:-procurement-platform-foundation}" \
-            -Dsonar.projectName="${SONAR_PROJECT_NAME:-Procurement Platform Foundation}" \
-            -Dsonar.qualitygate.wait=true \
-            -Dsonar.qualitygate.timeout=300
-
-
-  # ============================================================
-  # TRIVY FILESYSTEM
-  # ============================================================
+          gradle sonar             --no-daemon             -Dsonar.host.url="$SONAR_HOST_URL"             -Dsonar.token="$SONAR_TOKEN"             -Dsonar.projectKey="${SONAR_PROJECT_KEY:-procurement-platform-foundation}"             -Dsonar.projectName="${SONAR_PROJECT_NAME:-Procurement Platform Foundation}"             -Dsonar.qualitygate.wait=true             -Dsonar.qualitygate.timeout=300
 
   trivy-filesystem:
     name: Trivy Filesystem Scan
     runs-on: ubuntu-latest
-
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -112,7 +88,6 @@ jobs:
             echo "::error::.trivyignore file is missing."
             exit 1
           fi
-
           echo "Using Trivy ignore file:"
           cat .trivyignore
 
@@ -124,21 +99,14 @@ jobs:
           scanners: vuln,secret,misconfig
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          ignorefile: .trivyignore
+          trivyignores: .trivyignore
           exit-code: '1'
           format: table
-
-
-  # ============================================================
-  # TRIVY CONTAINER
-  # ============================================================
 
   trivy-container:
     name: Trivy Container Scan
     runs-on: ubuntu-latest
-
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -151,7 +119,6 @@ jobs:
             echo "::error::.trivyignore file is missing."
             exit 1
           fi
-
           echo "Using Trivy ignore file:"
           cat .trivyignore
 
@@ -177,21 +144,14 @@ jobs:
           scanners: vuln,secret,misconfig
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          ignorefile: .trivyignore
+          trivyignores: .trivyignore
           exit-code: '1'
           format: table
-
-
-  # ============================================================
-  # GITLEAKS
-  # ============================================================
 
   gitleaks:
     name: Gitleaks Secret Scan
     runs-on: ubuntu-latest
-
     steps:
-
       - name: Checkout full history
         uses: actions/checkout@v4
         with:
@@ -202,70 +162,47 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          docker run --rm \
-            -v "${GITHUB_WORKSPACE}:/repo:ro" \
-            ghcr.io/gitleaks/gitleaks:v8.30.1 \
-            git \
-            --redact \
-            --exit-code 1 \
-            /repo
-
-
-  # ============================================================
-  # SECURITY SUMMARY
-  # ============================================================
+          docker run --rm             -v "${GITHUB_WORKSPACE}:/repo:ro"             ghcr.io/gitleaks/gitleaks:v8.30.1             git             --redact             --exit-code 1             /repo
 
   security-summary:
     name: Security Summary
     runs-on: ubuntu-latest
-
     needs:
       - sonar
       - trivy-filesystem
       - trivy-container
       - gitleaks
-
     if: always()
-
     steps:
-
       - name: Evaluate security results
         shell: bash
         run: |
           set -euo pipefail
-
           echo "======================================"
           echo "Security & Code Quality Summary"
           echo "======================================"
-
           echo "SonarQube:        ${{ needs.sonar.result }}"
           echo "Trivy Filesystem: ${{ needs.trivy-filesystem.result }}"
           echo "Trivy Container:  ${{ needs.trivy-container.result }}"
           echo "Gitleaks:         ${{ needs.gitleaks.result }}"
-
           echo "======================================"
 
           if [ "${{ needs.trivy-filesystem.result }}" != "success" ]; then
             echo "::error::Trivy filesystem scan failed."
             exit 1
           fi
-
           if [ "${{ needs.trivy-container.result }}" != "success" ]; then
             echo "::error::Trivy container scan failed."
             exit 1
           fi
-
           if [ "${{ needs.gitleaks.result }}" != "success" ]; then
             echo "::error::Gitleaks scan failed."
             exit 1
           fi
-
           if [ "${{ needs.sonar.result }}" = "failure" ]; then
             echo "::error::SonarQube analysis failed."
             exit 1
           fi
-
           if [ "${{ needs.sonar.result }}" = "skipped" ]; then
             echo "::notice::SonarQube analysis was skipped."
           fi
@@ -274,18 +211,10 @@ jobs:
           echo "All required security checks passed."
           echo "======================================"
 
-
-  # ============================================================
   # AWS SECURITY EXCEPTION
-  # ============================================================
   #
   # Intentional public internet-facing ALB.
-  #
   # The ALB is the application's public edge and is protected
   # by AWS WAF.
-  #
   # Internal application workloads remain in private subnets.
-  #
   # AWS-0053
-  #
-  # ============================================================
