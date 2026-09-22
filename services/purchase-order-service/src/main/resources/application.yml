@@ -3,11 +3,30 @@ spring:
     name: purchase-order-service
   data:
     mongodb:
-      uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:purchase_order}?retryWrites=true&w=majority&appName=recnaile
+      uri: ${MONGODB_URI:${MONGODB_BASE_URI}/${MONGODB_DATABASE:purchase_order}?retryWrites=true&w=majority&appName=recnaile}
+      auto-index-creation: ${MONGODB_AUTO_INDEX_CREATION:false}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    producer:
+      acks: all
+      enable-idempotence: true
+      compression-type: zstd
+      retries: 2147483647
+      delivery-timeout-ms: 120000
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
+
 server:
-  port: ${SERVICE_PORT:8084}
+  port: ${PURCHASE_ORDER_SERVICE_PORT:${SERVICE_PORT:8084}}
+  shutdown: graceful
+
+spring.lifecycle:
+  timeout-per-shutdown-phase: 30s
+
 management:
   endpoints:
     web:
@@ -17,14 +36,71 @@ management:
     health:
       probes:
         enabled: true
+      show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+    mongo:
+      command:
+        enabled: false
   tracing:
+    enabled: true
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
-otel:
-  exporter:
-    otlp:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
+    propagation:
+      type: w3c
+  observations:
+    annotations:
+      enabled: true
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}}
+    metrics:
+      export:
+        enabled: ${OTEL_METRICS_EXPORT_ENABLED:true}
+        url: ${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}}
+        step: ${OTEL_METRICS_EXPORT_STEP:30s}
+
+logging:
+  structured:
+    format:
+      console: ecs
 
 app:
   service-name: purchase-order-service
   description: "PO creation, supplier ordering, status and invoice metadata"
+  business-timezone: ${BUSINESS_TIMEZONE:Asia/Kolkata}
+  kafka:
+    purchase-order-events-topic: ${PURCHASE_ORDER_EVENTS_TOPIC:procurement.purchase-order.events}
+  observability:
+    correlation-header: X-Correlation-Id
+  security:
+    jwt:
+      issuer-uri: ${APP_SECURITY_JWT_ISSUER_URI:${JWT_ISSUER:auth-service}}
+  outbox:
+    poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:1000}
+    batch-size: ${OUTBOX_BATCH_SIZE:50}
+    initial-backoff-seconds: ${OUTBOX_INITIAL_BACKOFF_SECONDS:2}
+    max-backoff-seconds: ${OUTBOX_MAX_BACKOFF_SECONDS:300}
+  indent:
+    base-url: ${INDENT_SERVICE_BASE_URL:http://indent-service:8083/api/v1}
+    connect-timeout-ms: ${INDENT_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${INDENT_READ_TIMEOUT_MS:5000}
+  master-data:
+    base-url: ${MASTER_DATA_SERVICE_BASE_URL:http://master-data-service:8082/api/v1}
+    connect-timeout-ms: ${MASTER_DATA_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${MASTER_DATA_READ_TIMEOUT_MS:5000}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    display-request-duration: true
+    operations-sorter: method
+    tags-sorter: alpha

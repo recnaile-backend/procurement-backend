@@ -26,6 +26,14 @@ public class ProjectService {
     @Transactional
     public ProjectResponse create(CreateProjectRequest request) {
 
+        String projectId = normalizeValue(request.projectId());
+        if (projectId == null || projectId.isBlank()) {
+            throw new IllegalArgumentException("Project ID is required");
+        }
+        if (projectRepository.existsById(projectId)) {
+            throw new IllegalArgumentException("Project ID already exists");
+        }
+
         String projectName = normalizeName(request.projectName());
 
         if (projectName == null || projectName.isBlank()) {
@@ -41,6 +49,7 @@ public class ProjectService {
         Instant now = Instant.now();
 
         Project project = Project.builder()
+                .projectId(projectId)
                 .projectName(projectName)
                 .teamLeadId(normalizeValue(request.teamLeadId()))
                 .status(MasterDataStatus.ACTIVE)
@@ -58,10 +67,13 @@ public class ProjectService {
         if (requests == null || requests.isEmpty()) throw new IllegalArgumentException("At least one project is required");
         Instant now = Instant.now();
         List<Project> projects = requests.stream().map(request -> {
+            String projectId = normalizeValue(request.projectId());
+            if (projectId == null || projectId.isBlank()) throw new IllegalArgumentException("Project ID is required");
+            if (projectRepository.existsById(projectId)) throw new IllegalArgumentException("Project ID already exists: " + projectId);
             String name = normalizeName(request.projectName());
             if (name == null || name.isBlank()) throw new IllegalArgumentException("Project name is required");
             if (projectRepository.existsByProjectName(name)) throw new IllegalArgumentException("Project name already exists: " + name);
-            return Project.builder().projectName(name).teamLeadId(normalizeValue(request.teamLeadId())).status(MasterDataStatus.ACTIVE).createdAt(now).updatedAt(now).build();
+            return Project.builder().projectId(projectId).projectName(name).teamLeadId(normalizeValue(request.teamLeadId())).status(MasterDataStatus.ACTIVE).createdAt(now).updatedAt(now).build();
         }).toList();
         return projectRepository.saveAll(projects).stream().map(this::toResponse).toList();
     }

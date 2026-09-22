@@ -9,7 +9,10 @@ RUN --mount=type=cache,target=/root/.gradle/caches,sharing=locked \
     gradle :services:purchase-order-service:bootJar --no-daemon -x test
 
 FROM eclipse-temurin:21-jre-jammy AS runtime
-RUN groupadd --gid 10001 app && useradd --uid 10001 --gid app --shell /usr/sbin/nologin --no-create-home app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends wget \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 app && useradd --uid 10001 --gid app --shell /usr/sbin/nologin --no-create-home app
 WORKDIR /app
 COPY --from=build /workspace/services/purchase-order-service/build/libs/purchase-order-service.jar /app/app.jar
 USER 10001:10001

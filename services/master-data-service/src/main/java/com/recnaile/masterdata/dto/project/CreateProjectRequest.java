@@ -7,6 +7,10 @@ public record CreateProjectRequest(
 
         @NotBlank
         @Size(max = 100)
+        String projectId,
+
+        @NotBlank
+        @Size(max = 100)
         String projectName,
 
         @NotBlank

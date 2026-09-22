@@ -26,6 +26,16 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
+configurations.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == 'org.bouncycastle' &&
+            requested.name == 'bcprov-jdk18on') {
+            useVersion('1.85')
+            because('Upgrade Bouncy Castle to address Trivy security findings')
+        }
+    }
+}
+
 bootJar {
     archiveFileName = 'api-gateway.jar'
 }

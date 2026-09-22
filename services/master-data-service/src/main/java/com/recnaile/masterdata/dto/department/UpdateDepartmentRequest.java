@@ -7,7 +7,7 @@ public record UpdateDepartmentRequest(
 
         @NotBlank
         @Size(max = 100)
-        String name,
+        String departmentName,
 
         @Size(max = 500)
         String description,
