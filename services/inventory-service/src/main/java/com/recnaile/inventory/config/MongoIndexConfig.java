@@ -17,7 +17,7 @@ public class MongoIndexConfig {
                     .ensureIndex(new Index().on("balanceKey", Sort.Direction.ASC).unique());
             mongoTemplate.indexOps(StockBalanceDocument.class)
                     .ensureIndex(new Index().on("itemId", Sort.Direction.ASC)
-                            .on("departmentId", Sort.Direction.ASC)
+                            .on("departmentName", Sort.Direction.ASC)
                             .on("projectId", Sort.Direction.ASC));
             mongoTemplate.indexOps(StockMovementDocument.class)
                     .ensureIndex(new Index().on("eventId", Sort.Direction.ASC));

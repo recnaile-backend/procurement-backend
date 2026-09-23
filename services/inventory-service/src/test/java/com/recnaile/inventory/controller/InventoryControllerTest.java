@@ -18,17 +18,17 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.recnaile.inventory.domain.StockBalanceDocument;
+import com.recnaile.inventory.domain.StockMovementDocument;
 import com.recnaile.inventory.domain.StockStatus;
 import com.recnaile.inventory.dto.InventorySummaryResponse;
+import com.recnaile.inventory.service.InventoryAdjustmentService;
+import com.recnaile.inventory.dto.InventoryReconciliationResponse;
 import com.recnaile.inventory.service.InventoryQueryService;
 import com.recnaile.inventory.service.ReconciliationService;
 import com.recnaile.inventory.service.ThresholdService;
@@ -44,6 +44,9 @@ class InventoryControllerTest {
     @Mock
     ReconciliationService reconciliation;
 
+    @Mock
+    InventoryAdjustmentService adjustment;
+
     MockMvc mvc;
 
     @BeforeEach
@@ -55,10 +58,33 @@ class InventoryControllerTest {
                         new InventoryController(
                                 query,
                                 threshold,
-                                reconciliation))
-                .setCustomArgumentResolvers(
-                        new PageableHandlerMethodArgumentResolver())
+                                reconciliation,
+                                adjustment))
                 .build();
+    }
+
+    @Test
+    void getAllStocksReturnsAllBalances() throws Exception {
+        StockBalanceDocument first = new StockBalanceDocument();
+        first.setItemId("ITEM-1");
+        first.setAvailableQuantity(10);
+        first.setDefectQuantity(1);
+
+        StockBalanceDocument second = new StockBalanceDocument();
+        second.setItemId("ITEM-2");
+        second.setAvailableQuantity(25);
+        second.setDefectQuantity(0);
+
+        when(query.allStocks())
+                .thenReturn(List.of(first, second));
+
+        mvc.perform(get("/api/v1/inventory/stock"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].itemId", is("ITEM-1")))
+                .andExpect(jsonPath("$[1].itemId", is("ITEM-2")));
+
+        verify(query).allStocks();
     }
 
     @Test
@@ -77,7 +103,7 @@ class InventoryControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].itemId", is("ITEM-1")))
-                .andExpect(jsonPath("$[0].availableQuantity", is(10.0)));
+                .andExpect(jsonPath("$[0].availableQuantity", is(10)));
     }
 
     @Test
@@ -98,34 +124,85 @@ class InventoryControllerTest {
                 get("/api/v1/inventory/stock/ITEM-1/summary"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.itemId", is("ITEM-1")))
-                .andExpect(jsonPath("$.availableQuantity", is(10.0)))
+                .andExpect(jsonPath("$.availableQuantity", is(10)))
                 .andExpect(jsonPath("$.status", is("IN_STOCK")));
     }
 
     @Test
-    void getMovementsPassesPaginationToService() throws Exception {
-        PageRequest requestedPage = PageRequest.of(0, 5);
+    void getMovementsReturnsAllMovementsWithoutPagination() throws Exception {
+        StockMovementDocument movement = new StockMovementDocument(
+                "movement-1",
+                "event-1",
+                "GOODS_RECEIVED",
+                "GRN-1",
+                "ITEM-1",
+                null,
+                null,
+                null,
+                com.recnaile.inventory.domain.StockType.AVAILABLE,
+                10,
+                10,
+                "GOODS_RECEIVED",
+                java.time.Instant.parse("2026-09-22T12:00:00Z"),
+                java.time.Instant.parse("2026-09-22T12:00:00Z"),
+                "correlation-1",
+                "trace-1",
+                "test-user");
 
-        when(query.movementsByItem(
-                eq("ITEM-1"),
-                any(Pageable.class)))
-                .thenReturn(
-                        new PageImpl<>(
-                                List.of(),
-                                requestedPage,
-                                0));
+        when(query.movementsByItem("ITEM-1"))
+                .thenReturn(List.of(movement));
 
         mvc.perform(
-                get("/api/v1/inventory/stock/ITEM-1/movements")
-                        .param("page", "0")
-                        .param("size", "5"))
+                get("/api/v1/inventory/stock/ITEM-1/movements"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.size", is(5)))
-                .andExpect(jsonPath("$.number", is(0)));
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].itemId", is("ITEM-1")))
+                .andExpect(jsonPath("$[0].quantity", is(10)))
+                .andExpect(jsonPath("$[0].delta", is(10)));
 
-        verify(query).movementsByItem(
-                eq("ITEM-1"),
-                any(Pageable.class));
+        verify(query).movementsByItem("ITEM-1");
+    }
+
+    @Test
+    void reconciliationReturnsStructuredResult() throws Exception {
+        when(reconciliation.reconcile("ITEM-1"))
+                .thenReturn(new InventoryReconciliationResponse("ITEM-1", 8, 8, 0, 2, 2, 0, true, true, true));
+
+        mvc.perform(get("/api/v1/inventory/reconciliation/ITEM-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.itemId", is("ITEM-1")))
+                .andExpect(jsonPath("$.balanceAvailable", is(8)))
+                .andExpect(jsonPath("$.movementAvailable", is(8)))
+                .andExpect(jsonPath("$.availableDifference", is(0)))
+                .andExpect(jsonPath("$.reconciled", is(true)));
+    }
+
+    @Test
+    void updateAvailableStockReturnsUpdatedBalance() throws Exception {
+        StockBalanceDocument balance = new StockBalanceDocument();
+        balance.setItemId("ITEM-1");
+        balance.setAvailableQuantity(50);
+
+        when(adjustment.updateAvailableStock(
+                "ITEM-1", "IT", "PROJ-1", "RACK-A", 50, "Physical stock count", "test-user"))
+                .thenReturn(balance);
+
+        mvc.perform(
+                put("/api/v1/inventory/stock/ITEM-1/available-quantity")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .principal(new TestingAuthenticationToken("test-user", null))
+                        .content("""
+                                {
+                                  "availableQuantity": 50,
+                                  "departmentName": "IT",
+                                  "projectId": "PROJ-1",
+                                  "location": "RACK-A",
+                                  "reason": "Physical stock count"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.itemId", is("ITEM-1")))
+                .andExpect(jsonPath("$.availableQuantity", is(50)));
     }
 
     @Test
@@ -137,7 +214,7 @@ class InventoryControllerTest {
 
         when(threshold.update(
                 "ITEM-1",
-                "DEPT-1",
+                "IT",
                 "PROJ-1",
                 "RACK-A",
                 10,
@@ -149,7 +226,7 @@ class InventoryControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "departmentId": "DEPT-1",
+                                  "departmentName": "IT",
                                   "projectId": "PROJ-1",
                                   "location": "RACK-A",
                                   "minimumStock": 10,
@@ -158,7 +235,7 @@ class InventoryControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.itemId", is("ITEM-1")))
-                .andExpect(jsonPath("$.minimumStock", is(10.0)))
-                .andExpect(jsonPath("$.maximumStock", is(50.0)));
+                .andExpect(jsonPath("$.minimumStock", is(10)))
+                .andExpect(jsonPath("$.maximumStock", is(50)));
     }
 }

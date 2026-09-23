@@ -4,11 +4,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.recnaile.inventory.domain.*;
+import com.recnaile.inventory.dto.InventoryReconciliationResponse;
 import com.recnaile.inventory.repository.StockBalanceRepository;
 import com.recnaile.inventory.repository.StockMovementRepository;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -43,14 +43,17 @@ class ReconciliationServiceTest {
         when(balances.findByItemId("ITEM-1")).thenReturn(List.of(balance));
         when(movements.findAll()).thenReturn(List.of(received, issued, rejected));
 
-        Map<String, Object> result = service.reconcile("ITEM-1");
+        InventoryReconciliationResponse result = service.reconcile("ITEM-1");
 
-        assertEquals(8.0, result.get("balanceAvailable"));
-        assertEquals(8.0, result.get("movementAvailable"));
-        assertEquals(2.0, result.get("balanceDefect"));
-        assertEquals(2.0, result.get("movementDefect"));
-        assertEquals(true, result.get("availableMatches"));
-        assertEquals(true, result.get("defectMatches"));
+        assertEquals(8, result.balanceAvailable());
+        assertEquals(8, result.movementAvailable());
+        assertEquals(0, result.availableDifference());
+        assertEquals(2, result.balanceDefect());
+        assertEquals(2, result.movementDefect());
+        assertEquals(0, result.defectDifference());
+        assertTrue(result.availableMatches());
+        assertTrue(result.defectMatches());
+        assertTrue(result.reconciled());
     }
 
     @Test
@@ -64,12 +67,14 @@ class ReconciliationServiceTest {
         when(movements.findAll()).thenReturn(List.of(
                 movement("ITEM-1", StockType.AVAILABLE, 10)));
 
-        Map<String, Object> result = service.reconcile("ITEM-1");
+        InventoryReconciliationResponse result = service.reconcile("ITEM-1");
 
-        assertEquals(false, result.get("availableMatches"));
+        assertFalse(result.availableMatches());
+        assertEquals(-2, result.availableDifference());
+        assertFalse(result.reconciled());
     }
 
-    private StockMovementDocument movement(String itemId, StockType type, double delta) {
+    private StockMovementDocument movement(String itemId, StockType type, int delta) {
         return new StockMovementDocument(
                 "event-" + Math.random(), "TEST", "SRC-1", itemId,
                 null, null, null, type, Math.abs(delta), delta, "TEST",

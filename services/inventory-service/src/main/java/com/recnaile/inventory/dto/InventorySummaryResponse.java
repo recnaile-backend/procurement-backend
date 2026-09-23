@@ -4,11 +4,11 @@ import com.recnaile.inventory.domain.StockStatus;
 
 public record InventorySummaryResponse(
         String itemId,
-        double availableQuantity,
-        double defectQuantity,
-        double totalQuantity,
-        double minimumStock,
-        double maximumStock,
+        int availableQuantity,
+        int defectQuantity,
+        int totalQuantity,
+        int minimumStock,
+        int maximumStock,
         boolean lowStock,
         StockStatus status) {
 }

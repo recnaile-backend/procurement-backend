@@ -13,11 +13,11 @@ public class ThresholdService {
     public ThresholdService(StockBalanceRepository balances){this.balances=balances;}
 
     @Transactional
-    public StockBalanceDocument update(String itemId,String departmentId,String projectId,String location,double minimum,double maximum){
+    public StockBalanceDocument update(String itemId,String departmentName,String projectId,String location,int minimum,int maximum){
         if(minimum<0 || maximum<0 || maximum<minimum) throw new IllegalArgumentException("Invalid min/max stock thresholds");
-        String key=InventoryEventService.key(itemId,departmentId,projectId,location);
+        String key=InventoryEventService.key(itemId,departmentName,projectId,location);
         StockBalanceDocument b=balances.findByBalanceKey(key).orElseGet(StockBalanceDocument::new);
-        b.setBalanceKey(key); b.setItemId(itemId); b.setDepartmentId(departmentId); b.setProjectId(projectId); b.setLocation(location);
+        b.setBalanceKey(key); b.setItemId(itemId); b.setDepartmentName(departmentName); b.setProjectId(projectId); b.setLocation(location);
         b.setMinimumStock(minimum); b.setMaximumStock(maximum);
         b.setLowStock(b.getAvailableQuantity()>0 && b.getAvailableQuantity()<=minimum);
         b.setStatus(b.getAvailableQuantity()<=0?StockStatus.OUT_OF_STOCK:(b.isLowStock()?StockStatus.LOW_STOCK:StockStatus.IN_STOCK));

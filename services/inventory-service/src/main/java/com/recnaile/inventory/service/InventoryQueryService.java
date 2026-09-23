@@ -6,8 +6,6 @@ import com.recnaile.inventory.dto.InventorySummaryResponse;
 import com.recnaile.inventory.repository.StockBalanceRepository;
 import com.recnaile.inventory.repository.StockMovementRepository;
 import java.util.List;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -20,20 +18,24 @@ public class InventoryQueryService {
         this.movements = movements;
     }
 
+    public List<StockBalanceDocument> allStocks() {
+        return balances.findAll();
+    }
+
     public List<StockBalanceDocument> byItem(String itemId) {
         return balances.findByItemId(itemId);
     }
 
-    public Page<StockMovementDocument> movementsByItem(String itemId, Pageable pageable) {
-        return movements.findByItemIdOrderByOccurredAtDesc(itemId, pageable);
+    public List<StockMovementDocument> movementsByItem(String itemId) {
+        return movements.findByItemIdOrderByOccurredAtDesc(itemId);
     }
 
     public InventorySummaryResponse summary(String itemId) {
         List<StockBalanceDocument> stock = balances.findByItemId(itemId);
-        double available = stock.stream().mapToDouble(StockBalanceDocument::getAvailableQuantity).sum();
-        double defect = stock.stream().mapToDouble(StockBalanceDocument::getDefectQuantity).sum();
-        double minimum = stock.stream().mapToDouble(StockBalanceDocument::getMinimumStock).sum();
-        double maximum = stock.stream().mapToDouble(StockBalanceDocument::getMaximumStock).sum();
+        int available = stock.stream().mapToInt(StockBalanceDocument::getAvailableQuantity).sum();
+        int defect = stock.stream().mapToInt(StockBalanceDocument::getDefectQuantity).sum();
+        int minimum = stock.stream().mapToInt(StockBalanceDocument::getMinimumStock).sum();
+        int maximum = stock.stream().mapToInt(StockBalanceDocument::getMaximumStock).sum();
         boolean lowStock = stock.stream().anyMatch(StockBalanceDocument::isLowStock);
 
         com.recnaile.inventory.domain.StockStatus status;

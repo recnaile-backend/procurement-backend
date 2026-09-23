@@ -13,7 +13,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.data.domain.*;
 
 class InventoryQueryServiceTest {
 
@@ -58,20 +57,19 @@ class InventoryQueryServiceTest {
     }
 
     @Test
-    void movementsByItemDelegatesToPaginatedRepositoryQuery() {
-        Pageable pageable = PageRequest.of(1, 20, Sort.by(Sort.Direction.DESC, "occurredAt"));
-        Page<StockMovementDocument> expected = new PageImpl<>(List.of());
+    void movementsByItemDelegatesToRepositoryQueryInNewestFirstOrder() {
+        List<StockMovementDocument> expected = List.of(new StockMovementDocument());
 
-        when(movements.findByItemIdOrderByOccurredAtDesc("ITEM-1", pageable)).thenReturn(expected);
+        when(movements.findByItemIdOrderByOccurredAtDesc("ITEM-1")).thenReturn(expected);
 
-        Page<StockMovementDocument> result = service.movementsByItem("ITEM-1", pageable);
+        List<StockMovementDocument> result = service.movementsByItem("ITEM-1");
 
         assertSame(expected, result);
-        verify(movements).findByItemIdOrderByOccurredAtDesc("ITEM-1", pageable);
+        verify(movements).findByItemIdOrderByOccurredAtDesc("ITEM-1");
     }
 
-    private StockBalanceDocument balance(String itemId, double available, double defect,
-            double minimum, double maximum, boolean low, StockStatus status) {
+    private StockBalanceDocument balance(String itemId, int available, int defect,
+            int minimum, int maximum, boolean low, StockStatus status) {
         StockBalanceDocument b = new StockBalanceDocument();
         b.setBalanceKey(InventoryEventService.key(itemId, null, null, null));
         b.setItemId(itemId);

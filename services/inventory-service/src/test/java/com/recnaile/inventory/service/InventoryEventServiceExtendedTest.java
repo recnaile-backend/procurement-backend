@@ -124,7 +124,7 @@ class InventoryEventServiceExtendedTest {
         verify(idempotency, never()).save(any());
     }
 
-    private StockBalanceDocument balance(String itemId, double available, double defect) {
+    private StockBalanceDocument balance(String itemId, int available, int defect) {
         StockBalanceDocument b = new StockBalanceDocument();
         b.setBalanceKey(InventoryEventService.key(itemId, null, null, null));
         b.setItemId(itemId);

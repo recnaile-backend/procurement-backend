@@ -55,7 +55,7 @@ public class InventoryEventService {
     private void goodsReceived(JsonNode e) {
         JsonNode p=e.path("payload");
         String itemId=required(p,"itemId"), sourceId=required(p,"grnId");
-        double accepted=number(p,"acceptedQuantity"), rejected=number(p,"rejectedQuantity");
+        int accepted=number(p,"acceptedQuantity"), rejected=number(p,"rejectedQuantity");
         if (accepted < 0 || rejected < 0) throw new IllegalArgumentException("Received quantities cannot be negative");
         if (accepted > 0) apply(e,itemId,sourceId,StockType.AVAILABLE,accepted,"GOODS_RECEIVED");
         if (rejected > 0) apply(e,itemId,sourceId,StockType.DEFECT,rejected,"GOODS_RECEIVED_REJECTED");
@@ -64,7 +64,7 @@ public class InventoryEventService {
     private void outwardIssued(JsonNode e) {
         JsonNode p=e.path("payload");
         String itemId=required(p,"itemId"), sourceId=required(p,"outwardId");
-        double qty=number(p,"quantity");
+        int qty=number(p,"quantity");
         if (qty <= 0) throw new IllegalArgumentException("Issued quantity must be greater than zero");
         apply(e,itemId,sourceId,StockType.AVAILABLE,-qty,"OUTWARD_ISSUED");
     }
@@ -72,19 +72,22 @@ public class InventoryEventService {
     private void returnRecorded(JsonNode e) {
         JsonNode p=e.path("payload");
         String itemId=required(p,"itemId"), sourceId=required(p,"returnId");
-        double qty=number(p,"quantity");
+        int qty=number(p,"quantity");
         if (qty <= 0) throw new IllegalArgumentException("Return quantity must be greater than zero");
         String condition=required(p,"condition");
         apply(e,itemId,sourceId,"GOOD".equals(condition)?StockType.AVAILABLE:StockType.DEFECT,qty,"RETURN_"+condition);
     }
 
-    private void apply(JsonNode event,String itemId,String sourceId,StockType type,double delta,String reason) {
-        String departmentId=text(event.path("payload"),"departmentId");
+    private void apply(JsonNode event,String itemId,String sourceId,StockType type,int delta,String reason) {
+        String departmentName=text(event.path("payload"),"departmentName");
+        if (departmentName == null || departmentName.isBlank()) {
+            departmentName=text(event.path("payload"),"departmentId");
+        }
         String projectId=text(event.path("payload"),"projectId");
         String location=text(event.path("payload"),"location");
-        StockBalanceDocument b=getOrCreate(itemId,departmentId,projectId,location);
-        double beforeAvailable=b.getAvailableQuantity(), beforeDefect=b.getDefectQuantity();
-        double newAvailable=beforeAvailable, newDefect=beforeDefect;
+        StockBalanceDocument b=getOrCreate(itemId,departmentName,projectId,location);
+        int beforeAvailable=b.getAvailableQuantity(), beforeDefect=b.getDefectQuantity();
+        int newAvailable=beforeAvailable, newDefect=beforeDefect;
         if(type==StockType.AVAILABLE) newAvailable=beforeAvailable+delta; else newDefect=beforeDefect+delta;
         if(newAvailable < 0) {
             meterRegistry.counter("inventory.stock.rejected", "reason", "INSUFFICIENT_AVAILABLE").increment();
@@ -103,7 +106,7 @@ public class InventoryEventService {
         String eventId=text(event,"eventId");
         String movementId=eventId+":"+type+":"+UUID.randomUUID();
         StockMovementDocument movement=new StockMovementDocument(movementId,eventId,text(event,"eventType"),sourceId,itemId,
-            departmentId,projectId,location,type,Math.abs(delta),delta,reason,
+            departmentName,projectId,location,type,Math.abs(delta),delta,reason,
             instant(event,"occurredAt"),Instant.now(),text(event,"correlationId"),text(event,"traceId"),
             text(event.path("payload"),"receivedBy"));
         movementRepository.save(movement);
@@ -123,12 +126,12 @@ public class InventoryEventService {
         }
     }
 
-    private StockBalanceDocument getOrCreate(String itemId,String dept,String project,String location) {
-        String d=blankToNull(dept), p=blankToNull(project), l=blankToNull(location);
+    private StockBalanceDocument getOrCreate(String itemId,String departmentName,String project,String location) {
+        String d=blankToNull(departmentName), p=blankToNull(project), l=blankToNull(location);
         String key=key(itemId,d,p,l);
         return balanceRepository.findByBalanceKey(key).orElseGet(() -> {
             StockBalanceDocument b=new StockBalanceDocument();
-            b.setBalanceKey(key); b.setItemId(itemId); b.setDepartmentId(d); b.setProjectId(p); b.setLocation(l);
+            b.setBalanceKey(key); b.setItemId(itemId); b.setDepartmentName(d); b.setProjectId(p); b.setLocation(l);
             b.setAvailableQuantity(0); b.setDefectQuantity(0); b.setMinimumStock(0); b.setMaximumStock(0);
             b.setLowStock(false); b.setStatus(StockStatus.OUT_OF_STOCK); b.setUpdatedAt(Instant.now());
             return b;
@@ -143,11 +146,10 @@ public class InventoryEventService {
         b.setLowStock(low);
         b.setStatus(b.getAvailableQuantity() <= 0 ? StockStatus.OUT_OF_STOCK : low ? StockStatus.LOW_STOCK : StockStatus.IN_STOCK);
     }
-    private String statusName(double available,double min){return available<=0?StockStatus.OUT_OF_STOCK.name():(available<=min?StockStatus.LOW_STOCK.name():StockStatus.IN_STOCK.name());}
+    private String statusName(int available,int min){return available<=0?StockStatus.OUT_OF_STOCK.name():(available<=min?StockStatus.LOW_STOCK.name():StockStatus.IN_STOCK.name());}
     private static String text(JsonNode n,String f){JsonNode v=n==null?null:n.get(f);return v==null||v.isNull()?null:v.asText();}
     private static String required(JsonNode n,String f){String v=text(n,f);if(v==null||v.isBlank())throw new IllegalArgumentException("Missing payload field: "+f);return v;}
-    private static double number(JsonNode n,String f){JsonNode v=n.get(f);if(v==null||!v.isNumber())throw new IllegalArgumentException("Missing/invalid payload field: "+f);return v.asDouble();}
-    private static double optionalNumber(JsonNode n,String f,double defaultValue){JsonNode v=n.get(f);return v==null||v.isNull()?defaultValue:(v.isNumber()?v.asDouble():defaultValue);}
+    private static int number(JsonNode n,String f){JsonNode v=n.get(f);if(v==null||!v.isIntegralNumber())throw new IllegalArgumentException("Missing/invalid integer payload field: "+f);return v.asInt();}
     private static Instant instant(JsonNode n,String f){String v=text(n,f);return v==null?Instant.now():Instant.parse(v);}
     private static String blankToNull(String v){return v==null||v.isBlank()?null:v;}
     private static String nullToBlank(String v){return v==null?"":v;}
