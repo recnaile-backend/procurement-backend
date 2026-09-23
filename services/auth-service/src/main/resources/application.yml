@@ -11,20 +11,22 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
 
 server:
-  port: ${AUTH_SERVICE_PORT:8081}
+  port: ${AUTH_SERVICE_PORT:${SERVICE_PORT:8081}}
+  shutdown: graceful
+
+spring.lifecycle:
+  timeout-per-shutdown-phase: 30s
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info,prometheus,metrics
-
   endpoint:
     health:
       probes:
         enabled: true
-      show-details: always
-
+      show-details: never
   tracing:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
@@ -37,11 +39,9 @@ otel:
 app:
   service-name: auth-service
   description: "Authentication, users, roles, permissions, login/token integration"
-
   jwt:
     issuer: ${JWT_ISSUER:auth-service}
     access-token-minutes: ${JWT_ACCESS_TOKEN_MINUTES:15}
     secret-key: ${JWT_SECRET_KEY}
-
   refresh-token:
     cleanup-interval-ms: ${REFRESH_TOKEN_CLEANUP_INTERVAL_MS:3600000}

@@ -1,25 +1,32 @@
 spring:
   application:
     name: indent-service
+
   data:
     mongodb:
       uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:indent}?retryWrites=true&w=majority&appName=recnaile
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+
 server:
   port: ${SERVICE_PORT:8083}
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info,prometheus,metrics
+
   endpoint:
     health:
       probes:
         enabled: true
+
   tracing:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
+
 otel:
   exporter:
     otlp:
@@ -28,3 +35,39 @@ otel:
 app:
   service-name: indent-service
   description: "Purchase request lifecycle, verification, approval routing"
+
+  jwt:
+    issuer: ${JWT_ISSUER:auth-service}
+    secret-key: ${JWT_SECRET_KEY}
+
+  master-data:
+    base-url: ${MASTER_DATA_SERVICE_URL:http://master-data-service:8082}
+    connect-timeout: ${MASTER_DATA_CONNECT_TIMEOUT:2s}
+    read-timeout: ${MASTER_DATA_READ_TIMEOUT:3s}
+
+  approval:
+    threshold: ${INDENT_APPROVAL_THRESHOLD}
+    sla-duration: ${INDENT_APPROVAL_SLA:24h}
+    sla-check-interval: ${INDENT_SLA_CHECK_INTERVAL:60000}
+
+  idempotency:
+    ttl: ${INDENT_IDEMPOTENCY_TTL:24h}
+
+  outbox:
+    publisher-interval: ${OUTBOX_PUBLISHER_INTERVAL:1000}
+    max-attempts: ${OUTBOX_MAX_ATTEMPTS:10}
+    retry-initial-delay: ${OUTBOX_RETRY_INITIAL_DELAY:1s}
+    retry-max-delay: ${OUTBOX_RETRY_MAX_DELAY:1m}
+    retry-jitter-ratio: ${OUTBOX_RETRY_JITTER_RATIO:0.20}
+    published-retention: ${OUTBOX_PUBLISHED_RETENTION:7d}
+    retention-check-interval: ${OUTBOX_RETENTION_CHECK_INTERVAL:3600000}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui/index.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    persist-authorization: true

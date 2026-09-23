@@ -4,7 +4,6 @@ import java.time.Instant;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import lombok.AllArgsConstructor;
@@ -22,7 +21,7 @@ public class Department {
     @Id
     private String id;
 
-    private String name;
+    private String departmentName;
 
     private String description;
 

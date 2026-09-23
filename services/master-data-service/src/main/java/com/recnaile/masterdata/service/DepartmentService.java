@@ -26,14 +26,14 @@ public class DepartmentService {
     @Transactional
     public DepartmentResponse create(CreateDepartmentRequest request) {
 
-        String name = normalizeName(request.name());
+        String departmentName = normalizeDepartmentName(request.departmentName());
 
-        if (name == null || name.isBlank()) {
+        if (departmentName == null || departmentName.isBlank()) {
             throw new IllegalArgumentException(
                     "Department name is required");
         }
 
-        if (departmentRepository.existsByName(name)) {
+        if (departmentRepository.existsByDepartmentName(departmentName)) {
             throw new IllegalArgumentException(
                     "Department name already exists");
         }
@@ -41,7 +41,7 @@ public class DepartmentService {
         Instant now = Instant.now();
 
         Department department = Department.builder()
-                .name(name)
+                .departmentName(departmentName)
                 .description(normalizeDescription(request.description()))
                 .status(MasterDataStatus.ACTIVE)
                 .createdAt(now)
@@ -58,10 +58,10 @@ public class DepartmentService {
         if (requests == null || requests.isEmpty()) throw new IllegalArgumentException("At least one department is required");
         Instant now = Instant.now();
         List<Department> departments = requests.stream().map(request -> {
-            String name = normalizeName(request.name());
-            if (name == null || name.isBlank()) throw new IllegalArgumentException("Department name is required");
-            if (departmentRepository.existsByName(name)) throw new IllegalArgumentException("Department name already exists: " + name);
-            return Department.builder().name(name).description(normalizeDescription(request.description())).status(MasterDataStatus.ACTIVE).createdAt(now).updatedAt(now).build();
+            String departmentName = normalizeDepartmentName(request.departmentName());
+            if (departmentName == null || departmentName.isBlank()) throw new IllegalArgumentException("Department name is required");
+            if (departmentRepository.existsByDepartmentName(departmentName)) throw new IllegalArgumentException("Department name already exists: " + departmentName);
+            return Department.builder().departmentName(departmentName).description(normalizeDescription(request.description())).status(MasterDataStatus.ACTIVE).createdAt(now).updatedAt(now).build();
         }).toList();
         return departmentRepository.saveAll(departments).stream().map(this::toResponse).toList();
     }
@@ -95,14 +95,14 @@ public class DepartmentService {
                     "Department version conflict");
         }
 
-        String name = normalizeName(request.name());
+        String departmentName = normalizeDepartmentName(request.departmentName());
 
-        if (name == null || name.isBlank()) {
+        if (departmentName == null || departmentName.isBlank()) {
             throw new IllegalArgumentException(
                     "Department name is required");
         }
 
-        departmentRepository.findByName(name)
+        departmentRepository.findByDepartmentName(departmentName)
                 .filter(existing ->
                         !existing.getId().equals(id))
                 .ifPresent(existing -> {
@@ -110,7 +110,7 @@ public class DepartmentService {
                             "Department name already exists");
                 });
 
-        department.setName(name);
+        department.setDepartmentName(departmentName);
         department.setDescription(
                 normalizeDescription(request.description()));
         department.setUpdatedAt(Instant.now());
@@ -176,7 +176,7 @@ public class DepartmentService {
 
         return new DepartmentResponse(
                 department.getId(),
-                department.getName(),
+                department.getDepartmentName(),
                 department.getDescription(),
                 department.getStatus(),
                 department.getCreatedAt(),
@@ -185,13 +185,13 @@ public class DepartmentService {
         );
     }
 
-    private String normalizeName(String name) {
+    private String normalizeDepartmentName(String departmentName) {
 
-        if (name == null) {
+        if (departmentName == null) {
             return null;
         }
 
-        return name.trim();
+        return departmentName.trim();
     }
 
     private String normalizeDescription(String description) {

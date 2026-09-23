@@ -6,7 +6,7 @@ import com.recnaile.masterdata.model.MasterDataStatus;
 
 public record DepartmentResponse(
         String id,
-        String name,
+        String departmentName,
         String description,
         MasterDataStatus status,
         Instant createdAt,
