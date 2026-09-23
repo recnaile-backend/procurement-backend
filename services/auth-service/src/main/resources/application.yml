@@ -4,8 +4,8 @@ spring:
 
   data:
     mongodb:
-      uri: ${MONGODB_URI:${MONGODB_BASE_URI}/${MONGODB_DATABASE:auth}?retryWrites=true&w=majority&appName=recnaile}
-      auto-index-creation: ${MONGODB_AUTO_INDEX_CREATION:true}
+      uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:auth}?retryWrites=true&w=majority&appName=recnaile
+      auto-index-creation: true
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
