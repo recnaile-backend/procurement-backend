@@ -6,8 +6,17 @@ spring:
       uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:outward}?retryWrites=true&w=majority&appName=recnaile
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    producer:
+      acks: all
+      retries: 5
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 120000
+        request.timeout.ms: 30000
+
 server:
   port: ${SERVICE_PORT:8087}
+
 management:
   endpoints:
     web:
@@ -20,6 +29,7 @@ management:
   tracing:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
+
 otel:
   exporter:
     otlp:
@@ -28,3 +38,33 @@ otel:
 app:
   service-name: outward-service
   description: "Stock issue requests, approval and issue transactions"
+  authorization:
+    employee-self-only: ${OUTWARD_EMPLOYEE_SELF_ONLY:false}
+    approval-roles: ${OUTWARD_APPROVAL_ROLES:TL,MD}
+  clients:
+    inventory-base-url: ${INVENTORY_SERVICE_URL:http://inventory-service:8086}
+    master-data-base-url: ${MASTER_DATA_SERVICE_URL:http://master-data-service:8082}
+    connect-timeout-ms: ${DOWNSTREAM_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${DOWNSTREAM_READ_TIMEOUT_MS:3000}
+  security:
+    jwt:
+      issuer-uri: ${APP_SECURITY_JWT_ISSUER_URI:${JWT_ISSUER:http://auth-service:8081}}
+  kafka:
+    events-topic: ${OUTWARD_EVENTS_TOPIC:procurement.events}
+  outbox:
+    publisher:
+      enabled: ${OUTWARD_OUTBOX_PUBLISHER_ENABLED:true}
+      fixed-delay-ms: ${OUTWARD_OUTBOX_PUBLISHER_FIXED_DELAY_MS:5000}
+      batch-size: ${OUTWARD_OUTBOX_PUBLISHER_BATCH_SIZE:100}
+      retry-delay-seconds: ${OUTWARD_OUTBOX_PUBLISHER_RETRY_DELAY_SECONDS:30}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+    display-request-duration: true
+    deep-linking: true

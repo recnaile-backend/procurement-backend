@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
 
 import java.lang.reflect.Method;
@@ -52,6 +53,30 @@ class PurchaseOrderApiContractTest {
                 .map(Method::getName)
                 .toList())
                 .containsExactlyInAnyOrder("getById", "getAll");
+    }
+
+    @Test
+    void poIdLifecycleEndpointsUsePathVariableAndPreserveEncodedIdentifier() {
+        var methods = Arrays.stream(PurchaseOrderController.class.getDeclaredMethods())
+                .filter(method -> method.isAnnotationPresent(GetMapping.class)
+                        || method.isAnnotationPresent(PostMapping.class))
+                .filter(method -> !method.getName().equals("getAll")
+                        && !method.getName().equals("createManual")
+                        && !method.getName().equals("createFromApprovedIndent"))
+                .toList();
+
+        assertThat(methods).extracting(Method::getName)
+                .contains("getById", "issue", "cancel", "complete");
+
+        for (Method method : methods) {
+            boolean hasPoIdPathVariable = Arrays.stream(method.getParameterAnnotations())
+                    .flatMap(Arrays::stream)
+                    .anyMatch(annotation -> annotation instanceof PathVariable path
+                            && "poId".equals(path.value()));
+            assertThat(hasPoIdPathVariable)
+                    .as("poId path variable on %s", method.getName())
+                    .isTrue();
+        }
     }
 
     @Test

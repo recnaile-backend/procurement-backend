@@ -57,7 +57,7 @@ public class PurchaseOrderController {
                     Use this API when Procurement or MD is explicitly allowed to raise a direct/manual PO
                     without converting an approved indent. The client supplies vendorName, departmentName,
                     projectId and items. Idempotency-Key is optional; when supplied it makes retries safe and replayable. The backend validates vendorName against Master Data and generates
-                    the PO identifier automatically as PO-001, PO-002, ... . Do not use this endpoint to
+                    the PO identifier automatically as PO%2F26-27%2F001, PO%2F26-27%2F002, ... . Do not use this endpoint to
                     convert an approved indent; use /from-approved-indent for that workflow.
                     """)
     @ApiResponses({
@@ -110,11 +110,11 @@ public class PurchaseOrderController {
                 .body(ApiResponse.success(PurchaseOrderResponse.from(po)));
     }
 
-    @Operation(summary = "Get Purchase Order by ID", description = "The backend-generated Purchase Order ID uses the sequence PO-001, PO-002, ... .")
+    @Operation(summary = "Get Purchase Order by ID", description = "The backend-generated Purchase Order ID is stored exactly as an encoded identifier, for example PO%2F26-27%2F001.")
     @GetMapping("/{poId}")
     public ApiResponse<PurchaseOrderResponse> getById(
-            @Parameter(description = "Backend-generated Purchase Order ID, for example PO-001", example = "PO-001")
-            @PathVariable String poId) {
+            @Parameter(description = "Backend-generated PO ID exactly as stored, for example PO%2F26-27%2F001", example = "PO%2F26-27%2F001")
+            @PathVariable("poId") String poId) {
         return ApiResponse.success(PurchaseOrderResponse.from(queryService.getById(poId)));
     }
 
@@ -134,7 +134,7 @@ public class PurchaseOrderController {
             description = "Moves a DRAFT Purchase Order to ISSUED. A reason is mandatory and is stored with the PO for auditability.")
     @PostMapping("/{poId}/issue")
     public ApiResponse<PurchaseOrderResponse> issue(
-            @PathVariable String poId,
+            @PathVariable("poId") String poId,
             @Valid @RequestBody PurchaseOrderReasonRequest request,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal Jwt jwt) {
@@ -146,7 +146,7 @@ public class PurchaseOrderController {
             description = "Cancels a Purchase Order when the lifecycle rules permit cancellation. A reason is mandatory and is stored with the PO for auditability.")
     @PostMapping("/{poId}/cancel")
     public ApiResponse<PurchaseOrderResponse> cancel(
-            @PathVariable String poId,
+            @PathVariable("poId") String poId,
             @Valid @RequestBody PurchaseOrderReasonRequest request,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal Jwt jwt) {
@@ -156,7 +156,7 @@ public class PurchaseOrderController {
     @Operation(summary = "Complete a Purchase Order", description = "Moves an ISSUED or PARTIALLY_RECEIVED Purchase Order to COMPLETED according to the lifecycle state machine.")
     @PostMapping("/{poId}/complete")
     public ApiResponse<PurchaseOrderResponse> complete(
-            @PathVariable String poId,
+            @PathVariable("poId") String poId,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal Jwt jwt) {
         return transition(poId, PurchaseOrderStatus.COMPLETED, null, actorId(jwt), idempotencyKey);
