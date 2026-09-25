@@ -19,6 +19,9 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.firewall.HttpFirewall;
+import org.springframework.security.web.firewall.StrictHttpFirewall;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -79,6 +82,26 @@ public class SecurityConfig {
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)));
 
         return http.build();
+    }
+
+    /**
+     * The persisted PO identifier intentionally contains the literal encoded
+     * slash sequence %2F. Swagger therefore sends it as %252F on the wire.
+     * Spring Security must allow both the encoded slash and encoded percent
+     * instead of rejecting the request before authentication reaches the
+     * resource-server JWT filter.
+     */
+    @Bean
+    HttpFirewall httpFirewall() {
+        StrictHttpFirewall firewall = new StrictHttpFirewall();
+        firewall.setAllowUrlEncodedSlash(true);
+        firewall.setAllowUrlEncodedPercent(true);
+        return firewall;
+    }
+
+    @Bean
+    WebSecurityCustomizer webSecurityCustomizer(HttpFirewall httpFirewall) {
+        return web -> web.httpFirewall(httpFirewall);
     }
 
     @Bean
