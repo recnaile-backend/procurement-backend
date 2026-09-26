@@ -53,10 +53,12 @@ Base path: `/api/v1/purchase-orders`
 
 - `POST /from-approved-indent` — create a PO from a validated READY_FOR_PO indent snapshot.
 - `GET /{poId}` — get a PO by ID.
-- `GET /` — list POs with optional `status`, `vendorName`, `projectId`, and `departmentName` filters.
+- `GET /` — list POs with optional `vendorName`, `projectId`, and `departmentName` filters. `status` is intentionally not exposed as a GET-all filter.
 - `POST /{poId}/issue` — transition DRAFT -> ISSUED.
 - `POST /{poId}/cancel` — transition to CANCELLED where allowed.
 - `POST /{poId}/complete` — transition to COMPLETED where allowed.
+
+For a stored PO ID such as `PO%2F26-27%2F001`, the HTTP client sends it as `PO%252F26-27%252F001` in the URL. This double encoding is intentional: the first decoding restores the exact stored business identifier `PO%2F26-27%2F001`.
 
 Authentication/RBAC is intentionally handled in Phase 8; this phase does not introduce raw identity headers.
 

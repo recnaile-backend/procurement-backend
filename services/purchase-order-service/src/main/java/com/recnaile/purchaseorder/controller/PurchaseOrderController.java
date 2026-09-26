@@ -134,7 +134,7 @@ public class PurchaseOrderController {
             description = "Moves a DRAFT Purchase Order to ISSUED. A reason is mandatory and is stored with the PO for auditability.")
     @PostMapping("/{poId}/issue")
     public ApiResponse<PurchaseOrderResponse> issue(
-            @PathVariable String poId,
+            @PathVariable("poId") String poId,
             @Valid @RequestBody PurchaseOrderReasonRequest request,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal Jwt jwt) {
@@ -146,7 +146,7 @@ public class PurchaseOrderController {
             description = "Cancels a Purchase Order when the lifecycle rules permit cancellation. A reason is mandatory and is stored with the PO for auditability.")
     @PostMapping("/{poId}/cancel")
     public ApiResponse<PurchaseOrderResponse> cancel(
-            @PathVariable String poId,
+            @PathVariable("poId") String poId,
             @Valid @RequestBody PurchaseOrderReasonRequest request,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal Jwt jwt) {
@@ -156,7 +156,7 @@ public class PurchaseOrderController {
     @Operation(summary = "Complete a Purchase Order", description = "Moves an ISSUED or PARTIALLY_RECEIVED Purchase Order to COMPLETED according to the lifecycle state machine.")
     @PostMapping("/{poId}/complete")
     public ApiResponse<PurchaseOrderResponse> complete(
-            @PathVariable String poId,
+            @PathVariable("poId") String poId,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal Jwt jwt) {
         return transition(poId, PurchaseOrderStatus.COMPLETED, null, actorId(jwt), idempotencyKey);
