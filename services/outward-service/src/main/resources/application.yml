@@ -34,3 +34,7 @@ otel:
 app:
   service-name: outward-service
   description: "Stock issue requests, approval and issue transactions"
+  clients:
+    master-data-base-url: ${MASTER_DATA_BASE_URL:http://master-data-service:8082}
+    connect-timeout-ms: ${MASTER_DATA_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${MASTER_DATA_READ_TIMEOUT_MS:3000}

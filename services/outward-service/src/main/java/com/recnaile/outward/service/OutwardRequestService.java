@@ -21,18 +21,23 @@ public class OutwardRequestService {
 
     private final OutwardRequestRepository repository;
     private final OutwardNumberService numberService;
+    private final MasterDataValidationService masterDataValidationService;
     private final Clock clock;
 
     @Autowired
-    public OutwardRequestService(OutwardRequestRepository repository, OutwardNumberService numberService) {
-        this(repository, numberService, Clock.systemUTC());
+    public OutwardRequestService(OutwardRequestRepository repository,
+                                  OutwardNumberService numberService,
+                                  MasterDataValidationService masterDataValidationService) {
+        this(repository, numberService, masterDataValidationService, Clock.systemUTC());
     }
 
     OutwardRequestService(OutwardRequestRepository repository,
                           OutwardNumberService numberService,
+                          MasterDataValidationService masterDataValidationService,
                           Clock clock) {
         this.repository = repository;
         this.numberService = numberService;
+        this.masterDataValidationService = masterDataValidationService;
         this.clock = clock;
     }
 
@@ -40,6 +45,9 @@ public class OutwardRequestService {
         if (requestedBy == null || requestedBy.isBlank()) {
             throw new IllegalArgumentException("Authenticated user is required");
         }
+
+        MasterDataValidationService.ValidationResult validation =
+                masterDataValidationService.validate(request);
 
         Instant now = Instant.now(clock);
         OutwardRequest entity = new OutwardRequest();
@@ -58,7 +66,7 @@ public class OutwardRequestService {
                 request.getRecipient().getEmployeeId().trim(),
                 request.getRecipient().getEmployeeName().trim()));
         entity.setStatus(OutwardStatus.DRAFT);
-        entity.setAssetTracked(false);
+        entity.setAssetTracked(validation.assetTracked());
 
         return toResponse(repository.save(entity));
     }

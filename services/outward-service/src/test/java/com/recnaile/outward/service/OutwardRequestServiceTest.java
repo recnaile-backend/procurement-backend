@@ -17,7 +17,6 @@ import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -30,14 +29,18 @@ class OutwardRequestServiceTest {
     @Mock
     private OutwardNumberService numberService;
 
-    @InjectMocks
+    @Mock
+    private MasterDataValidationService masterDataValidationService;
+
     private OutwardRequestService service;
 
     @Test
     void createsDraftUsingAuthenticatedUser() {
         Instant now = Instant.parse("2026-09-26T05:00:00Z");
-        service = new OutwardRequestService(repository, numberService, Clock.fixed(now, ZoneOffset.UTC));
+        service = new OutwardRequestService(repository, numberService, masterDataValidationService, Clock.fixed(now, ZoneOffset.UTC));
         when(numberService.nextNumber()).thenReturn("OUT%2F26-27%2F001");
+        when(masterDataValidationService.validate(any(CreateOutwardRequest.class)))
+                .thenReturn(new MasterDataValidationService.ValidationResult(true));
         when(repository.save(any(OutwardRequest.class))).thenAnswer(invocation -> {
             OutwardRequest saved = invocation.getArgument(0);
             saved.setId("request-1");

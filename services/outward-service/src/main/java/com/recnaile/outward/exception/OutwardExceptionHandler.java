@@ -29,6 +29,18 @@ public class OutwardExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, "OUTWARD_VALIDATION_ERROR", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(MasterDataValidationException.class)
+    public ResponseEntity<ApiError> handleMasterDataValidation(MasterDataValidationException ex,
+                                                                 HttpServletRequest request) {
+        return error(HttpStatus.BAD_REQUEST, ex.getCode(), ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(DownstreamServiceException.class)
+    public ResponseEntity<ApiError> handleDownstream(DownstreamServiceException ex,
+                                                      HttpServletRequest request) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, ex.getCode(), ex.getMessage(), request);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex,
                                                            HttpServletRequest request) {

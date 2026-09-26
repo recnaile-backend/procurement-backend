@@ -1,70 +1,59 @@
-# Outward Service
+# Outward Service — Master Data Validation
 
-## Create Outward Request
+This version adds synchronous Master Data validation to the outward request workflow.
 
-This version adds the first business command for outward requests on top of the
-foundation, domain model and state machine. Spring service constructors use explicit
-constructor injection so the application context has a deterministic bean wiring path.
+## Validation performed
 
-### API
+Before a request is persisted:
 
-`POST /api/v1/outward`
+- Every requested item must exist in Master Data.
+- Every requested item must be `ACTIVE`.
+- Requested quantity must not exceed the current `availableStock` returned by Master Data.
+- The supplied `departmentName` must match an `ACTIVE` Master Data department.
+- An optional `projectId` must identify an `ACTIVE` Master Data project.
+- Duplicate item IDs in one request are rejected.
+- Asset tracking is derived from Master Data; the client cannot declare it.
 
-The authenticated JWT principal supplies `requestedBy`; the client must not
-supply or override that identity.
+The service communicates with Master Data through its documented REST APIs and never reads the Master Data MongoDB directly.
 
-A successful request is created in `DRAFT` state and returns HTTP `201 Created`.
-
-### Outward number
-
-The backend allocates the next fiscal-year sequence atomically in MongoDB and
-stores the encoded outward number exactly as generated, for example:
+## Downstream configuration
 
 ```text
-OUT%2F26-27%2F001
+MASTER_DATA_BASE_URL=http://master-data-service:8082
+MASTER_DATA_CONNECT_TIMEOUT_MS=2000
+MASTER_DATA_READ_TIMEOUT_MS=3000
 ```
 
-The value is not encoded again by the API. The sequence is scoped to the Indian
-financial year (April through March).
+The authenticated bearer token, correlation ID and W3C `traceparent` are propagated to the synchronous Master Data request.
 
-### Request fields
+## Error codes
 
-- `items`: one or more item IDs with positive quantities
-- `projectId`: optional project reference
-- `departmentName`: required department name
-- `purpose`: required issue purpose
-- `recipient`: required employee ID and employee name
+Examples include:
 
-`assetTracked` is not accepted from the client. Asset classification will be
-resolved from master data in the later integration phase rather than trusting
-client input.
+- `OUTWARD_ITEM_NOT_FOUND`
+- `OUTWARD_ITEM_INACTIVE`
+- `OUTWARD_INSUFFICIENT_STOCK`
+- `OUTWARD_DEPARTMENT_NOT_FOUND`
+- `OUTWARD_PROJECT_NOT_FOUND`
+- `OUTWARD_PROJECT_INACTIVE`
+- `MASTER_DATA_SERVICE_UNAVAILABLE`
 
-### State
+A Master Data availability failure returns HTTP 503. A business validation failure returns HTTP 400.
 
-New requests always start at:
+## Boundary
 
-```text
-DRAFT
-```
+This validation phase does not modify inventory, create an issue transaction, publish `OUTWARD_ISSUED`, create assets, or implement approval/RBAC.
 
-The state machine remains responsible for later transitions.
-
-### Boundaries
-
-This version does not approve requests, deduct inventory, access `inventorydb`,
-publish `OUTWARD_ISSUED`, create assets, implement the transactional outbox,
-or implement idempotency.
-
-### Verification
+## Verification
 
 From the repository root:
 
 ```powershell
-.\gradlew :services:outward-service:clean :services:outward-service:test
+.\\gradlew :services:outward-service:clean :services:outward-service:test
 ```
 
-For a complete service build:
+Then:
 
 ```powershell
-.\gradlew :services:outward-service:clean :services:outward-service:build
+.\\gradlew :services:outward-service:clean :services:outward-service:build
 ```
