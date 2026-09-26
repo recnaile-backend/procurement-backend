@@ -1,13 +1,17 @@
 spring:
   application:
     name: outward-service
+
   data:
     mongodb:
       uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:outward}?retryWrites=true&w=majority&appName=recnaile
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+
 server:
   port: ${SERVICE_PORT:8087}
+
 management:
   endpoints:
     web:
@@ -20,6 +24,7 @@ management:
   tracing:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
+
 otel:
   exporter:
     otlp:
