@@ -19,6 +19,9 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.firewall.HttpFirewall;
+import org.springframework.security.web.firewall.StrictHttpFirewall;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -79,6 +82,25 @@ public class SecurityConfig {
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)));
 
         return http.build();
+    }
+
+    /**
+     * PO business IDs are stored as the literal encoded form, for example
+     * PO%2F26-27%2F001. Swagger sends that value in a path as
+     * PO%252F26-27%252F001, so the servlet container/security firewall must
+     * allow both encoded percent and encoded slash characters.
+     */
+    @Bean
+    HttpFirewall httpFirewall() {
+        StrictHttpFirewall firewall = new StrictHttpFirewall();
+        firewall.setAllowUrlEncodedSlash(true);
+        firewall.setAllowUrlEncodedPercent(true);
+        return firewall;
+    }
+
+    @Bean
+    WebSecurityCustomizer webSecurityCustomizer(HttpFirewall httpFirewall) {
+        return web -> web.httpFirewall(httpFirewall);
     }
 
     @Bean

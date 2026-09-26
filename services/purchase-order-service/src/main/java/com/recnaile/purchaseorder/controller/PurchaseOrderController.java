@@ -57,7 +57,7 @@ public class PurchaseOrderController {
                     Use this API when Procurement or MD is explicitly allowed to raise a direct/manual PO
                     without converting an approved indent. The client supplies vendorName, departmentName,
                     projectId and items. Idempotency-Key is optional; when supplied it makes retries safe and replayable. The backend validates vendorName against Master Data and generates
-                    the PO identifier automatically as PO-001, PO-002, ... . Do not use this endpoint to
+                    the PO identifier automatically as PO%2F26-27%2F001, PO%2F26-27%2F002, ... . Do not use this endpoint to
                     convert an approved indent; use /from-approved-indent for that workflow.
                     """)
     @ApiResponses({
@@ -110,10 +110,10 @@ public class PurchaseOrderController {
                 .body(ApiResponse.success(PurchaseOrderResponse.from(po)));
     }
 
-    @Operation(summary = "Get Purchase Order by ID", description = "The backend-generated Purchase Order ID uses the sequence PO-001, PO-002, ... .")
+    @Operation(summary = "Get Purchase Order by ID", description = "The backend-generated Purchase Order ID is stored exactly as an encoded identifier, for example PO%2F26-27%2F001.")
     @GetMapping("/{poId}")
     public ApiResponse<PurchaseOrderResponse> getById(
-            @Parameter(description = "Backend-generated Purchase Order ID, for example PO-001", example = "PO-001")
+            @Parameter(description = "Backend-generated PO ID exactly as stored, for example PO%2F26-27%2F001", example = "PO%2F26-27%2F001")
             @PathVariable String poId) {
         return ApiResponse.success(PurchaseOrderResponse.from(queryService.getById(poId)));
     }
