@@ -42,6 +42,9 @@ public class OutwardIssueTransaction {
     private String recipientEmployeeId;
 
     @NotBlank
+    private String recipientEmployeeName;
+
+    @NotBlank
     private String issuerId;
 
     @NotBlank
@@ -77,6 +80,8 @@ public class OutwardIssueTransaction {
     public void setDepartmentName(String departmentName) { this.departmentName = departmentName; }
     public String getRecipientEmployeeId() { return recipientEmployeeId; }
     public void setRecipientEmployeeId(String recipientEmployeeId) { this.recipientEmployeeId = recipientEmployeeId; }
+    public String getRecipientEmployeeName() { return recipientEmployeeName; }
+    public void setRecipientEmployeeName(String recipientEmployeeName) { this.recipientEmployeeName = recipientEmployeeName; }
     public String getIssuerId() { return issuerId; }
     public void setIssuerId(String issuerId) { this.issuerId = issuerId; }
     public String getApproverId() { return approverId; }

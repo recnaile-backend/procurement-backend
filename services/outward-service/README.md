@@ -70,3 +70,17 @@ The service now supports the authenticated approval lifecycle:
 Approval roles are configured with `OUTWARD_APPROVAL_ROLES` and default to `TL,MD`. JWT roles are read from the `roles` claim and mapped to Spring `ROLE_*` authorities.
 
 The service never modifies inventory stock during approval. Inventory mutation and the `OUTWARD_ISSUED` event remain later workflow responsibilities.
+
+
+## Issue transaction
+
+The service now supports issuing an approved outward request:
+
+- `POST /api/v1/outward/{outwardNumber}/issue` — creates the issue transaction and changes the request from `APPROVED` to `ISSUED`.
+- The issuer is taken from the authenticated JWT identity.
+- The issue transaction captures the approved request snapshot, recipient, approver, issuer, items, quantities, project, department and purpose.
+- A unique `outwardNumber` prevents more than one issue transaction for the same outward request.
+- The operation uses MongoDB transaction management so creation of the issue transaction and the request state transition are committed together when MongoDB transaction support is available (for example MongoDB Atlas replica sets).
+- This phase does not modify inventory MongoDB and does not publish `OUTWARD_ISSUED`; those are later integration responsibilities.
+
+Issue errors include `OUTWARD_NOT_APPROVED`, `OUTWARD_ALREADY_ISSUED`, `OUTWARD_CONCURRENT_MODIFICATION`, and `OUTWARD_NUMBER_REQUIRED`.
