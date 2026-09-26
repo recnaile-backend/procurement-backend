@@ -48,3 +48,14 @@ For a complete service build:
 ```powershell
 .\gradlew :services:outward-service:clean :services:outward-service:build
 ```
+
+
+## Domain model
+
+Phase 02 adds the explicit Outward domain model. `OutwardRequest` stores `items` directly; there is no line-item wrapper. Department is represented by `departmentName`. The backend outward number representation is stored as the encoded value, for example `OUT%2F26-27%2F001`. The formatter only formats a supplied sequence; atomic sequence persistence belongs to the request-creation/application phase.
+
+MongoDB collections:
+- `outward_requests`
+- `outward_issue_transactions`
+
+The domain model does not modify inventory, publish Kafka business events, perform approvals, or create asset records.

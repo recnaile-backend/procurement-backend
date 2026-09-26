@@ -4,6 +4,7 @@ spring:
 
   data:
     mongodb:
+      auto-index-creation: true
       uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:outward}?retryWrites=true&w=majority&appName=recnaile
 
   kafka:
