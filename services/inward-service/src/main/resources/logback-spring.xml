@@ -1,0 +1,6 @@
+<configuration>
+    <appender name="JSON_CONSOLE" class="com.recnaile.inward.observability.JsonConsoleAppender"/>
+    <root level="INFO">
+        <appender-ref ref="JSON_CONSOLE"/>
+    </root>
+</configuration>

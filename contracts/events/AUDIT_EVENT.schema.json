@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://procurement-platform/contracts/events/AUDIT_EVENT.schema.json",
+  "title": "AUDIT_EVENT",
+  "description": "Durable audit record emitted by a domain service after a successful business mutation.",
+  "allOf": [
+    { "$ref": "_envelope.schema.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "AUDIT_EVENT" },
+        "payload": {
+          "type": "object",
+          "required": ["actorId", "actorRoles", "service", "entityType", "entityId", "action", "timestamp"],
+          "properties": {
+            "actorId": { "type": "string" },
+            "actorRoles": { "type": "array", "items": { "type": "string" } },
+            "service": { "type": "string" },
+            "entityType": { "type": "string" },
+            "entityId": { "type": "string" },
+            "action": { "type": "string" },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "beforeStatus": { "type": ["string", "null"] },
+            "afterStatus": { "type": ["string", "null"] },
+            "poId": { "type": ["string", "null"] },
+            "deliveryNoteNumber": { "type": ["string", "null"] },
+            "receivedBy": { "type": ["string", "null"] }
+          }
+        }
+      }
+    }
+  ]
+}
