@@ -85,11 +85,10 @@ public class SecurityConfig {
     }
 
     /**
-     * The persisted PO identifier intentionally contains the literal encoded
-     * slash sequence %2F. Swagger therefore sends it as %252F on the wire.
-     * Spring Security must allow both the encoded slash and encoded percent
-     * instead of rejecting the request before authentication reaches the
-     * resource-server JWT filter.
+     * PO business IDs are stored as the literal encoded form, for example
+     * PO%2F26-27%2F001. Swagger sends that value in a path as
+     * PO%252F26-27%252F001, so the servlet container/security firewall must
+     * allow both encoded percent and encoded slash characters.
      */
     @Bean
     HttpFirewall httpFirewall() {

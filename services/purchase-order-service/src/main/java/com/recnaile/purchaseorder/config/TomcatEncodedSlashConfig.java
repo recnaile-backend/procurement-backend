@@ -6,10 +6,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Preserve encoded solidus values inside the PO path variable.
- *
- * A stored PO ID such as PO%2F26-27%2F001 is intentionally treated as one
- * business identifier rather than being split into multiple URL segments.
+ * Preserves encoded slashes in PO path identifiers so a stored identifier such
+ * as PO%2F26-27%2F001 is received by the application without being converted
+ * into path separators.
  */
 @Configuration
 public class TomcatEncodedSlashConfig {

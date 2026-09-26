@@ -1,0 +1,22 @@
+[
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "StartLine": 33,
+  "EndLine": 33,
+  "StartColumn": 17,
+  "EndColumn": 70,
+  "Match": "secret = \"REDACTED\"",
+  "Secret": "REDACTED",
+  "File": "services/inward-service/src/test/java/com/recnaile/inward/security/SecurityConfigTest.java",
+  "SymlinkFile": "",
+  "Commit": "c924307f65625757c800da83432ef54267a2e453",
+  "Entropy": 4.646968,
+  "Author": "recnaile-backend",
+  "Email": "software.backend@recnaile.com",
+  "Date": "2026-09-24T08:54:09Z",
+  "Message": "feat : add security and RBAC",
+  "Tags": [],
+  "Fingerprint": "c924307f65625757c800da83432ef54267a2e453:services/inward-service/src/test/java/com/recnaile/inward/security/SecurityConfigTest.java:generic-api-key:33"
+ }
+]

@@ -114,7 +114,7 @@ public class PurchaseOrderController {
     @GetMapping("/{poId}")
     public ApiResponse<PurchaseOrderResponse> getById(
             @Parameter(description = "Backend-generated PO ID exactly as stored, for example PO%2F26-27%2F001", example = "PO%2F26-27%2F001")
-            @PathVariable("poId") String poId) {
+            @PathVariable String poId) {
         return ApiResponse.success(PurchaseOrderResponse.from(queryService.getById(poId)));
     }
 
