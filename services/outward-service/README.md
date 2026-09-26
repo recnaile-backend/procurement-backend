@@ -42,7 +42,7 @@ A Master Data availability failure returns HTTP 503. A business validation failu
 
 ## Boundary
 
-This validation phase does not modify inventory, create an issue transaction, publish `OUTWARD_ISSUED`, create assets, or implement approval/RBAC.
+This service does not modify inventory, create an issue transaction, publish `OUTWARD_ISSUED`, or create assets in this phase.
 
 ## Verification
 
@@ -57,3 +57,16 @@ Then:
 ```powershell
 .\\gradlew :services:outward-service:clean :services:outward-service:build
 ```
+
+
+## Approval workflow
+
+The service now supports the authenticated approval lifecycle:
+
+- `POST /api/v1/outward/{outwardNumber}/submit` — requester submits a `DRAFT` request.
+- `POST /api/v1/outward/{outwardNumber}/approve` — configured approval role changes `PENDING_APPROVAL` to `APPROVED`.
+- `POST /api/v1/outward/{outwardNumber}/reject` — configured approval role changes `PENDING_APPROVAL` to `REJECTED`.
+
+Approval roles are configured with `OUTWARD_APPROVAL_ROLES` and default to `TL,MD`. JWT roles are read from the `roles` claim and mapped to Spring `ROLE_*` authorities.
+
+The service never modifies inventory stock during approval. Inventory mutation and the `OUTWARD_ISSUED` event remain later workflow responsibilities.

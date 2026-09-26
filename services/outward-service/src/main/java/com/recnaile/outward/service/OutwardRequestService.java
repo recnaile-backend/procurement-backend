@@ -80,7 +80,9 @@ public class OutwardRequestService {
                 entity.getId(), entity.getOutwardNumber(), entity.getRequestedAt(), items,
                 entity.getProjectId(), entity.getRequestedBy(), entity.getDepartmentName(),
                 entity.getPurpose(), new RecipientResponse(recipient.getEmployeeId(), recipient.getEmployeeName()),
-                entity.getStatus(), entity.getVersion(), entity.getCreatedAt(), entity.getUpdatedAt());
+                entity.getStatus(), entity.getApprovedBy(), entity.getApprovedAt(), entity.getRejectedBy(),
+                entity.getRejectedAt(), entity.getRejectionReason(), entity.getVersion(),
+                entity.getCreatedAt(), entity.getUpdatedAt());
     }
 
     private String trimToNull(String value) {

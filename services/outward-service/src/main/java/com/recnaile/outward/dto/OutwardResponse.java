@@ -15,6 +15,11 @@ public record OutwardResponse(
         String purpose,
         RecipientResponse recipient,
         OutwardStatus status,
+        String approvedBy,
+        Instant approvedAt,
+        String rejectedBy,
+        Instant rejectedAt,
+        String rejectionReason,
         Long version,
         Instant createdAt,
         Instant updatedAt) {

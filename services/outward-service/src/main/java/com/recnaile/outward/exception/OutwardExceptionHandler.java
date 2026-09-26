@@ -7,12 +7,32 @@ import java.time.Instant;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import com.recnaile.outward.service.InvalidOutwardStateTransitionException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class OutwardExceptionHandler {
+
+
+    @ExceptionHandler(OutwardException.class)
+    public ResponseEntity<ApiError> handleOutward(OutwardException ex, HttpServletRequest request) {
+        HttpStatus status = switch (ex.getCode()) {
+            case "OUTWARD_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "OUTWARD_APPROVAL_ROLE_NOT_ALLOWED", "OUTWARD_REQUEST_OWNER_REQUIRED" -> HttpStatus.FORBIDDEN;
+            case "AUTHENTICATION_REQUIRED" -> HttpStatus.UNAUTHORIZED;
+            case "OUTWARD_CONCURRENT_MODIFICATION" -> HttpStatus.CONFLICT;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return error(status, ex.getCode(), ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(InvalidOutwardStateTransitionException.class)
+    public ResponseEntity<ApiError> handleStateTransition(InvalidOutwardStateTransitionException ex,
+                                                            HttpServletRequest request) {
+        return error(HttpStatus.CONFLICT, ex.getErrorCode(), ex.getMessage(), request);
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex,

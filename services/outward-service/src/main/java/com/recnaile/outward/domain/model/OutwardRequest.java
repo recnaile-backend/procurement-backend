@@ -53,6 +53,14 @@ public class OutwardRequest {
 
     private String approvedBy;
 
+    private Instant approvedAt;
+
+    private String rejectedBy;
+
+    private Instant rejectedAt;
+
+    private String rejectionReason;
+
     private boolean assetTracked;
 
     @NotNull
@@ -90,6 +98,14 @@ public class OutwardRequest {
     public void setRecipient(RecipientDetails recipient) { this.recipient = recipient; }
     public String getApprovedBy() { return approvedBy; }
     public void setApprovedBy(String approvedBy) { this.approvedBy = approvedBy; }
+    public Instant getApprovedAt() { return approvedAt; }
+    public void setApprovedAt(Instant approvedAt) { this.approvedAt = approvedAt; }
+    public String getRejectedBy() { return rejectedBy; }
+    public void setRejectedBy(String rejectedBy) { this.rejectedBy = rejectedBy; }
+    public Instant getRejectedAt() { return rejectedAt; }
+    public void setRejectedAt(Instant rejectedAt) { this.rejectedAt = rejectedAt; }
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
     public boolean isAssetTracked() { return assetTracked; }
     public void setAssetTracked(boolean assetTracked) { this.assetTracked = assetTracked; }
     public OutwardStatus getStatus() { return status; }
