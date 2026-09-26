@@ -14,6 +14,6 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title("RECNAILE Outward Service API")
                         .version("v1")
-                        .description("Domain foundation for outward stock issue requests and issue transactions."));
+                        .description("Outward stock issue request creation and lifecycle foundation."));
     }
 }

@@ -1,45 +1,70 @@
 # Outward Service
 
-## Outward State Machine
+## Create Outward Request
 
-This version adds the server-side outward lifecycle state machine on top of the
-foundation and domain model.
+This version adds the first business command for outward requests on top of the
+foundation, domain model and state machine. Spring service constructors use explicit
+constructor injection so the application context has a deterministic bean wiring path.
 
-### Lifecycle
+### API
+
+`POST /api/v1/outward`
+
+The authenticated JWT principal supplies `requestedBy`; the client must not
+supply or override that identity.
+
+A successful request is created in `DRAFT` state and returns HTTP `201 Created`.
+
+### Outward number
+
+The backend allocates the next fiscal-year sequence atomically in MongoDB and
+stores the encoded outward number exactly as generated, for example:
 
 ```text
-DRAFT -> PENDING_APPROVAL -> APPROVED -> ISSUED
-                         \\-> REJECTED
+OUT%2F26-27%2F001
 ```
 
-`REJECTED`, `ISSUED`, and `CANCELLED` are terminal in this state machine. The
-source workflow does not define a cancellation transition, so no transition to
-`CANCELLED` is enabled here.
+The value is not encoded again by the API. The sequence is scoped to the Indian
+financial year (April through March).
 
-### Valid transitions
+### Request fields
 
-- `DRAFT -> PENDING_APPROVAL`
-- `PENDING_APPROVAL -> APPROVED`
-- `PENDING_APPROVAL -> REJECTED`
-- `APPROVED -> ISSUED`
+- `items`: one or more item IDs with positive quantities
+- `projectId`: optional project reference
+- `departmentName`: required department name
+- `purpose`: required issue purpose
+- `recipient`: required employee ID and employee name
 
-All other transitions are rejected with error code
-`OUTWARD_INVALID_STATE_TRANSITION`.
+`assetTracked` is not accepted from the client. Asset classification will be
+resolved from master data in the later integration phase rather than trusting
+client input.
 
-This phase does not implement request creation, approval authorization, stock
-mutation, inventory database access, Kafka events, transactional outbox,
-asset creation, or idempotency processing.
+### State
+
+New requests always start at:
+
+```text
+DRAFT
+```
+
+The state machine remains responsible for later transitions.
+
+### Boundaries
+
+This version does not approve requests, deduct inventory, access `inventorydb`,
+publish `OUTWARD_ISSUED`, create assets, implement the transactional outbox,
+or implement idempotency.
 
 ### Verification
 
 From the repository root:
 
 ```powershell
-.\\gradlew :services:outward-service:clean :services:outward-service:test
+.\gradlew :services:outward-service:clean :services:outward-service:test
 ```
 
 For a complete service build:
 
 ```powershell
-.\\gradlew :services:outward-service:clean :services:outward-service:build
+.\gradlew :services:outward-service:clean :services:outward-service:build
 ```
