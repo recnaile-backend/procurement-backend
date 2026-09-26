@@ -1,13 +1,26 @@
 spring:
   application:
     name: inward-service
+
   data:
     mongodb:
-      uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:inward}?retryWrites=true&w=majority&appName=recnaile
+      uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:inwarddb}?retryWrites=true&w=majority&appName=recnaile
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+
 server:
   port: ${SERVICE_PORT:8085}
+  shutdown: graceful
+
+spring.lifecycle:
+  timeout-per-shutdown-phase: 20s
+
 management:
   endpoints:
     web:
@@ -17,14 +30,55 @@ management:
     health:
       probes:
         enabled: true
+      show-details: ${HEALTH_SHOW_DETAILS:never}
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
   tracing:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}}
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      service: inward-service
+
 otel:
   exporter:
     otlp:
       endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
 
+info:
+  app:
+    name: ${spring.application.name}
+    description: "Goods receipt/GRN, accepted/rejected quantities and vendor delivery record"
+    version: ${APP_VERSION:0.1.0}
+
 app:
   service-name: inward-service
   description: "Goods receipt/GRN, accepted/rejected quantities and vendor delivery record"
+  outbox:
+    topic: ${INWARD_OUTBOX_TOPIC:procurement.events}
+    publisher:
+      enabled: ${INWARD_OUTBOX_PUBLISHER_ENABLED:true}
+      fixed-delay-ms: ${INWARD_OUTBOX_PUBLISHER_FIXED_DELAY_MS:5000}
+      batch-size: ${INWARD_OUTBOX_PUBLISHER_BATCH_SIZE:100}
+      retry-delay-seconds: ${INWARD_OUTBOX_RETRY_DELAY_SECONDS:30}
+
+clients:
+  purchase-order:
+    base-url: ${PURCHASE_ORDER_SERVICE_URL:http://purchase-order-service:8084}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui/index.html
+
+security:
+  jwt:
+    secret-key: ${JWT_SECRET_KEY:}
