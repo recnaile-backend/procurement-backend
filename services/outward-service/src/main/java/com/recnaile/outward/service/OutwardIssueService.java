@@ -45,11 +45,28 @@ public class OutwardIssueService {
         this.clock = clock;
     }
 
-    @Transactional
     public OutwardIssueTransactionResponse issue(String outwardNumber, Authentication authentication) {
+        return issue(outwardNumber, null, authentication);
+    }
+
+    @Transactional
+    public OutwardIssueTransactionResponse issue(String outwardNumber, String idempotencyKey, Authentication authentication) {
         String issuerId = authenticatedName(authentication);
         if (outwardNumber == null || outwardNumber.isBlank()) {
             throw new OutwardException("OUTWARD_NUMBER_REQUIRED", "Outward number is required");
+        }
+
+        String normalizedKey = normalizeIdempotencyKey(idempotencyKey);
+
+        if (normalizedKey != null) {
+            OutwardIssueTransaction replay = issueRepository.findByIdempotencyKey(normalizedKey).orElse(null);
+            if (replay != null) {
+                if (!outwardNumber.equals(replay.getOutwardNumber())) {
+                    throw new OutwardException("OUTWARD_IDEMPOTENCY_KEY_REUSED",
+                            "Idempotency key was already used for another outward request");
+                }
+                return toResponse(replay);
+            }
         }
 
         OutwardRequest request = requestRepository.findByOutwardNumber(outwardNumber)
@@ -68,6 +85,7 @@ public class OutwardIssueService {
         Instant now = Instant.now(clock);
         OutwardIssueTransaction transaction = new OutwardIssueTransaction();
         transaction.setOutwardNumber(request.getOutwardNumber());
+        transaction.setIdempotencyKey(normalizedKey);
         transaction.setIssuedAt(now);
         transaction.setItems(copyItems(request.getItems()));
         transaction.setProjectId(request.getProjectId());
@@ -111,6 +129,18 @@ public class OutwardIssueService {
         return copy;
     }
 
+    private String normalizeIdempotencyKey(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            return null;
+        }
+        String normalized = idempotencyKey.trim();
+        if (normalized.length() > 128) {
+            throw new OutwardException("OUTWARD_IDEMPOTENCY_KEY_INVALID",
+                    "Idempotency-Key must not exceed 128 characters");
+        }
+        return normalized;
+    }
+
     private String authenticatedName(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()
                 || authentication.getName() == null || authentication.getName().isBlank()) {
@@ -124,7 +154,7 @@ public class OutwardIssueService {
                 .map(item -> new OutwardItemResponse(item.getItemId(), item.getQuantity()))
                 .toList();
         return new OutwardIssueTransactionResponse(
-                entity.getId(), entity.getOutwardNumber(), entity.getIssuedAt(), items,
+                entity.getId(), entity.getOutwardNumber(), entity.getIdempotencyKey(), entity.getIssuedAt(), items,
                 entity.getProjectId(), entity.getRequestedBy(), entity.getDepartmentName(),
                 entity.getRecipientEmployeeId(), entity.getRecipientEmployeeName(),
                 entity.getIssuerId(), entity.getApproverId(), entity.getPurpose(),

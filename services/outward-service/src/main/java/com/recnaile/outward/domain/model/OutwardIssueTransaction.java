@@ -23,6 +23,9 @@ public class OutwardIssueTransaction {
     @Indexed(unique = true)
     private String outwardNumber;
 
+    @Indexed(unique = true, sparse = true)
+    private String idempotencyKey;
+
     @NotNull
     private Instant issuedAt;
 
@@ -68,6 +71,8 @@ public class OutwardIssueTransaction {
     public void setId(String id) { this.id = id; }
     public String getOutwardNumber() { return outwardNumber; }
     public void setOutwardNumber(String outwardNumber) { this.outwardNumber = outwardNumber; }
+    public String getIdempotencyKey() { return idempotencyKey; }
+    public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
     public Instant getIssuedAt() { return issuedAt; }
     public void setIssuedAt(Instant issuedAt) { this.issuedAt = issuedAt; }
     public List<OutwardItem> getItems() { return items; }

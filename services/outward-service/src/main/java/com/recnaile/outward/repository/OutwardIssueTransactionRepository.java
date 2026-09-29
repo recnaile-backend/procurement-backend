@@ -7,4 +7,6 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 public interface OutwardIssueTransactionRepository extends MongoRepository<OutwardIssueTransaction, String> {
 
     Optional<OutwardIssueTransaction> findByOutwardNumber(String outwardNumber);
+
+    Optional<OutwardIssueTransaction> findByIdempotencyKey(String idempotencyKey);
 }

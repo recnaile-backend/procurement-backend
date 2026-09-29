@@ -84,3 +84,16 @@ The service now supports issuing an approved outward request:
 - This phase does not modify inventory MongoDB and does not publish `OUTWARD_ISSUED`; those are later integration responsibilities.
 
 Issue errors include `OUTWARD_NOT_APPROVED`, `OUTWARD_ALREADY_ISSUED`, `OUTWARD_CONCURRENT_MODIFICATION`, and `OUTWARD_NUMBER_REQUIRED`.
+
+## Phase 08 — Idempotency & Optimistic Concurrency
+
+The issue endpoint accepts an optional `Idempotency-Key` header. When supplied, the key is persisted on the issue transaction with a sparse unique MongoDB index. Retrying the same key for the same outward request returns the original issue transaction; reusing the key for another outward request is rejected. When omitted, the issue is processed normally without idempotency-key replay protection. The outward request continues to use optimistic locking through `@Version`, and concurrent modifications are returned as `OUTWARD_CONCURRENT_MODIFICATION`.
+
+Example:
+```http
+POST /api/v1/outward/OUT%2F26-27%2F001/issue
+Authorization: Bearer <jwt>
+Idempotency-Key: issue-OUT-001-20260929
+```
+
+Phase 08 still does not publish `OUTWARD_ISSUED` or directly update inventory. Those responsibilities remain in later phases.

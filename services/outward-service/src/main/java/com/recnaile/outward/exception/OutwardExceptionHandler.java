@@ -22,7 +22,8 @@ public class OutwardExceptionHandler {
             case "OUTWARD_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "OUTWARD_APPROVAL_ROLE_NOT_ALLOWED", "OUTWARD_REQUEST_OWNER_REQUIRED" -> HttpStatus.FORBIDDEN;
             case "AUTHENTICATION_REQUIRED" -> HttpStatus.UNAUTHORIZED;
-            case "OUTWARD_CONCURRENT_MODIFICATION", "OUTWARD_NOT_APPROVED", "OUTWARD_ALREADY_ISSUED" -> HttpStatus.CONFLICT;
+            case "OUTWARD_CONCURRENT_MODIFICATION", "OUTWARD_NOT_APPROVED", "OUTWARD_ALREADY_ISSUED",
+                    "OUTWARD_IDEMPOTENCY_KEY_REUSED" -> HttpStatus.CONFLICT;
             default -> HttpStatus.BAD_REQUEST;
         };
         return error(status, ex.getCode(), ex.getMessage(), request);

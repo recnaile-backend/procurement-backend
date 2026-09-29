@@ -6,6 +6,7 @@ import java.util.List;
 public record OutwardIssueTransactionResponse(
         String id,
         String outwardNumber,
+        String idempotencyKey,
         Instant issuedAt,
         List<OutwardItemResponse> items,
         String projectId,
