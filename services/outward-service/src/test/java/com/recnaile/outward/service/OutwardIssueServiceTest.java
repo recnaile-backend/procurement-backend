@@ -13,6 +13,7 @@ import com.recnaile.outward.dto.OutwardIssueTransactionResponse;
 import com.recnaile.outward.exception.OutwardException;
 import com.recnaile.outward.repository.OutwardIssueTransactionRepository;
 import com.recnaile.outward.repository.OutwardRequestRepository;
+import com.recnaile.outward.outbox.TransactionalOutboxService;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -34,13 +35,14 @@ class OutwardIssueServiceTest {
     @Mock OutwardIssueTransactionRepository issueRepository;
     @Mock OutwardStateMachine stateMachine;
     @Mock Authentication authentication;
+    @Mock TransactionalOutboxService outboxService;
 
     private OutwardIssueService service;
     private final Instant fixed = Instant.parse("2026-09-26T10:00:00Z");
 
     @BeforeEach
     void setUp() {
-        service = new OutwardIssueService(requestRepository, issueRepository, stateMachine,
+        service = new OutwardIssueService(requestRepository, issueRepository, stateMachine, outboxService,
                 Clock.fixed(fixed, ZoneOffset.UTC));
     }
 
@@ -65,6 +67,7 @@ class OutwardIssueServiceTest {
         assertEquals(OutwardStatus.ISSUED, request.getStatus());
         verify(issueRepository).save(any(OutwardIssueTransaction.class));
         verify(requestRepository).save(request);
+        verify(outboxService).enqueueOutwardIssued(any(OutwardIssueTransaction.class));
     }
 
     @Test
@@ -94,6 +97,7 @@ class OutwardIssueServiceTest {
         assertEquals("issue-key-replay", response.idempotencyKey());
         verifyNoInteractions(requestRepository);
         verify(issueRepository, never()).save(any());
+        verifyNoInteractions(outboxService);
     }
 
     @Test
@@ -131,6 +135,7 @@ class OutwardIssueServiceTest {
         assertEquals(OutwardStatus.ISSUED, request.getStatus());
         verify(issueRepository, never()).findByIdempotencyKey(any());
         verify(issueRepository).save(any(OutwardIssueTransaction.class));
+        verify(outboxService).enqueueOutwardIssued(any(OutwardIssueTransaction.class));
     }
 
     @Test
@@ -182,6 +187,7 @@ class OutwardIssueServiceTest {
 
         assertEquals("OUTWARD_ALREADY_ISSUED", ex.getCode());
         verify(issueRepository, never()).save(any());
+        verifyNoInteractions(outboxService);
     }
 
     private OutwardRequest approvedRequest() {

@@ -1,4 +1,4 @@
-# Outward Service — Master Data Validation
+# Outward Service
 
 This version adds synchronous Master Data validation to the outward request workflow.
 
@@ -97,3 +97,9 @@ Idempotency-Key: issue-OUT-001-20260929
 ```
 
 Phase 08 still does not publish `OUTWARD_ISSUED` or directly update inventory. Those responsibilities remain in later phases.
+
+## Phase 09 — Transactional Outbox
+
+The issue workflow now records the integration event in an `outbox_events` collection within the same MongoDB transaction as the issue transaction and `APPROVED -> ISSUED` state transition. The event is stored as `PENDING` and contains a versioned `OUTWARD_ISSUED` JSON payload with the outward number, issuer, approver, recipient, department, project, purpose, asset-tracked flag and issued items.
+
+This phase deliberately does not publish to Kafka or start an outbox polling publisher. Phase 10 will consume pending outbox records and publish the `OUTWARD_ISSUED` Kafka event. If the outbox write fails, the enclosing transaction fails rather than leaving an issued business record without its durable event record.

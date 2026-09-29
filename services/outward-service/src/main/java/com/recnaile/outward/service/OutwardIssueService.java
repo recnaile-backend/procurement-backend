@@ -9,6 +9,7 @@ import com.recnaile.outward.dto.OutwardItemResponse;
 import com.recnaile.outward.exception.OutwardException;
 import com.recnaile.outward.repository.OutwardIssueTransactionRepository;
 import com.recnaile.outward.repository.OutwardRequestRepository;
+import com.recnaile.outward.outbox.TransactionalOutboxService;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,22 +27,26 @@ public class OutwardIssueService {
     private final OutwardRequestRepository requestRepository;
     private final OutwardIssueTransactionRepository issueRepository;
     private final OutwardStateMachine stateMachine;
+    private final TransactionalOutboxService outboxService;
     private final Clock clock;
 
     @Autowired
     public OutwardIssueService(OutwardRequestRepository requestRepository,
                                OutwardIssueTransactionRepository issueRepository,
-                               OutwardStateMachine stateMachine) {
-        this(requestRepository, issueRepository, stateMachine, Clock.systemUTC());
+                               OutwardStateMachine stateMachine,
+                               TransactionalOutboxService outboxService) {
+        this(requestRepository, issueRepository, stateMachine, outboxService, Clock.systemUTC());
     }
 
     OutwardIssueService(OutwardRequestRepository requestRepository,
                         OutwardIssueTransactionRepository issueRepository,
                         OutwardStateMachine stateMachine,
+                        TransactionalOutboxService outboxService,
                         Clock clock) {
         this.requestRepository = requestRepository;
         this.issueRepository = issueRepository;
         this.stateMachine = stateMachine;
+        this.outboxService = outboxService;
         this.clock = clock;
     }
 
@@ -103,6 +108,7 @@ public class OutwardIssueService {
             request.setStatus(stateMachine.transition(request.getStatus(), OutwardStatus.ISSUED));
             request.setUpdatedAt(now);
             requestRepository.save(request);
+            outboxService.enqueueOutwardIssued(saved);
             return toResponse(saved);
         } catch (DuplicateKeyException ex) {
             throw new OutwardException("OUTWARD_ALREADY_ISSUED",
