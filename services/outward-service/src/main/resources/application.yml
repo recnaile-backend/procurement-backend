@@ -32,6 +32,13 @@ otel:
       endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
 
 app:
+  kafka:
+    topics:
+      outward-issued: ${OUTWARD_ISSUED_TOPIC:outward.events}
+    publisher:
+      fixed-delay-ms: ${OUTBOX_PUBLISHER_FIXED_DELAY_MS:1000}
+      send-timeout-ms: ${OUTBOX_PUBLISHER_SEND_TIMEOUT_MS:5000}
+      max-attempts: ${OUTBOX_PUBLISHER_MAX_ATTEMPTS:10}
   security:
     jwt:
       jwk-set-uri: ${APP_SECURITY_JWT_JWK_SET_URI:http://auth-service:8081/oauth2/jwks}
