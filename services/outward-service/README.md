@@ -179,3 +179,49 @@ Then:
 ```powershell
 .\gradlew :services:outward-service:clean :services:outward-service:build
 ```
+
+
+## Phase 14 — Testing & OpenAPI
+
+### API response and error contract
+
+See [`docs/api-response-and-error-documentation.md`](docs/api-response-and-error-documentation.md) for the complete success-response schemas, endpoint response matrix, standard error schema, security error shape, error-code catalogue and client handling rules.
+
+Phase 14 hardens the outward service test and API contract surface without changing the business workflow.
+
+### Test coverage
+
+The test suite covers the implemented state machine, request creation, approval/rejection, issue transaction, idempotency, optimistic concurrency, Master Data validation, transactional outbox, audit/notification hooks, exception mapping and OpenAPI documentation contract.
+
+### OpenAPI / Swagger
+
+OpenAPI metadata now documents:
+
+- JWT bearer authentication security scheme (`bearerAuth`).
+- Create, submit, approve, reject and issue endpoints.
+- Success and common error responses.
+- Request/response DTO schemas and useful examples.
+- Optional `Idempotency-Key` semantics on the issue endpoint.
+- URL-encoded outward number convention, for example `OUT%2F26-27%2F001`.
+
+Swagger UI is available at `/swagger-ui/index.html` and the generated OpenAPI document at `/v3/api-docs`.
+
+### Verification
+
+From the repository root:
+
+```powershell
+.\gradlew :services:outward-service:clean :services:outward-service:test
+```
+
+Then:
+
+```powershell
+.\gradlew :services:outward-service:clean :services:outward-service:build
+```
+
+Full repository build:
+
+```powershell
+.\gradlew clean build
+```
