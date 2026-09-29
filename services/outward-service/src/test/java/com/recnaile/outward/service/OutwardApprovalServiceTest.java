@@ -32,13 +32,14 @@ class OutwardApprovalServiceTest {
     @Mock OutwardStateMachine stateMachine;
     @Mock ApprovalPolicy approvalPolicy;
     @Mock com.recnaile.outward.outbox.AuditEventService auditEventService;
+    @Mock com.recnaile.outward.outbox.NotificationEventService notificationEventService;
 
     private OutwardApprovalService service;
     private final Instant now = Instant.parse("2026-09-26T05:00:00Z");
 
     @BeforeEach
     void setUp() {
-        service = new OutwardApprovalService(repository, stateMachine, approvalPolicy, auditEventService,
+        service = new OutwardApprovalService(repository, stateMachine, approvalPolicy, auditEventService, notificationEventService,
                 Clock.fixed(now, ZoneOffset.UTC));
     }
 
@@ -66,6 +67,8 @@ class OutwardApprovalServiceTest {
         assertEquals(OutwardStatus.APPROVED, response.status());
         assertEquals("TL-1", response.approvedBy());
         assertEquals(now, response.approvedAt());
+        org.mockito.Mockito.verify(notificationEventService).notifyApproval(
+                "OUT%2F26-27%2F001", "EMP-1", authentication);
     }
 
     @Test
@@ -83,6 +86,8 @@ class OutwardApprovalServiceTest {
         assertEquals("MD-1", response.rejectedBy());
         assertEquals("Insufficient justification", response.rejectionReason());
         assertEquals(now, response.rejectedAt());
+        org.mockito.Mockito.verify(notificationEventService).notifyRejection(
+                "OUT%2F26-27%2F001", "EMP-1", "Insufficient justification", authentication);
     }
 
     private OutwardRequest request(String requester, OutwardStatus status) {

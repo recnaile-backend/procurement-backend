@@ -118,3 +118,14 @@ The audit payload carries event identity, entity, action, actor, role, timestamp
 Audit events are published to the configurable `audit.events` Kafka topic. No audit update/delete API is exposed by outward-service.
 
 Configuration: `AUDIT_EVENTS_TOPIC` (default `audit.events`).
+
+
+## Phase 12 — Notification Hooks
+
+The outward service emits notification-triggering business events for approval and rejection through the transactional outbox. The separate `notification-service` owns notification persistence and delivery. Outward-service does not access `notificationdb` or implement notification delivery.
+
+Events:
+- `OUTWARD_APPROVED`
+- `OUTWARD_REJECTED`
+
+Topic: `${NOTIFICATION_EVENTS_TOPIC:notification.events}`

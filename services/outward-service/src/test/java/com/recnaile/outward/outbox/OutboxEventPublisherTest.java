@@ -20,7 +20,7 @@ class OutboxEventPublisherTest {
     void publishUsesAuditTopicForAuditEvents() {
         OutboxEventRepository repository = mock(OutboxEventRepository.class);
         KafkaTemplate<String, String> kafka = mock(KafkaTemplate.class);
-        OutboxEventPublisher publisher = new OutboxEventPublisher(repository, kafka, "outward.events", "audit.events", 1000, 3,
+        OutboxEventPublisher publisher = new OutboxEventPublisher(repository, kafka, "outward.events", "audit.events", "notification.events", 1000, 3,
                 Clock.fixed(Instant.parse("2026-09-29T00:00:00Z"), ZoneOffset.UTC));
         OutboxEvent event = event(AuditEventService.AUDIT_EVENT, "OUT%2F26-27%2F001");
         RecordMetadata metadata = new RecordMetadata(new TopicPartition("audit.events", 0), 5, 1, 0L, 0, 0);
@@ -38,7 +38,7 @@ class OutboxEventPublisherTest {
     void publishUsesOutwardTopicForIssuedEvents() {
         OutboxEventRepository repository = mock(OutboxEventRepository.class);
         KafkaTemplate<String, String> kafka = mock(KafkaTemplate.class);
-        OutboxEventPublisher publisher = new OutboxEventPublisher(repository, kafka, "outward.events", "audit.events", 1000, 3, Clock.systemUTC());
+        OutboxEventPublisher publisher = new OutboxEventPublisher(repository, kafka, "outward.events", "audit.events", "notification.events", 1000, 3, Clock.systemUTC());
         OutboxEvent event = event(TransactionalOutboxService.OUTWARD_ISSUED, "OUT%2F26-27%2F001");
         when(kafka.send("outward.events", event.getAggregateId(), event.getPayload()))
                 .thenReturn(CompletableFuture.completedFuture(new SendResult<>(null,
@@ -51,10 +51,27 @@ class OutboxEventPublisherTest {
     }
 
     @Test
+    void publishUsesNotificationTopicForNotificationEvents() {
+        OutboxEventRepository repository = mock(OutboxEventRepository.class);
+        KafkaTemplate<String, String> kafka = mock(KafkaTemplate.class);
+        OutboxEventPublisher publisher = new OutboxEventPublisher(repository, kafka,
+                "outward.events", "audit.events", "notification.events", 1000, 3, Clock.systemUTC());
+        OutboxEvent event = event(TransactionalOutboxService.OUTWARD_APPROVED, "OUT%2F26-27%2F001");
+        when(kafka.send("notification.events", event.getAggregateId(), event.getPayload()))
+                .thenReturn(CompletableFuture.completedFuture(new SendResult<>(null,
+                        new RecordMetadata(new TopicPartition("notification.events", 0), 1, 1, 0L, 0, 0))));
+
+        publisher.publish(event);
+
+        verify(kafka).send("notification.events", event.getAggregateId(), event.getPayload());
+        assertEquals(OutboxEventStatus.PUBLISHED, event.getStatus());
+    }
+
+    @Test
     void publishKeepsPendingWhenKafkaFailsBeforeMaxAttempts() {
         OutboxEventRepository repository = mock(OutboxEventRepository.class);
         KafkaTemplate<String, String> kafka = mock(KafkaTemplate.class);
-        OutboxEventPublisher publisher = new OutboxEventPublisher(repository, kafka, "outward.events", "audit.events", 1000, 3, Clock.systemUTC());
+        OutboxEventPublisher publisher = new OutboxEventPublisher(repository, kafka, "outward.events", "audit.events", "notification.events", 1000, 3, Clock.systemUTC());
         OutboxEvent event = event(TransactionalOutboxService.OUTWARD_ISSUED, "OUT%2F26-27%2F001");
         CompletableFuture<SendResult<String, String>> failed = new CompletableFuture<>();
         failed.completeExceptionally(new IllegalStateException("broker unavailable"));

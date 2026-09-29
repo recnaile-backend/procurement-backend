@@ -12,6 +12,8 @@ public class TransactionalOutboxService {
 
     public static final String OUTWARD_ISSUED = "OUTWARD_ISSUED";
     public static final int EVENT_VERSION = 1;
+    public static final String OUTWARD_APPROVED = "OUTWARD_APPROVED";
+    public static final String OUTWARD_REJECTED = "OUTWARD_REJECTED";
 
     private final OutboxEventRepository repository;
     private final ObjectMapper objectMapper;
@@ -68,11 +70,33 @@ public class TransactionalOutboxService {
         return repository.save(event);
     }
 
+    public OutboxEvent enqueueNotification(NotificationEventPayload payload) {
+        OutboxEvent event = new OutboxEvent();
+        event.setEventId(payload.eventId());
+        event.setEventType(payload.eventType());
+        event.setAggregateType(payload.entityType());
+        event.setAggregateId(payload.entityId());
+        event.setPayload(toJson(payload));
+        event.setStatus(OutboxEventStatus.PENDING);
+        event.setOccurredAt(payload.occurredAt());
+        event.setCreatedAt(Instant.now());
+        event.setAttemptCount(0);
+        return repository.save(event);
+    }
+
     private String toJson(AuditEventPayload payload) {
         try {
             return objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("Unable to serialize audit outbox payload", ex);
+        }
+    }
+
+    private String toJson(NotificationEventPayload payload) {
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Unable to serialize notification outbox payload", ex);
         }
     }
 

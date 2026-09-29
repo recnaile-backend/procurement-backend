@@ -24,6 +24,7 @@ public class OutboxEventPublisher {
     private final Clock clock;
     private final String outwardIssuedTopic;
     private final String auditTopic;
+    private final String notificationTopic;
     private final long sendTimeoutMs;
     private final int maxAttempts;
 
@@ -32,15 +33,17 @@ public class OutboxEventPublisher {
                                 KafkaTemplate<String, String> kafkaTemplate,
                                 @Value("${app.kafka.topics.outward-issued:outward.events}") String outwardIssuedTopic,
                                 @Value("${app.kafka.topics.audit:audit.events}") String auditTopic,
+                                @Value("${app.kafka.topics.notification:notification.events}") String notificationTopic,
                                 @Value("${app.kafka.publisher.send-timeout-ms:5000}") long sendTimeoutMs,
                                 @Value("${app.kafka.publisher.max-attempts:10}") int maxAttempts) {
-        this(repository, kafkaTemplate, outwardIssuedTopic, auditTopic, sendTimeoutMs, maxAttempts, Clock.systemUTC());
+        this(repository, kafkaTemplate, outwardIssuedTopic, auditTopic, notificationTopic, sendTimeoutMs, maxAttempts, Clock.systemUTC());
     }
 
     OutboxEventPublisher(OutboxEventRepository repository,
                          KafkaTemplate<String, String> kafkaTemplate,
                          String outwardIssuedTopic,
                          String auditTopic,
+                         String notificationTopic,
                          long sendTimeoutMs,
                          int maxAttempts,
                          Clock clock) {
@@ -48,6 +51,7 @@ public class OutboxEventPublisher {
         this.kafkaTemplate = kafkaTemplate;
         this.outwardIssuedTopic = outwardIssuedTopic;
         this.auditTopic = auditTopic;
+        this.notificationTopic = notificationTopic;
         this.sendTimeoutMs = sendTimeoutMs;
         this.maxAttempts = maxAttempts;
         this.clock = clock;
@@ -94,6 +98,10 @@ public class OutboxEventPublisher {
     private String topicFor(String eventType) {
         if (AuditEventService.AUDIT_EVENT.equals(eventType)) {
             return auditTopic;
+        }
+        if (TransactionalOutboxService.OUTWARD_APPROVED.equals(eventType)
+                || TransactionalOutboxService.OUTWARD_REJECTED.equals(eventType)) {
+            return notificationTopic;
         }
         return outwardIssuedTopic;
     }

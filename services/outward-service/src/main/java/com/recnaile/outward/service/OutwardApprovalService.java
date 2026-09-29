@@ -23,25 +23,29 @@ public class OutwardApprovalService {
     private final OutwardStateMachine stateMachine;
     private final ApprovalPolicy approvalPolicy;
     private final com.recnaile.outward.outbox.AuditEventService auditEventService;
+    private final com.recnaile.outward.outbox.NotificationEventService notificationEventService;
     private final Clock clock;
 
     @Autowired
     public OutwardApprovalService(OutwardRequestRepository repository,
                                   OutwardStateMachine stateMachine,
                                   ApprovalPolicy approvalPolicy,
-                                  com.recnaile.outward.outbox.AuditEventService auditEventService) {
-        this(repository, stateMachine, approvalPolicy, auditEventService, Clock.systemUTC());
+                                  com.recnaile.outward.outbox.AuditEventService auditEventService,
+                                  com.recnaile.outward.outbox.NotificationEventService notificationEventService) {
+        this(repository, stateMachine, approvalPolicy, auditEventService, notificationEventService, Clock.systemUTC());
     }
 
     OutwardApprovalService(OutwardRequestRepository repository,
                            OutwardStateMachine stateMachine,
                            ApprovalPolicy approvalPolicy,
                            com.recnaile.outward.outbox.AuditEventService auditEventService,
+                           com.recnaile.outward.outbox.NotificationEventService notificationEventService,
                            Clock clock) {
         this.repository = repository;
         this.stateMachine = stateMachine;
         this.approvalPolicy = approvalPolicy;
         this.auditEventService = auditEventService;
+        this.notificationEventService = notificationEventService;
         this.clock = clock;
     }
 
@@ -76,6 +80,7 @@ public class OutwardApprovalService {
         OutwardResponse response = save(request, Instant.now(clock));
         auditEventService.record("OUTWARD_REQUEST", request.getOutwardNumber(), "APPROVE",
                 authentication, before.name(), request.getStatus().name(), null);
+        notificationEventService.notifyApproval(request.getOutwardNumber(), request.getRequestedBy(), authentication);
         return response;
     }
 
@@ -94,6 +99,8 @@ public class OutwardApprovalService {
         OutwardResponse response = save(request, Instant.now(clock));
         auditEventService.record("OUTWARD_REQUEST", request.getOutwardNumber(), "REJECT",
                 authentication, before.name(), request.getStatus().name(), request.getRejectionReason());
+        notificationEventService.notifyRejection(request.getOutwardNumber(), request.getRequestedBy(),
+                request.getRejectionReason(), authentication);
         return response;
     }
 
