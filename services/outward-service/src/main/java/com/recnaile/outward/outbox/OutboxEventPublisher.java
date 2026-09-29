@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import io.micrometer.observation.annotation.Observed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +58,7 @@ public class OutboxEventPublisher {
         this.clock = clock;
     }
 
+    @Observed(name = "outward.outbox.publish.batch", contextualName = "publish-outbox-batch")
     @Scheduled(fixedDelayString = "${app.kafka.publisher.fixed-delay-ms:1000}")
     public void publishPendingEvents() {
         List<OutboxEvent> events = repository.findTop100ByStatusOrderByCreatedAtAsc(OutboxEventStatus.PENDING);

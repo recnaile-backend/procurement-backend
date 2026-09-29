@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import io.micrometer.observation.annotation.Observed;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -58,6 +59,7 @@ public class OutwardIssueService {
         return issue(outwardNumber, null, authentication);
     }
 
+    @Observed(name = "outward.request.issue", contextualName = "issue-outward-request")
     @Transactional
     public OutwardIssueTransactionResponse issue(String outwardNumber, String idempotencyKey, Authentication authentication) {
         String issuerId = authenticatedName(authentication);

@@ -1,5 +1,6 @@
 package com.recnaile.outward.client.masterdata;
 
+import io.micrometer.observation.annotation.Observed;
 import com.recnaile.outward.exception.DownstreamServiceException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -23,6 +24,7 @@ public class MasterDataClient {
         this.baseUrl = baseUrl;
     }
 
+    @Observed(name = "outward.master-data.item", contextualName = "get-master-data-item")
     public ItemResponse getItem(String itemId) {
         try {
             return restClient.get()
@@ -39,6 +41,7 @@ public class MasterDataClient {
         }
     }
 
+    @Observed(name = "outward.master-data.departments", contextualName = "get-master-data-departments")
     public List<DepartmentResponse> getDepartments() {
         try {
             DepartmentResponse[] response = restClient.get()
@@ -51,6 +54,7 @@ public class MasterDataClient {
         }
     }
 
+    @Observed(name = "outward.master-data.project", contextualName = "get-master-data-project")
     public ProjectResponse getProject(String projectId) {
         try {
             return restClient.get()

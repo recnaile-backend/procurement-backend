@@ -1,5 +1,6 @@
 package com.recnaile.outward.service;
 
+import io.micrometer.observation.annotation.Observed;
 import com.recnaile.outward.client.masterdata.DepartmentResponse;
 import com.recnaile.outward.client.masterdata.ItemResponse;
 import com.recnaile.outward.client.masterdata.MasterDataClient;
@@ -22,6 +23,7 @@ public class MasterDataValidationService {
         this.masterDataClient = masterDataClient;
     }
 
+    @Observed(name = "outward.master-data.validate", contextualName = "validate-master-data")
     public ValidationResult validate(CreateOutwardRequest request) {
         validateDepartment(request.getDepartmentName());
         validateProject(request.getProjectId());

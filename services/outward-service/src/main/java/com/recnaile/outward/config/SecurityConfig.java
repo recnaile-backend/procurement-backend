@@ -7,6 +7,7 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -111,7 +112,10 @@ public class SecurityConfig {
 
     private void writeSecurityError(HttpServletRequest request, HttpServletResponse response,
                                     int status, String code, String message) throws IOException {
-        String traceId = request.getHeader("X-Correlation-Id");
+        String traceId = MDC.get("traceId");
+        if (traceId == null || traceId.isBlank()) {
+            traceId = request.getHeader("X-Correlation-Id");
+        }
         if (traceId == null || traceId.isBlank()) {
             traceId = "unknown";
         }

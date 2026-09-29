@@ -129,3 +129,53 @@ Events:
 - `OUTWARD_REJECTED`
 
 Topic: `${NOTIFICATION_EVENTS_TOPIC:notification.events}`
+
+
+## Phase 13 — Observability
+
+The outward service now exposes production observability through Spring Boot Actuator, Micrometer, Prometheus, Micrometer tracing and OpenTelemetry.
+
+### Metrics and observations
+
+Business operations are instrumented with Micrometer observations for:
+
+- outward request creation
+- outward submission
+- approval
+- rejection
+- issue transaction
+- Master Data validation and downstream lookups
+- transactional outbox publishing batches
+
+Prometheus metrics are available at `/actuator/prometheus`; the generic metrics endpoint is `/actuator/metrics`.
+
+### Tracing
+
+- W3C trace propagation is enabled.
+- REST calls to Master Data continue to propagate `traceparent` and `X-Correlation-Id`.
+- Kafka template observation is enabled so producer spans can participate in distributed tracing.
+- OTLP export is configurable with `OTEL_EXPORTER_OTLP_ENDPOINT`.
+
+### Correlation and logs
+
+Every HTTP request gets an `X-Correlation-Id` when one is not supplied. The value is returned in the response and stored in MDC. Console logs include `traceId`, `spanId`, and `correlationId`.
+
+Sensitive authentication material such as bearer tokens is not logged.
+
+### Health and readiness
+
+Actuator health probes are enabled, including liveness/readiness endpoints under `/actuator/health/**`.
+
+### Verification
+
+From the repository root:
+
+```powershell
+.\gradlew :services:outward-service:clean :services:outward-service:test
+```
+
+Then:
+
+```powershell
+.\gradlew :services:outward-service:clean :services:outward-service:build
+```

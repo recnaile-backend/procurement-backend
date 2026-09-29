@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
+import io.micrometer.observation.annotation.Observed;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -51,6 +52,7 @@ public class OutwardRequestService {
         return create(request, requestedBy, null);
     }
 
+    @Observed(name = "outward.request.create", contextualName = "create-outward-request")
     @Transactional
     public OutwardResponse create(CreateOutwardRequest request, String requestedBy, Authentication authentication) {
         if (requestedBy == null || requestedBy.isBlank()) {

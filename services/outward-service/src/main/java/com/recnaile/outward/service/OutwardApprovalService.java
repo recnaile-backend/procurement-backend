@@ -10,6 +10,7 @@ import com.recnaile.outward.repository.OutwardRequestRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import io.micrometer.observation.annotation.Observed;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.core.Authentication;
@@ -49,6 +50,7 @@ public class OutwardApprovalService {
         this.clock = clock;
     }
 
+    @Observed(name = "outward.request.submit", contextualName = "submit-outward-request")
     @Transactional
     public OutwardResponse submit(String outwardNumber, Authentication authentication) {
         String actor = authenticatedName(authentication);
@@ -65,6 +67,7 @@ public class OutwardApprovalService {
         return response;
     }
 
+    @Observed(name = "outward.request.approve", contextualName = "approve-outward-request")
     @Transactional
     public OutwardResponse approve(String outwardNumber, Authentication authentication) {
         String actor = authenticatedName(authentication);
@@ -84,6 +87,7 @@ public class OutwardApprovalService {
         return response;
     }
 
+    @Observed(name = "outward.request.reject", contextualName = "reject-outward-request")
     @Transactional
     public OutwardResponse reject(String outwardNumber, String reason, Authentication authentication) {
         String actor = authenticatedName(authentication);
