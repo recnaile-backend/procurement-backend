@@ -46,6 +46,6 @@ public class OutwardIssueController {
         if (authentication == null || !authentication.isAuthenticated() || authentication instanceof AnonymousAuthenticationToken) {
             return ResponseEntity.status(401).build();
         }
-        return ResponseEntity.ok(service.issue(outwardNumber, idempotencyKey, authentication));
+        return ResponseEntity.ok(service.issue(OutwardNumberPath.normalize(outwardNumber), idempotencyKey, authentication));
     }
 }

@@ -32,6 +32,9 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.firewall.HttpFirewall;
+import org.springframework.security.web.firewall.StrictHttpFirewall;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.web.access.AccessDeniedHandler;
 
 @Configuration
@@ -44,6 +47,29 @@ public class SecurityConfig {
             "/actuator/health", "/actuator/health/**", "/actuator/info",
             "/actuator/prometheus", "/actuator/metrics"
     };
+
+    /**
+     * The outward number is intentionally stored as a URL-encoded identifier,
+     * for example OUT%2F26-27%2F001. Swagger URL-encodes the path variable a
+     * second time, producing %252F. Spring Security's default firewall rejects
+     * encoded percent/slash characters before the controller is reached.
+     *
+     * This service explicitly requires this identifier format, so only the
+     * relevant encoded characters are relaxed here. All other firewall checks
+     * remain enabled.
+     */
+    @Bean
+    public HttpFirewall outwardHttpFirewall() {
+        StrictHttpFirewall firewall = new StrictHttpFirewall();
+        firewall.setAllowUrlEncodedPercent(true);
+        firewall.setAllowUrlEncodedSlash(true);
+        return firewall;
+    }
+
+    @Bean
+    WebSecurityCustomizer webSecurityCustomizer(HttpFirewall outwardHttpFirewall) {
+        return web -> web.httpFirewall(outwardHttpFirewall);
+    }
 
     @Bean
     SecurityFilterChain securityFilterChain(

@@ -38,7 +38,7 @@ public class OutwardApprovalController {
             @ApiResponse(responseCode = "409", description = "Invalid state or concurrent modification", content = @Content(schema = @Schema(implementation = ApiError.class)))})
     @PostMapping("/{outwardNumber}/submit")
     public ResponseEntity<OutwardResponse> submit(@PathVariable String outwardNumber, Authentication authentication) {
-        return ResponseEntity.ok(service.submit(outwardNumber, requireAuthentication(authentication)));
+        return ResponseEntity.ok(service.submit(OutwardNumberPath.normalize(outwardNumber), requireAuthentication(authentication)));
     }
 
     @Operation(summary = "Approve an outward request", description = "Changes a PENDING_APPROVAL request to APPROVED when the authenticated user has a configured approval role.")
@@ -50,7 +50,7 @@ public class OutwardApprovalController {
             @ApiResponse(responseCode = "409", description = "Invalid state or concurrent modification", content = @Content(schema = @Schema(implementation = ApiError.class)))})
     @PostMapping("/{outwardNumber}/approve")
     public ResponseEntity<OutwardResponse> approve(@PathVariable String outwardNumber, Authentication authentication) {
-        return ResponseEntity.ok(service.approve(outwardNumber, requireAuthentication(authentication)));
+        return ResponseEntity.ok(service.approve(OutwardNumberPath.normalize(outwardNumber), requireAuthentication(authentication)));
     }
 
     @Operation(summary = "Reject an outward request", description = "Changes a PENDING_APPROVAL request to REJECTED and records the rejection reason when supplied.")
@@ -68,7 +68,7 @@ public class OutwardApprovalController {
             @Valid @RequestBody(required = false) RejectOutwardRequest request,
             Authentication authentication) {
         String reason = request == null ? null : request.getReason();
-        return ResponseEntity.ok(service.reject(outwardNumber, reason, requireAuthentication(authentication)));
+        return ResponseEntity.ok(service.reject(OutwardNumberPath.normalize(outwardNumber), reason, requireAuthentication(authentication)));
     }
 
     private Authentication requireAuthentication(Authentication authentication) {
