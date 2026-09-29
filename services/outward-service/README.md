@@ -1,3 +1,12 @@
+
+## Get all outward requests and department-scoped approval
+
+- `GET /api/v1/outward` returns all outward requests ordered by `requestedAt` descending.
+- `MD` has full access to outward APIs, including approval and rejection across all departments.
+- `TL` can approve or reject only when the department in the authenticated JWT matches the outward request `departmentName` (case-insensitive).
+- The default JWT department claim is `departmentName`; override with `OUTWARD_APPROVAL_DEPARTMENT_CLAIM` if the auth service uses a different claim.
+- A cross-department TL attempt returns `OUTWARD_APPROVAL_DEPARTMENT_MISMATCH`. A TL token without a department claim returns `OUTWARD_APPROVAL_DEPARTMENT_REQUIRED`.
+
 # Outward Service
 
 This version adds synchronous Master Data validation to the outward request workflow.

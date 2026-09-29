@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import java.lang.reflect.Method;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -33,10 +34,27 @@ class OpenApiContractTest {
     @Test
     void documentsAllOutwardPostOperations() {
         assertOperation(OutwardRequestController.class, "create", "/api/v1/outward");
+        assertGetOperation(OutwardRequestController.class, "getAll", "/api/v1/outward");
         assertOperation(OutwardApprovalController.class, "submit", "/api/v1/outward/{outwardNumber}/submit");
         assertOperation(OutwardApprovalController.class, "approve", "/api/v1/outward/{outwardNumber}/approve");
         assertOperation(OutwardApprovalController.class, "reject", "/api/v1/outward/{outwardNumber}/reject");
         assertOperation(OutwardIssueController.class, "issue", "/api/v1/outward/{outwardNumber}/issue");
+    }
+
+    private void assertGetOperation(Class<?> controller, String methodName, String expectedPath) {
+        Method method = java.util.Arrays.stream(controller.getDeclaredMethods())
+                .filter(m -> m.getName().equals(methodName))
+                .findFirst()
+                .orElseThrow();
+        assertNotNull(method.getAnnotation(Operation.class));
+        GetMapping mapping = method.getAnnotation(GetMapping.class);
+        assertNotNull(mapping);
+        RequestMapping controllerMapping = controller.getAnnotation(RequestMapping.class);
+        assertNotNull(controllerMapping);
+        String controllerPath = firstPath(controllerMapping.path(), controllerMapping.value());
+        String methodPath = firstPath(mapping.path(), mapping.value());
+        assertEquals(controllerPath + methodPath, expectedPath);
+        assertTrue(controller.isAnnotationPresent(SecurityRequirement.class));
     }
 
     private void assertOperation(Class<?> controller, String methodName, String expectedPath) {

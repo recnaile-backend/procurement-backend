@@ -87,6 +87,14 @@ public class OutwardRequestService {
         return toResponse(saved);
     }
 
+    @Observed(name = "outward.request.get.all", contextualName = "get-all-outward-requests")
+    @Transactional(readOnly = true)
+    public List<OutwardResponse> getAll() {
+        return repository.findAllByOrderByRequestedAtDesc().stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     private OutwardResponse toResponse(OutwardRequest entity) {
         List<OutwardItemResponse> items = entity.getItems().stream()
                 .map(item -> new OutwardItemResponse(item.getItemId(), item.getQuantity()))

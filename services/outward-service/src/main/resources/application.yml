@@ -83,6 +83,7 @@ app:
       issuer-uri: ${JWT_ISSUER:auth-service}
       secret-key: ${JWT_SECRET_KEY}
   authorization:
+    department-claim: ${OUTWARD_APPROVAL_DEPARTMENT_CLAIM:departmentName}
     approval-roles: ${OUTWARD_APPROVAL_ROLES:TL,MD}
   observability:
     correlation-header: ${CORRELATION_HEADER:X-Correlation-Id}

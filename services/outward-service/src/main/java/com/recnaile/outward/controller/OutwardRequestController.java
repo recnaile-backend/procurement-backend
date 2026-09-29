@@ -16,10 +16,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/outward")
@@ -31,6 +33,18 @@ public class OutwardRequestController {
 
     public OutwardRequestController(OutwardRequestService service) {
         this.service = service;
+    }
+
+    @Operation(
+            summary = "Get all outward requests",
+            description = "Returns all outward requests ordered by requested time descending. Access is authenticated; MD has full access, while TL approval/rejection is restricted to requests from the same department.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Outward requests retrieved"),
+            @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiError.class)))
+    })
+    @GetMapping
+    public ResponseEntity<List<OutwardResponse>> getAll() {
+        return ResponseEntity.ok(service.getAll());
     }
 
     @Operation(

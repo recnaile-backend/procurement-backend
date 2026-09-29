@@ -71,8 +71,8 @@ public class OutwardApprovalService {
     @Transactional
     public OutwardResponse approve(String outwardNumber, Authentication authentication) {
         String actor = authenticatedName(authentication);
-        approvalPolicy.validate(authentication);
         OutwardRequest request = find(outwardNumber);
+        approvalPolicy.validate(authentication, request);
         OutwardStatus before = request.getStatus();
         request.setStatus(stateMachine.transition(before, OutwardStatus.APPROVED));
         request.setApprovedBy(actor);
@@ -91,8 +91,8 @@ public class OutwardApprovalService {
     @Transactional
     public OutwardResponse reject(String outwardNumber, String reason, Authentication authentication) {
         String actor = authenticatedName(authentication);
-        approvalPolicy.validate(authentication);
         OutwardRequest request = find(outwardNumber);
+        approvalPolicy.validate(authentication, request);
         OutwardStatus before = request.getStatus();
         request.setStatus(stateMachine.transition(before, OutwardStatus.REJECTED));
         request.setRejectedBy(actor);
