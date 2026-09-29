@@ -22,28 +22,32 @@ public class OutboxEventPublisher {
     private final OutboxEventRepository repository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final Clock clock;
-    private final String topic;
+    private final String outwardIssuedTopic;
+    private final String auditTopic;
     private final long sendTimeoutMs;
     private final int maxAttempts;
 
     @Autowired
     public OutboxEventPublisher(OutboxEventRepository repository,
                                 KafkaTemplate<String, String> kafkaTemplate,
-                                @Value("${app.kafka.topics.outward-issued:outward.events}") String topic,
+                                @Value("${app.kafka.topics.outward-issued:outward.events}") String outwardIssuedTopic,
+                                @Value("${app.kafka.topics.audit:audit.events}") String auditTopic,
                                 @Value("${app.kafka.publisher.send-timeout-ms:5000}") long sendTimeoutMs,
                                 @Value("${app.kafka.publisher.max-attempts:10}") int maxAttempts) {
-        this(repository, kafkaTemplate, topic, sendTimeoutMs, maxAttempts, Clock.systemUTC());
+        this(repository, kafkaTemplate, outwardIssuedTopic, auditTopic, sendTimeoutMs, maxAttempts, Clock.systemUTC());
     }
 
     OutboxEventPublisher(OutboxEventRepository repository,
                          KafkaTemplate<String, String> kafkaTemplate,
-                         String topic,
+                         String outwardIssuedTopic,
+                         String auditTopic,
                          long sendTimeoutMs,
                          int maxAttempts,
                          Clock clock) {
         this.repository = repository;
         this.kafkaTemplate = kafkaTemplate;
-        this.topic = topic;
+        this.outwardIssuedTopic = outwardIssuedTopic;
+        this.auditTopic = auditTopic;
         this.sendTimeoutMs = sendTimeoutMs;
         this.maxAttempts = maxAttempts;
         this.clock = clock;
@@ -66,6 +70,7 @@ public class OutboxEventPublisher {
         repository.save(event);
 
         try {
+            String topic = topicFor(event.getEventType());
             SendResult<String, String> result = kafkaTemplate.send(topic, event.getAggregateId(), event.getPayload())
                     .get(sendTimeoutMs, TimeUnit.MILLISECONDS);
             RecordMetadata metadata = result.getRecordMetadata();
@@ -84,6 +89,13 @@ public class OutboxEventPublisher {
             log.warn("Failed to publish outbox event eventId={} attempt={} status={}",
                     event.getEventId(), attempts, event.getStatus(), ex);
         }
+    }
+
+    private String topicFor(String eventType) {
+        if (AuditEventService.AUDIT_EVENT.equals(eventType)) {
+            return auditTopic;
+        }
+        return outwardIssuedTopic;
     }
 
     private String safeError(Exception ex) {

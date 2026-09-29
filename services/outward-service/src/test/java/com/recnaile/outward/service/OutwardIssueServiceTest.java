@@ -36,13 +36,14 @@ class OutwardIssueServiceTest {
     @Mock OutwardStateMachine stateMachine;
     @Mock Authentication authentication;
     @Mock TransactionalOutboxService outboxService;
+    @Mock com.recnaile.outward.outbox.AuditEventService auditEventService;
 
     private OutwardIssueService service;
     private final Instant fixed = Instant.parse("2026-09-26T10:00:00Z");
 
     @BeforeEach
     void setUp() {
-        service = new OutwardIssueService(requestRepository, issueRepository, stateMachine, outboxService,
+        service = new OutwardIssueService(requestRepository, issueRepository, stateMachine, outboxService, auditEventService,
                 Clock.fixed(fixed, ZoneOffset.UTC));
     }
 

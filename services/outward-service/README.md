@@ -109,3 +109,12 @@ This phase deliberately does not publish to Kafka or start an outbox polling pub
 Phase 10 adds the outbox publisher that delivers persisted `OUTWARD_ISSUED` events to Kafka. The message key is the exact encoded `outwardNumber`, and the message value is the versioned JSON payload stored by the transactional outbox. The outbox is marked `PUBLISHED` only after Kafka acknowledgement. Failed delivery remains retryable until the configured maximum attempts.
 
 Default topic: `outward.events`. Configure with `OUTWARD_ISSUED_TOPIC`.
+
+
+## Phase 11 — Audit Integration
+
+Outward state-changing actions emit immutable `AUDIT_EVENT` records through the existing transactional outbox.
+The audit payload carries event identity, entity, action, actor, role, timestamp, correlation/trace ID, source service, before/after state and rejection reason where applicable.
+Audit events are published to the configurable `audit.events` Kafka topic. No audit update/delete API is exposed by outward-service.
+
+Configuration: `AUDIT_EVENTS_TOPIC` (default `audit.events`).

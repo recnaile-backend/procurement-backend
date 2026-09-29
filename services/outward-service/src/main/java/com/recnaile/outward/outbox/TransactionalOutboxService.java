@@ -54,6 +54,28 @@ public class TransactionalOutboxService {
         return repository.save(event);
     }
 
+    public OutboxEvent enqueueAudit(AuditEventPayload payload) {
+        OutboxEvent event = new OutboxEvent();
+        event.setEventId(payload.eventId());
+        event.setEventType(AuditEventService.AUDIT_EVENT);
+        event.setAggregateType(payload.entityType());
+        event.setAggregateId(payload.entityId());
+        event.setPayload(toJson(payload));
+        event.setStatus(OutboxEventStatus.PENDING);
+        event.setOccurredAt(payload.occurredAt());
+        event.setCreatedAt(Instant.now());
+        event.setAttemptCount(0);
+        return repository.save(event);
+    }
+
+    private String toJson(AuditEventPayload payload) {
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Unable to serialize audit outbox payload", ex);
+        }
+    }
+
     private String toJson(OutwardIssuedEventPayload payload) {
         try {
             return objectMapper.writeValueAsString(payload);

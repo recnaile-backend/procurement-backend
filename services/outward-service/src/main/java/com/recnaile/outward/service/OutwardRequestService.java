@@ -14,7 +14,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OutwardRequestService {
@@ -22,26 +24,35 @@ public class OutwardRequestService {
     private final OutwardRequestRepository repository;
     private final OutwardNumberService numberService;
     private final MasterDataValidationService masterDataValidationService;
+    private final com.recnaile.outward.outbox.AuditEventService auditEventService;
     private final Clock clock;
 
     @Autowired
     public OutwardRequestService(OutwardRequestRepository repository,
                                   OutwardNumberService numberService,
-                                  MasterDataValidationService masterDataValidationService) {
-        this(repository, numberService, masterDataValidationService, Clock.systemUTC());
+                                  MasterDataValidationService masterDataValidationService,
+                                  com.recnaile.outward.outbox.AuditEventService auditEventService) {
+        this(repository, numberService, masterDataValidationService, auditEventService, Clock.systemUTC());
     }
 
     OutwardRequestService(OutwardRequestRepository repository,
                           OutwardNumberService numberService,
                           MasterDataValidationService masterDataValidationService,
+                          com.recnaile.outward.outbox.AuditEventService auditEventService,
                           Clock clock) {
         this.repository = repository;
         this.numberService = numberService;
         this.masterDataValidationService = masterDataValidationService;
+        this.auditEventService = auditEventService;
         this.clock = clock;
     }
 
     public OutwardResponse create(CreateOutwardRequest request, String requestedBy) {
+        return create(request, requestedBy, null);
+    }
+
+    @Transactional
+    public OutwardResponse create(CreateOutwardRequest request, String requestedBy, Authentication authentication) {
         if (requestedBy == null || requestedBy.isBlank()) {
             throw new IllegalArgumentException("Authenticated user is required");
         }
@@ -68,7 +79,10 @@ public class OutwardRequestService {
         entity.setStatus(OutwardStatus.DRAFT);
         entity.setAssetTracked(validation.assetTracked());
 
-        return toResponse(repository.save(entity));
+        OutwardRequest saved = repository.save(entity);
+        auditEventService.record("OUTWARD_REQUEST", saved.getOutwardNumber(), "CREATE",
+                authentication, null, saved.getStatus().name(), null);
+        return toResponse(saved);
     }
 
     private OutwardResponse toResponse(OutwardRequest entity) {

@@ -35,6 +35,7 @@ app:
   kafka:
     topics:
       outward-issued: ${OUTWARD_ISSUED_TOPIC:outward.events}
+      audit: ${AUDIT_EVENTS_TOPIC:audit.events}
     publisher:
       fixed-delay-ms: ${OUTBOX_PUBLISHER_FIXED_DELAY_MS:1000}
       send-timeout-ms: ${OUTBOX_PUBLISHER_SEND_TIMEOUT_MS:5000}

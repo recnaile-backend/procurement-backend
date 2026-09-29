@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OutwardApprovalService {
@@ -21,25 +22,30 @@ public class OutwardApprovalService {
     private final OutwardRequestRepository repository;
     private final OutwardStateMachine stateMachine;
     private final ApprovalPolicy approvalPolicy;
+    private final com.recnaile.outward.outbox.AuditEventService auditEventService;
     private final Clock clock;
 
     @Autowired
     public OutwardApprovalService(OutwardRequestRepository repository,
                                   OutwardStateMachine stateMachine,
-                                  ApprovalPolicy approvalPolicy) {
-        this(repository, stateMachine, approvalPolicy, Clock.systemUTC());
+                                  ApprovalPolicy approvalPolicy,
+                                  com.recnaile.outward.outbox.AuditEventService auditEventService) {
+        this(repository, stateMachine, approvalPolicy, auditEventService, Clock.systemUTC());
     }
 
     OutwardApprovalService(OutwardRequestRepository repository,
                            OutwardStateMachine stateMachine,
                            ApprovalPolicy approvalPolicy,
+                           com.recnaile.outward.outbox.AuditEventService auditEventService,
                            Clock clock) {
         this.repository = repository;
         this.stateMachine = stateMachine;
         this.approvalPolicy = approvalPolicy;
+        this.auditEventService = auditEventService;
         this.clock = clock;
     }
 
+    @Transactional
     public OutwardResponse submit(String outwardNumber, Authentication authentication) {
         String actor = authenticatedName(authentication);
         OutwardRequest request = find(outwardNumber);
@@ -47,34 +53,48 @@ public class OutwardApprovalService {
             throw new OutwardException("OUTWARD_REQUEST_OWNER_REQUIRED",
                     "Only the requester can submit this outward request");
         }
-        request.setStatus(stateMachine.transition(request.getStatus(), OutwardStatus.PENDING_APPROVAL));
-        return save(request, Instant.now(clock));
+        OutwardStatus before = request.getStatus();
+        request.setStatus(stateMachine.transition(before, OutwardStatus.PENDING_APPROVAL));
+        OutwardResponse response = save(request, Instant.now(clock));
+        auditEventService.record("OUTWARD_REQUEST", request.getOutwardNumber(), "UPDATE",
+                authentication, before.name(), request.getStatus().name(), null);
+        return response;
     }
 
+    @Transactional
     public OutwardResponse approve(String outwardNumber, Authentication authentication) {
         String actor = authenticatedName(authentication);
         approvalPolicy.validate(authentication);
         OutwardRequest request = find(outwardNumber);
-        request.setStatus(stateMachine.transition(request.getStatus(), OutwardStatus.APPROVED));
+        OutwardStatus before = request.getStatus();
+        request.setStatus(stateMachine.transition(before, OutwardStatus.APPROVED));
         request.setApprovedBy(actor);
         request.setApprovedAt(Instant.now(clock));
         request.setRejectedBy(null);
         request.setRejectedAt(null);
         request.setRejectionReason(null);
-        return save(request, Instant.now(clock));
+        OutwardResponse response = save(request, Instant.now(clock));
+        auditEventService.record("OUTWARD_REQUEST", request.getOutwardNumber(), "APPROVE",
+                authentication, before.name(), request.getStatus().name(), null);
+        return response;
     }
 
+    @Transactional
     public OutwardResponse reject(String outwardNumber, String reason, Authentication authentication) {
         String actor = authenticatedName(authentication);
         approvalPolicy.validate(authentication);
         OutwardRequest request = find(outwardNumber);
-        request.setStatus(stateMachine.transition(request.getStatus(), OutwardStatus.REJECTED));
+        OutwardStatus before = request.getStatus();
+        request.setStatus(stateMachine.transition(before, OutwardStatus.REJECTED));
         request.setRejectedBy(actor);
         request.setRejectedAt(Instant.now(clock));
         request.setRejectionReason(trimReason(reason));
         request.setApprovedBy(null);
         request.setApprovedAt(null);
-        return save(request, Instant.now(clock));
+        OutwardResponse response = save(request, Instant.now(clock));
+        auditEventService.record("OUTWARD_REQUEST", request.getOutwardNumber(), "REJECT",
+                authentication, before.name(), request.getStatus().name(), request.getRejectionReason());
+        return response;
     }
 
     private OutwardResponse save(OutwardRequest request, Instant now) {

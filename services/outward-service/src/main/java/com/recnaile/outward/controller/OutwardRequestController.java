@@ -41,6 +41,6 @@ public class OutwardRequestController {
             return ResponseEntity.<OutwardResponse>status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.<OutwardResponse>status(HttpStatus.CREATED)
-                .body(service.create(request, authentication.getName()));
+                .body(service.create(request, authentication.getName(), authentication));
     }
 }

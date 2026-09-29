@@ -28,25 +28,29 @@ public class OutwardIssueService {
     private final OutwardIssueTransactionRepository issueRepository;
     private final OutwardStateMachine stateMachine;
     private final TransactionalOutboxService outboxService;
+    private final com.recnaile.outward.outbox.AuditEventService auditEventService;
     private final Clock clock;
 
     @Autowired
     public OutwardIssueService(OutwardRequestRepository requestRepository,
                                OutwardIssueTransactionRepository issueRepository,
                                OutwardStateMachine stateMachine,
-                               TransactionalOutboxService outboxService) {
-        this(requestRepository, issueRepository, stateMachine, outboxService, Clock.systemUTC());
+                               TransactionalOutboxService outboxService,
+                               com.recnaile.outward.outbox.AuditEventService auditEventService) {
+        this(requestRepository, issueRepository, stateMachine, outboxService, auditEventService, Clock.systemUTC());
     }
 
     OutwardIssueService(OutwardRequestRepository requestRepository,
                         OutwardIssueTransactionRepository issueRepository,
                         OutwardStateMachine stateMachine,
                         TransactionalOutboxService outboxService,
+                        com.recnaile.outward.outbox.AuditEventService auditEventService,
                         Clock clock) {
         this.requestRepository = requestRepository;
         this.issueRepository = issueRepository;
         this.stateMachine = stateMachine;
         this.outboxService = outboxService;
+        this.auditEventService = auditEventService;
         this.clock = clock;
     }
 
@@ -105,10 +109,13 @@ public class OutwardIssueService {
 
         try {
             OutwardIssueTransaction saved = issueRepository.save(transaction);
-            request.setStatus(stateMachine.transition(request.getStatus(), OutwardStatus.ISSUED));
+            OutwardStatus before = request.getStatus();
+            request.setStatus(stateMachine.transition(before, OutwardStatus.ISSUED));
             request.setUpdatedAt(now);
             requestRepository.save(request);
             outboxService.enqueueOutwardIssued(saved);
+            auditEventService.record("OUTWARD_REQUEST", request.getOutwardNumber(), "ISSUE",
+                    authentication, before.name(), request.getStatus().name(), null);
             return toResponse(saved);
         } catch (DuplicateKeyException ex) {
             throw new OutwardException("OUTWARD_ALREADY_ISSUED",

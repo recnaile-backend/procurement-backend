@@ -31,13 +31,14 @@ class OutwardApprovalServiceTest {
     @Mock OutwardRequestRepository repository;
     @Mock OutwardStateMachine stateMachine;
     @Mock ApprovalPolicy approvalPolicy;
+    @Mock com.recnaile.outward.outbox.AuditEventService auditEventService;
 
     private OutwardApprovalService service;
     private final Instant now = Instant.parse("2026-09-26T05:00:00Z");
 
     @BeforeEach
     void setUp() {
-        service = new OutwardApprovalService(repository, stateMachine, approvalPolicy,
+        service = new OutwardApprovalService(repository, stateMachine, approvalPolicy, auditEventService,
                 Clock.fixed(now, ZoneOffset.UTC));
     }
 

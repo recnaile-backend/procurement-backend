@@ -32,12 +32,15 @@ class OutwardRequestServiceTest {
     @Mock
     private MasterDataValidationService masterDataValidationService;
 
+    @Mock
+    private com.recnaile.outward.outbox.AuditEventService auditEventService;
+
     private OutwardRequestService service;
 
     @Test
     void createsDraftUsingAuthenticatedUser() {
         Instant now = Instant.parse("2026-09-26T05:00:00Z");
-        service = new OutwardRequestService(repository, numberService, masterDataValidationService, Clock.fixed(now, ZoneOffset.UTC));
+        service = new OutwardRequestService(repository, numberService, masterDataValidationService, auditEventService, Clock.fixed(now, ZoneOffset.UTC));
         when(numberService.nextNumber()).thenReturn("OUT%2F26-27%2F001");
         when(masterDataValidationService.validate(any(CreateOutwardRequest.class)))
                 .thenReturn(new MasterDataValidationService.ValidationResult(true));
