@@ -12,6 +12,7 @@ class OutwardNumberGeneratorTest {
     void generatesEncodedNumber() {
         assertEquals("OUT%2F26-27%2F001", OutwardNumberGenerator.generate(2026, 1));
         assertEquals("OUT%2F26-27%2F999", OutwardNumberGenerator.generate(2026, 999));
+        assertEquals("OUT%2F25-26%2F001", OutwardNumberGenerator.generate(2025, 1));
     }
 
     @Test

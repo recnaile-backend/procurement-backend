@@ -7,4 +7,6 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 public interface OutwardRequestRepository extends MongoRepository<OutwardRequest, String> {
 
     Optional<OutwardRequest> findByOutwardNumber(String outwardNumber);
+
+    boolean existsByOutwardNumber(String outwardNumber);
 }

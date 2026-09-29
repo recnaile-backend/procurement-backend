@@ -21,11 +21,8 @@ class OpenApiContractTest {
 
     @Test
     void definesJwtSecuritySchemeAndApiMetadata() {
-        OpenAPIDefinition definition =
-                OpenApiConfig.class.getAnnotation(OpenAPIDefinition.class);
-
-        SecurityScheme scheme =
-                OpenApiConfig.class.getAnnotation(SecurityScheme.class);
+        OpenAPIDefinition definition = OpenApiConfig.class.getAnnotation(OpenAPIDefinition.class);
+        SecurityScheme scheme = OpenApiConfig.class.getAnnotation(SecurityScheme.class);
 
         assertNotNull(definition);
         assertEquals("v1", definition.info().version());
@@ -35,81 +32,41 @@ class OpenApiContractTest {
 
     @Test
     void documentsAllOutwardPostOperations() {
-        assertOperation(
-                OutwardRequestController.class,
-                "create",
-                "/api/v1/outward"
-        );
-
-        assertOperation(
-                OutwardApprovalController.class,
-                "submit",
-                "/api/v1/outward/{outwardNumber}/submit"
-        );
-
-        assertOperation(
-                OutwardApprovalController.class,
-                "approve",
-                "/api/v1/outward/{outwardNumber}/approve"
-        );
-
-        assertOperation(
-                OutwardApprovalController.class,
-                "reject",
-                "/api/v1/outward/{outwardNumber}/reject"
-        );
-
-        assertOperation(
-                OutwardIssueController.class,
-                "issue",
-                "/api/v1/outward/{outwardNumber}/issue"
-        );
+        assertOperation(OutwardRequestController.class, "create", "/api/v1/outward");
+        assertOperation(OutwardApprovalController.class, "submit", "/api/v1/outward/{outwardNumber}/submit");
+        assertOperation(OutwardApprovalController.class, "approve", "/api/v1/outward/{outwardNumber}/approve");
+        assertOperation(OutwardApprovalController.class, "reject", "/api/v1/outward/{outwardNumber}/reject");
+        assertOperation(OutwardIssueController.class, "issue", "/api/v1/outward/{outwardNumber}/issue");
     }
 
-    private void assertOperation(
-            Class<?> controller,
-            String methodName,
-            String expectedPath) {
-
+    private void assertOperation(Class<?> controller, String methodName, String expectedPath) {
         Method method = java.util.Arrays.stream(controller.getDeclaredMethods())
                 .filter(m -> m.getName().equals(methodName))
                 .findFirst()
                 .orElseThrow();
 
-        Operation operation = method.getAnnotation(Operation.class);
-        assertNotNull(operation);
+        assertNotNull(method.getAnnotation(Operation.class));
 
         PostMapping mapping = method.getAnnotation(PostMapping.class);
         assertNotNull(mapping);
 
-        RequestMapping controllerMapping =
-                controller.getAnnotation(RequestMapping.class);
-
+        RequestMapping controllerMapping = controller.getAnnotation(RequestMapping.class);
         assertNotNull(controllerMapping);
 
-        String controllerPath = firstPath(controllerMapping.path(),
-                controllerMapping.value());
-
+        String controllerPath = firstPath(controllerMapping.path(), controllerMapping.value());
         String methodPath = firstPath(mapping.path(), mapping.value());
 
-        String actualPath = controllerPath + methodPath;
-
-        assertEquals(expectedPath, actualPath);
-
-        assertTrue(
-                controller.isAnnotationPresent(SecurityRequirement.class)
-        );
+        assertEquals(controllerPath + methodPath, expectedPath);
+        assertTrue(controller.isAnnotationPresent(SecurityRequirement.class));
     }
 
     private String firstPath(String[] paths, String[] values) {
         if (paths.length > 0) {
             return paths[0];
         }
-
         if (values.length > 0) {
             return values[0];
         }
-
         return "";
     }
 }

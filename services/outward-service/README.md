@@ -225,3 +225,8 @@ Full repository build:
 ```powershell
 .\gradlew clean build
 ```
+
+
+### Outward Number Generation
+
+The outward number is generated only by the backend using an atomic MongoDB sequence per Indian financial year (April-March). It is stored exactly in URL-encoded form, for example `OUT%2F26-27%2F001`, never as `OUT/26-27/001` and never double-encoded as `OUT%252F26-27%252F001`. Encoded slash passthrough is enabled so the same identifier can safely be used as an API path variable.
