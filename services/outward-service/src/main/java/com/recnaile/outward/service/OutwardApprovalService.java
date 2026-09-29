@@ -50,23 +50,6 @@ public class OutwardApprovalService {
         this.clock = clock;
     }
 
-    @Observed(name = "outward.request.submit", contextualName = "submit-outward-request")
-    @Transactional
-    public OutwardResponse submit(String outwardNumber, Authentication authentication) {
-        String actor = authenticatedName(authentication);
-        OutwardRequest request = find(outwardNumber);
-        if (!actor.equals(request.getRequestedBy())) {
-            throw new OutwardException("OUTWARD_REQUEST_OWNER_REQUIRED",
-                    "Only the requester can submit this outward request");
-        }
-        OutwardStatus before = request.getStatus();
-        request.setStatus(stateMachine.transition(before, OutwardStatus.PENDING_APPROVAL));
-        OutwardResponse response = save(request, Instant.now(clock));
-        auditEventService.record("OUTWARD_REQUEST", request.getOutwardNumber(), "UPDATE",
-                authentication, before.name(), request.getStatus().name(), null);
-        return response;
-    }
-
     @Observed(name = "outward.request.approve", contextualName = "approve-outward-request")
     @Transactional
     public OutwardResponse approve(String outwardNumber, Authentication authentication) {

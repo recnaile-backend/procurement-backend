@@ -16,7 +16,7 @@ Successful business endpoints return their DTO directly as JSON. They are **not*
 | HTTP | Endpoint | Response body |
 |---|---|---|
 | `201 Created` | `POST /api/v1/outward` | `OutwardResponse` |
-| `200 OK` | `POST /api/v1/outward/{outwardNumber}/submit` | `OutwardResponse` |
+| `200 OK` | `GET /api/v1/outward` | `List<OutwardResponse>` |
 | `200 OK` | `POST /api/v1/outward/{outwardNumber}/approve` | `OutwardResponse` |
 | `200 OK` | `POST /api/v1/outward/{outwardNumber}/reject` | `OutwardResponse` |
 | `200 OK` | `POST /api/v1/outward/{outwardNumber}/issue` | `OutwardIssueTransactionResponse` |
@@ -63,7 +63,7 @@ Typical codes are `AUTHENTICATION_REQUIRED` (`401`) and `ACCESS_DENIED` (`403`).
 
 ## 2. `OutwardResponse`
 
-Returned after create, submit, approve and reject operations.
+Returned after create, approve and reject operations.
 
 | Field | Type | Description |
 |---|---|---|
@@ -140,26 +140,23 @@ Returned by the issue endpoint. It represents the persisted issue transaction sn
 
 ## 4. Endpoint response documentation
 
+### Get all outwards
+`GET /api/v1/outward`
+
+**Success:** `200 OK` → list of `OutwardResponse` ordered by `requestedAt` descending.
+
+**Documented errors:**
+- `401` → authentication required.
+
 ### Create outward
 `POST /api/v1/outward`
 
-**Success:** `201 Created` → `OutwardResponse` with initial `status = DRAFT`.
+**Success:** `201 Created` → `OutwardResponse` with initial `status = PENDING_APPROVAL`. The create operation immediately submits the request for approval; no separate submit API is required.
 
 **Documented errors:**
 - `400` → validation/Master Data business error.
 - `401` → authentication required.
 - `503` → Master Data service unavailable.
-
-### Submit
-`POST /api/v1/outward/{outwardNumber}/submit`
-
-**Success:** `200 OK` → `OutwardResponse`, normally with `status = PENDING_APPROVAL`.
-
-**Documented errors:**
-- `401` → authentication required.
-- `403` → requester ownership/authorization failure.
-- `404` → outward does not exist.
-- `409` → invalid state transition or optimistic-lock conflict.
 
 ### Approve
 `POST /api/v1/outward/{outwardNumber}/approve`
@@ -219,7 +216,6 @@ Returned by the issue endpoint. It represents the persisted issue transaction sn
 | 400 | `OUTWARD_PROJECT_INACTIVE` | Supplied project is not active. |
 | 400 | `OUTWARD_INVALID_STATE_TRANSITION` | Requested workflow transition is not allowed from the current state. |
 | 401 | `AUTHENTICATION_REQUIRED` | A valid authenticated identity is required. |
-| 403 | `OUTWARD_REQUEST_OWNER_REQUIRED` | Only the requester may submit the outward. |
 | 403 | `OUTWARD_APPROVAL_ROLE_NOT_ALLOWED` | Caller does not have a configured approval role. |
 | 403 | `ACCESS_DENIED` | Security filter denied the operation. |
 | 404 | `OUTWARD_NOT_FOUND` | Outward request does not exist. |

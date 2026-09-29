@@ -20,7 +20,8 @@ public class OutwardExceptionHandler {
     public ResponseEntity<ApiError> handleOutward(OutwardException ex, HttpServletRequest request) {
         HttpStatus status = switch (ex.getCode()) {
             case "OUTWARD_NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "OUTWARD_APPROVAL_ROLE_NOT_ALLOWED", "OUTWARD_REQUEST_OWNER_REQUIRED" -> HttpStatus.FORBIDDEN;
+            case "OUTWARD_APPROVAL_ROLE_NOT_ALLOWED", "OUTWARD_APPROVAL_DEPARTMENT_REQUIRED",
+                    "OUTWARD_APPROVAL_DEPARTMENT_MISMATCH" -> HttpStatus.FORBIDDEN;
             case "AUTHENTICATION_REQUIRED" -> HttpStatus.UNAUTHORIZED;
             case "OUTWARD_CONCURRENT_MODIFICATION", "OUTWARD_NOT_APPROVED", "OUTWARD_ALREADY_ISSUED",
                     "OUTWARD_IDEMPOTENCY_KEY_REUSED" -> HttpStatus.CONFLICT;

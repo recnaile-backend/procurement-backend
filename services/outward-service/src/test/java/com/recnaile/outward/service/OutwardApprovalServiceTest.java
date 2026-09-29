@@ -1,7 +1,6 @@
 package com.recnaile.outward.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -41,16 +40,6 @@ class OutwardApprovalServiceTest {
     void setUp() {
         service = new OutwardApprovalService(repository, stateMachine, approvalPolicy, auditEventService, notificationEventService,
                 Clock.fixed(now, ZoneOffset.UTC));
-    }
-
-    @Test
-    void submitRequiresRequester() {
-        OutwardRequest request = request("EMP-1", OutwardStatus.DRAFT);
-        when(repository.findByOutwardNumber("OUT%2F26-27%2F001")).thenReturn(Optional.of(request));
-        Authentication authentication = auth("EMP-2", "ROLE_EMPLOYEE");
-
-        assertThrows(com.recnaile.outward.exception.OutwardException.class,
-                () -> service.submit("OUT%2F26-27%2F001", authentication));
     }
 
     @Test

@@ -72,7 +72,7 @@ Then:
 
 The service now supports the authenticated approval lifecycle:
 
-- `POST /api/v1/outward/{outwardNumber}/submit` — requester submits a `DRAFT` request.
+- `POST /api/v1/outward` — authenticated employee creates and immediately submits the outward request with status `PENDING_APPROVAL`.
 - `POST /api/v1/outward/{outwardNumber}/approve` — configured approval role changes `PENDING_APPROVAL` to `APPROVED`.
 - `POST /api/v1/outward/{outwardNumber}/reject` — configured approval role changes `PENDING_APPROVAL` to `REJECTED`.
 
@@ -207,7 +207,7 @@ The test suite covers the implemented state machine, request creation, approval/
 OpenAPI metadata now documents:
 
 - JWT bearer authentication security scheme (`bearerAuth`).
-- Create, submit, approve, reject and issue endpoints.
+- Create, approve, reject and issue endpoints.
 - Success and common error responses.
 - Request/response DTO schemas and useful examples.
 - Optional `Idempotency-Key` semantics on the issue endpoint.

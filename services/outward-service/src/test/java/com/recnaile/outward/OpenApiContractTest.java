@@ -32,10 +32,9 @@ class OpenApiContractTest {
     }
 
     @Test
-    void documentsAllOutwardPostOperations() {
+    void documentsAllOutwardOperations() {
         assertOperation(OutwardRequestController.class, "create", "/api/v1/outward");
         assertGetOperation(OutwardRequestController.class, "getAll", "/api/v1/outward");
-        assertOperation(OutwardApprovalController.class, "submit", "/api/v1/outward/{outwardNumber}/submit");
         assertOperation(OutwardApprovalController.class, "approve", "/api/v1/outward/{outwardNumber}/approve");
         assertOperation(OutwardApprovalController.class, "reject", "/api/v1/outward/{outwardNumber}/reject");
         assertOperation(OutwardIssueController.class, "issue", "/api/v1/outward/{outwardNumber}/issue");

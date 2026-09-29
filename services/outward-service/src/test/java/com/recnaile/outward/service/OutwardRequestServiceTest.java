@@ -38,7 +38,7 @@ class OutwardRequestServiceTest {
     private OutwardRequestService service;
 
     @Test
-    void createsDraftUsingAuthenticatedUser() {
+    void createsSubmittedRequestUsingAuthenticatedUser() {
         Instant now = Instant.parse("2026-09-26T05:00:00Z");
         service = new OutwardRequestService(repository, numberService, masterDataValidationService, auditEventService, Clock.fixed(now, ZoneOffset.UTC));
         when(numberService.nextNumber()).thenReturn("OUT%2F26-27%2F001");
@@ -69,7 +69,7 @@ class OutwardRequestServiceTest {
         assertEquals("request-1", response.id());
         assertEquals("OUT%2F26-27%2F001", response.outwardNumber());
         assertEquals("jwt-user", response.requestedBy());
-        assertEquals("DRAFT", response.status().name());
+        assertEquals("PENDING_APPROVAL", response.status().name());
         assertEquals("ITEM-001", response.items().get(0).itemId());
         assertEquals("Engineering", response.departmentName());
     }

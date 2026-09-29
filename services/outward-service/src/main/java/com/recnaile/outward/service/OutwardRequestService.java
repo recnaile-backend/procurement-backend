@@ -78,7 +78,7 @@ public class OutwardRequestService {
         entity.setRecipient(new RecipientDetails(
                 request.getRecipient().getEmployeeId().trim(),
                 request.getRecipient().getEmployeeName().trim()));
-        entity.setStatus(OutwardStatus.DRAFT);
+        entity.setStatus(OutwardStatus.PENDING_APPROVAL);
         entity.setAssetTracked(validation.assetTracked());
 
         OutwardRequest saved = repository.save(entity);

@@ -23,23 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/outward")
-@Tag(name = "Outward Approval", description = "Submit, approve and reject outward requests.")
+@Tag(name = "Outward Approval", description = "Approve and reject submitted outward requests.")
 @SecurityRequirement(name = "bearerAuth")
 public class OutwardApprovalController {
     private final OutwardApprovalService service;
     public OutwardApprovalController(OutwardApprovalService service) { this.service = service; }
-
-    @Operation(summary = "Submit an outward request for approval", description = "Changes a requester-owned DRAFT request to PENDING_APPROVAL.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Request submitted", content = @Content(schema = @Schema(implementation = OutwardResponse.class))),
-            @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content(schema = @Schema(implementation = ApiError.class))),
-            @ApiResponse(responseCode = "403", description = "Requester authorization failed", content = @Content(schema = @Schema(implementation = ApiError.class))),
-            @ApiResponse(responseCode = "404", description = "Outward request not found", content = @Content(schema = @Schema(implementation = ApiError.class))),
-            @ApiResponse(responseCode = "409", description = "Invalid state or concurrent modification", content = @Content(schema = @Schema(implementation = ApiError.class)))})
-    @PostMapping("/{outwardNumber}/submit")
-    public ResponseEntity<OutwardResponse> submit(@PathVariable String outwardNumber, Authentication authentication) {
-        return ResponseEntity.ok(service.submit(OutwardNumberPath.normalize(outwardNumber), requireAuthentication(authentication)));
-    }
 
     @Operation(summary = "Approve an outward request", description = "Changes a PENDING_APPROVAL request to APPROVED when the authenticated user has a configured approval role.")
     @ApiResponses({

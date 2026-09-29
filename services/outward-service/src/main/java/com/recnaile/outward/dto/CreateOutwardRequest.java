@@ -8,7 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
-@Schema(description = "Request to create a DRAFT outward request.")
+@Schema(description = "Request to create and immediately submit an outward request for approval.")
 public class CreateOutwardRequest {
     @Schema(description = "Items to issue", requiredMode = Schema.RequiredMode.REQUIRED)
     @Valid @NotEmpty @Size(max = 100) private List<CreateOutwardItem> items;
