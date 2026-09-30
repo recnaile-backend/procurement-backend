@@ -170,10 +170,71 @@ For the local container build:
 docker compose up -d --build return-service
 ```
 
+### Phase 4 — Create Return Request
+
+Completed.
+
+Implemented the first business REST workflow for creating a Return request.
+
+#### API
+
+`POST /api/v1/returns` accepts an explicit `CreateReturnRequest` payload containing:
+
+- `outwardId` — originating outward issue
+- `outwardLineId` — specific issued item row
+- `itemId` — product/SKU identifier
+- `quantity` — positive returned quantity
+- `assetId` — optional reusable-asset reference
+- `returnedBy` — return initiator reference
+- `condition` — `GOOD` or `DAMAGED`
+- `remarks` — optional remarks, maximum 2000 characters
+
+A successful request returns HTTP `201 Created` using the platform response envelope:
+
+```json
+{
+  "success": true,
+  "data": { ... },
+  "error": null
+}
+```
+
+New returns are persisted with:
+
+- a generated Return ID
+- `PENDING_VERIFICATION` status
+- creation and update timestamps
+- the submitted item, quantity, outward linkage, actor, condition and remarks
+
+#### Application and persistence layers
+
+- `ReturnRequestController` handles HTTP transport and validation only.
+- `ReturnRequestService` creates the Return aggregate and owns creation business behavior.
+- `ReturnRequestRepository` provides MongoDB persistence through Spring Data.
+- Request fields are explicit; no generic payload map is used.
+- Input strings are trimmed and blank optional values are normalized to `null`.
+
+Issued-quantity/asset existence validation, authentication/RBAC enforcement, idempotency, verification, stock movement, events and outbox reliability remain in their later roadmap phases.
+
+#### Error handling
+
+Validation failures use the stable error envelope with `VALIDATION_ERROR`. Invalid creation arguments use `INVALID_RETURN_REQUEST`. Trace/correlation-aware error enrichment remains part of later operational/API hardening work.
+
+#### Tests
+
+Phase 4 adds tests for:
+
+- successful Return creation and persistence mapping
+- generated Return ID and initial `PENDING_VERIFICATION` state
+- timestamp handling
+- optional asset/remarks normalization
+- successful `201 Created` REST response
+- request validation failure response
+
 ## Upcoming Phases
 
 - Phase 3 — Return State Machine — Completed
-- Phase 4 — Create Return Request
+- Phase 4 — Create Return Request — Completed
 - Phase 5 — Issued-Quantity / Asset Validation
 - Phase 6 — Return Verification Workflow
 - Phase 7 — Good / Damaged Return Processing
