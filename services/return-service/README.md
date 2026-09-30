@@ -372,3 +372,53 @@ No stock movement, asset lifecycle mutation, Kafka publication, notification or 
 - Phase 13 — Observability & Operational Readiness
 - Phase 14 — Testing, OpenAPI & API Hardening
 - Phase 15 — Docker/Kubernetes & Final Integration
+
+### Phase 7 — Good / Damaged Return Processing
+
+Completed.
+
+Implemented the Return Service's condition-based processing state transition after successful verification.
+
+#### Processing API
+
+`POST /api/v1/returns/{returnId}/process`
+
+The endpoint does not accept a client-supplied condition. It uses the condition already recorded on the Return aggregate, preventing a caller from changing the business outcome during processing.
+
+#### Processing rules
+
+- Only a `VERIFIED` return can be processed.
+- `GOOD` condition transitions to `ACCEPTED_GOOD`.
+- `DAMAGED` condition transitions to `ACCEPTED_DAMAGED`.
+- A pending return cannot bypass verification.
+- An already accepted return cannot be processed again.
+- Unknown Return IDs return `RETURN_NOT_FOUND`.
+- The Return aggregate's `updatedAt` is updated using the service clock.
+- The processed aggregate is persisted only after a valid state transition.
+
+The documented business outcome is preserved: good returns are intended to restore available stock, while damaged returns are intended to increase defect stock. Actual Inventory Service stock mutation is deliberately deferred to Phase 10, and Kafka event publication is deferred to Phase 8/9. This phase therefore establishes the authoritative Return Service state without directly changing Inventory or Asset data.
+
+#### State machine additions
+
+The persisted lifecycle now supports:
+
+```text
+PENDING_VERIFICATION → VERIFIED → ACCEPTED_GOOD
+                                      └→ ACCEPTED_DAMAGED
+```
+
+No reverse transitions or duplicate processing transitions are allowed.
+
+#### Tests
+
+Phase 7 adds coverage for:
+
+- verified GOOD return → `ACCEPTED_GOOD`
+- verified DAMAGED return → `ACCEPTED_DAMAGED`
+- processing before verification rejection
+- duplicate processing rejection
+- unknown Return ID handling
+- processing timestamp update
+- successful processing REST response
+
+Inventory stock changes, reusable asset lifecycle changes, Kafka events, transactional outbox, RBAC and idempotency remain in their designated later phases.

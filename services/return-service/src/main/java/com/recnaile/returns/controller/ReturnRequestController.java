@@ -5,6 +5,7 @@ import com.recnaile.returns.dto.CreateReturnRequest;
 import com.recnaile.returns.dto.VerifyReturnRequest;
 import com.recnaile.returns.model.entity.ReturnRequest;
 import com.recnaile.returns.service.ReturnRequestService;
+import com.recnaile.returns.service.ReturnProcessingService;
 import com.recnaile.returns.service.ReturnVerificationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -21,12 +22,15 @@ public class ReturnRequestController {
 
     private final ReturnRequestService returnRequestService;
     private final ReturnVerificationService returnVerificationService;
+    private final ReturnProcessingService returnProcessingService;
 
     public ReturnRequestController(
             ReturnRequestService returnRequestService,
-            ReturnVerificationService returnVerificationService) {
+            ReturnVerificationService returnVerificationService,
+            ReturnProcessingService returnProcessingService) {
         this.returnRequestService = returnRequestService;
         this.returnVerificationService = returnVerificationService;
+        this.returnProcessingService = returnProcessingService;
     }
 
     @PostMapping
@@ -41,5 +45,11 @@ public class ReturnRequestController {
             @Valid @RequestBody VerifyReturnRequest request) {
         ReturnRequest verified = returnVerificationService.verify(returnId, request);
         return ResponseEntity.ok(ApiResponse.success(verified));
+    }
+
+    @PostMapping("/{returnId}/process")
+    public ResponseEntity<ApiResponse<ReturnRequest>> process(@PathVariable String returnId) {
+        ReturnRequest processed = returnProcessingService.process(returnId);
+        return ResponseEntity.ok(ApiResponse.success(processed));
     }
 }

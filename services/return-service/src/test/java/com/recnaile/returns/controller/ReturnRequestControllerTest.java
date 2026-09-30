@@ -6,6 +6,7 @@ import com.recnaile.returns.dto.VerifyReturnRequest;
 import com.recnaile.returns.model.entity.ReturnRequest;
 import com.recnaile.returns.model.enums.ReturnCondition;
 import com.recnaile.returns.service.ReturnRequestService;
+import com.recnaile.returns.service.ReturnProcessingService;
 import com.recnaile.returns.service.ReturnVerificationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +36,7 @@ class ReturnRequestControllerTest {
     @Autowired ObjectMapper objectMapper;
     @MockBean ReturnRequestService returnRequestService;
     @MockBean ReturnVerificationService returnVerificationService;
+    @MockBean ReturnProcessingService returnProcessingService;
 
     @Test
     void createReturns201ForValidRequest() throws Exception {
@@ -76,6 +78,22 @@ class ReturnRequestControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.status").value("VERIFIED"))
                 .andExpect(jsonPath("$.data.verifiedBy").value("verifier-1"));
+    }
+
+    @Test
+    void processReturns200ForGoodReturn() throws Exception {
+        ReturnRequest processed = new ReturnRequest(
+                "OUT-100", "OUT-100-L1", "ITEM-10", new BigDecimal("2"),
+                "user-1", ReturnCondition.GOOD, "return", null,
+                Instant.parse("2026-09-30T05:00:00Z"));
+        processed.setStatus(com.recnaile.returns.model.enums.ReturnStatus.ACCEPTED_GOOD);
+
+        when(returnProcessingService.process(eq("RET-1"))).thenReturn(processed);
+
+        mockMvc.perform(post("/api/v1/returns/RET-1/process"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("ACCEPTED_GOOD"));
     }
 
     @Test

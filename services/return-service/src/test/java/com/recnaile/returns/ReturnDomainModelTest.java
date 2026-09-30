@@ -45,6 +45,10 @@ class ReturnDomainModelTest {
     @Test
     void statusEnumContainsOnlyDefinedLifecycleStates() {
         assertThat(ReturnStatus.values())
-                .containsExactly(ReturnStatus.PENDING_VERIFICATION, ReturnStatus.VERIFIED);
+                .containsExactly(
+                        ReturnStatus.PENDING_VERIFICATION,
+                        ReturnStatus.VERIFIED,
+                        ReturnStatus.ACCEPTED_GOOD,
+                        ReturnStatus.ACCEPTED_DAMAGED);
     }
 }

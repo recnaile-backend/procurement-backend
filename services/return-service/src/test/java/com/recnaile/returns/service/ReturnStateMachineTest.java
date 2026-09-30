@@ -41,6 +41,47 @@ class ReturnStateMachineTest {
     }
 
     @Test
+    void allowsVerifiedGoodReturnToAcceptedGood() {
+        ReturnRequest request = pendingReturn();
+        stateMachine.verify(request);
+
+        stateMachine.process(request);
+
+        assertEquals(ReturnStatus.ACCEPTED_GOOD, request.getStatus());
+    }
+
+    @Test
+    void allowsVerifiedDamagedReturnToAcceptedDamaged() {
+        ReturnRequest request = pendingReturn();
+        request.setCondition(ReturnCondition.DAMAGED);
+        stateMachine.verify(request);
+
+        stateMachine.process(request);
+
+        assertEquals(ReturnStatus.ACCEPTED_DAMAGED, request.getStatus());
+    }
+
+    @Test
+    void rejectsProcessingBeforeVerification() {
+        ReturnRequest request = pendingReturn();
+
+        assertThrows(
+                InvalidReturnStateTransitionException.class,
+                () -> stateMachine.process(request));
+    }
+
+    @Test
+    void rejectsProcessingAcceptedReturnAgain() {
+        ReturnRequest request = pendingReturn();
+        stateMachine.verify(request);
+        stateMachine.process(request);
+
+        assertThrows(
+                InvalidReturnStateTransitionException.class,
+                () -> stateMachine.process(request));
+    }
+
+    @Test
     void rejectsVerifiedToPendingVerification() {
         ReturnRequest request = pendingReturn();
         stateMachine.verify(request);
@@ -78,6 +119,15 @@ class ReturnStateMachineTest {
         assertFalse(stateMachine.isAllowed(
                 ReturnStatus.VERIFIED,
                 ReturnStatus.VERIFIED));
+        assertTrue(stateMachine.isAllowed(
+                ReturnStatus.VERIFIED,
+                ReturnStatus.ACCEPTED_GOOD));
+        assertTrue(stateMachine.isAllowed(
+                ReturnStatus.VERIFIED,
+                ReturnStatus.ACCEPTED_DAMAGED));
+        assertFalse(stateMachine.isAllowed(
+                ReturnStatus.ACCEPTED_GOOD,
+                ReturnStatus.ACCEPTED_DAMAGED));
     }
 
     private ReturnRequest pendingReturn() {
