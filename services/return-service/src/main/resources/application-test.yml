@@ -11,3 +11,6 @@ app:
   integrations:
     outward-service:
       base-url: http://localhost:8087
+  security:
+    jwt:
+      jwk-set-uri: http://localhost:8081/oauth2/jwks

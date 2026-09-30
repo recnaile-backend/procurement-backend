@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 
 /**
  * Transport payload used by an authorized verifier to complete return verification.
- * Authentication/RBAC enforcement is introduced in the security phase.
+ * The authenticated JWT principal is authoritative; verifiedBy must match that principal when supplied.
  */
 public record VerifyReturnRequest(
         @NotBlank(message = "verifiedBy is required")

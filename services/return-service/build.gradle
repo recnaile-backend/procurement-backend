@@ -22,6 +22,7 @@ dependencies {
     implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
 }
 
 bootJar {

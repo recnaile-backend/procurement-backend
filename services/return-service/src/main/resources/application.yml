@@ -35,6 +35,9 @@ info:
     version: "0.1.0-SNAPSHOT"
 
 app:
+  security:
+    jwt:
+      jwk-set-uri: ${AUTH_JWK_SET_URI:http://auth-service:8081/oauth2/jwks}
   service-name: ${spring.application.name}
   integrations:
     outward-service:

@@ -557,3 +557,31 @@ The Asset Service has not yet been implemented in the project. Therefore Phase 1
 ### Tests
 
 Phase 10 adds Inventory integration contract tests verifying that `RETURN_RECORDED` carries the exact item, quantity, condition, return identity and occurrence timestamp required by Inventory.
+
+
+## Phase 11 — Security, RBAC & Idempotency
+
+Phase 11 adds authenticated JWT resource-server security, endpoint-level role authorization and retry-safe idempotency for all state-changing Return POST operations.
+
+### Security
+
+- JWT Resource Server validation is enabled with a configurable JWK Set URI.
+- Roles are read from the JWT `roles` claim (or a single `role` claim) and normalized to `ROLE_*`.
+- Return creation is available to `EMPLOYEE`, `PROCUREMENT`, `TL` and `MD`.
+- Verification is restricted to `PROCUREMENT`, `TL` and `MD`.
+- Final good/damaged processing is restricted to `PROCUREMENT`, `TL` and `MD`.
+- Unauthenticated requests return `401 UNAUTHENTICATED`.
+- Authenticated users without the required role return `403 FORBIDDEN`.
+- The authenticated JWT principal is the authoritative actor; the `returnedBy` / `verifiedBy` payload values must match it rather than overriding it.
+- No raw identity headers are trusted.
+
+### Idempotency
+
+State-changing POST endpoints require `Idempotency-Key`. Keys are persisted in `return_idempotency_records` with the operation, authenticated actor, request fingerprint and resulting Return ID. Repeating the same key with the same actor and request returns the original Return instead of applying the business transition again. Reusing a key with different operation, actor or request data returns `409 IDEMPOTENCY_CONFLICT`.
+
+The implementation keeps idempotency state in Return Service's own MongoDB and does not query another service's database.
+
+
+### Phase 11 — Security, RBAC & Optional Idempotency
+
+`Idempotency-Key` is optional for return create, verification, and processing endpoints. When supplied, the key is validated and replay/conflict protection is applied. When omitted, the business operation proceeds without an idempotency record. Authenticated JWT identity remains authoritative for actor fields.

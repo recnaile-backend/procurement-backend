@@ -4,6 +4,7 @@ import com.recnaile.returns.api.ApiError;
 import com.recnaile.returns.api.ApiResponse;
 import com.recnaile.returns.exception.ReturnRequestException;
 import com.recnaile.returns.exception.ReturnNotFoundException;
+import com.recnaile.returns.exception.IdempotencyConflictException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -29,6 +30,12 @@ public class ReturnExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleNotFound(ReturnNotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.failure(new ApiError("RETURN_NOT_FOUND", exception.getMessage(), null)));
+    }
+
+    @ExceptionHandler(IdempotencyConflictException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIdempotencyConflict(IdempotencyConflictException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.failure(new ApiError("IDEMPOTENCY_CONFLICT", exception.getMessage(), null)));
     }
 
     @ExceptionHandler({IllegalArgumentException.class, ReturnRequestException.class})
