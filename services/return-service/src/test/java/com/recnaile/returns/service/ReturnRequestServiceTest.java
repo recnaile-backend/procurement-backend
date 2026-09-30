@@ -4,6 +4,8 @@ import com.recnaile.returns.dto.CreateReturnRequest;
 import com.recnaile.returns.model.entity.ReturnRequest;
 import com.recnaile.returns.model.enums.ReturnCondition;
 import com.recnaile.returns.model.enums.ReturnStatus;
+import com.recnaile.returns.integration.outward.IssuedReturnValidationClient;
+import com.recnaile.returns.dto.IssuedReturnValidation;
 import com.recnaile.returns.repository.ReturnRequestRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,11 +29,18 @@ class ReturnRequestServiceTest {
     @Mock
     private ReturnRequestRepository repository;
 
+    @Mock
+    private IssuedReturnValidationClient issuedReturnValidationClient;
+
     @Test
     void createBuildsPendingReturnAndPersistsIt() {
         Instant now = Instant.parse("2026-09-30T05:00:00Z");
         Clock clock = Clock.fixed(now, ZoneOffset.UTC);
-        ReturnRequestService service = new ReturnRequestService(repository, clock);
+        IssuedReturnValidationService validationService = new IssuedReturnValidationService(issuedReturnValidationClient);
+        when(issuedReturnValidationClient.validateIssuedLine("OUT-100", "OUT-100-L1"))
+                .thenReturn(new IssuedReturnValidation("OUT-100", "OUT-100-L1", "ITEM-10",
+                        new BigDecimal("5"), new BigDecimal("1"), "ASSET-1"));
+        ReturnRequestService service = new ReturnRequestService(repository, validationService, clock);
 
         CreateReturnRequest request = new CreateReturnRequest(
                 "OUT-100", "OUT-100-L1", "ITEM-10", new BigDecimal("2"),

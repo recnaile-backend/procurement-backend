@@ -231,11 +231,81 @@ Phase 4 adds tests for:
 - successful `201 Created` REST response
 - request validation failure response
 
+### Phase 5 — Issued-Quantity / Asset Validation
+
+Completed.
+
+Return creation now validates the requested return against the originating issued outward line before persistence. The Return Service uses a synchronous integration boundary to the Outward Service and does not query another service database directly.
+
+#### Validation flow
+
+```text
+Create Return Request
+        ↓
+IssuedReturnValidationService
+        ↓
+Outward Service validation client
+        ↓
+Validate outward + line + item + quantity + asset
+        ↓
+Persist Return Request
+```
+
+The validation checks:
+
+- The supplied `outwardId` matches the issued outward record.
+- The supplied `outwardLineId` matches the specific issued line.
+- The supplied `itemId` matches the item on the issued line.
+- The requested return quantity is greater than zero and does not exceed the remaining issued quantity.
+- Remaining quantity is calculated as issued quantity minus already returned quantity.
+- When the issued line has an `assetId`, the return must provide the same asset ID.
+- A return cannot introduce an unrelated asset when the issued line is not asset-linked.
+
+#### Integration boundary
+
+`IssuedReturnValidationClient` is the application integration boundary. `OutwardServiceRestClient` is the HTTP implementation. The Outward Service base URL is configured with:
+
+```text
+OUTWARD_SERVICE_URL
+```
+
+Default container value:
+
+```text
+http://outward-service:8087
+```
+
+The client uses the return-validation resource:
+
+```text
+GET /api/v1/outwards/{outwardId}/lines/{outwardLineId}/return-validation
+```
+
+The response supplies the issued outward/line identity, item ID, issued quantity, already-returned quantity and optional asset ID. Cross-service database access is not used.
+
+#### Persistence behavior
+
+Validation occurs before `ReturnRequestRepository.save(...)`. A failed validation therefore does not create a Return document. Existing Phase 4 creation behavior remains unchanged after validation succeeds.
+
+#### Tests
+
+Phase 5 adds coverage for:
+
+- valid return quantity within remaining issued quantity
+- quantity exceeding remaining issued quantity
+- no remaining quantity
+- item mismatch
+- asset mismatch
+- matching asset
+- service creation continuing to persist only after successful validation
+
+Authentication/RBAC, idempotency, verification, stock movement, Kafka events and transactional outbox reliability remain in their later roadmap phases.
+
 ## Upcoming Phases
 
 - Phase 3 — Return State Machine — Completed
 - Phase 4 — Create Return Request — Completed
-- Phase 5 — Issued-Quantity / Asset Validation
+- Phase 5 — Issued-Quantity / Asset Validation — Completed
 - Phase 6 — Return Verification Workflow
 - Phase 7 — Good / Damaged Return Processing
 - Phase 8 — Kafka Events & Event Contracts

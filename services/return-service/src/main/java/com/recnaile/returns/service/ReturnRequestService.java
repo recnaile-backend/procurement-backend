@@ -1,7 +1,6 @@
 package com.recnaile.returns.service;
 
 import com.recnaile.returns.dto.CreateReturnRequest;
-import com.recnaile.returns.exception.ReturnRequestException;
 import com.recnaile.returns.model.entity.ReturnRequest;
 import com.recnaile.returns.repository.ReturnRequestRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,15 +13,17 @@ import java.time.Instant;
 public class ReturnRequestService {
 
     private final ReturnRequestRepository repository;
+    private final IssuedReturnValidationService issuedReturnValidationService;
     private final Clock clock;
 
     @Autowired
-    public ReturnRequestService(ReturnRequestRepository repository) {
-        this(repository, Clock.systemUTC());
+    public ReturnRequestService(ReturnRequestRepository repository, IssuedReturnValidationService issuedReturnValidationService) {
+        this(repository, issuedReturnValidationService, Clock.systemUTC());
     }
 
-    ReturnRequestService(ReturnRequestRepository repository, Clock clock) {
+    ReturnRequestService(ReturnRequestRepository repository, IssuedReturnValidationService issuedReturnValidationService, Clock clock) {
         this.repository = repository;
+        this.issuedReturnValidationService = issuedReturnValidationService;
         this.clock = clock;
     }
 
@@ -30,6 +31,8 @@ public class ReturnRequestService {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");
         }
+
+        issuedReturnValidationService.validate(request);
 
         ReturnRequest returnRequest = new ReturnRequest(
                 request.outwardId().trim(),

@@ -36,3 +36,6 @@ info:
 
 app:
   service-name: ${spring.application.name}
+  integrations:
+    outward-service:
+      base-url: ${OUTWARD_SERVICE_URL:http://outward-service:8087}

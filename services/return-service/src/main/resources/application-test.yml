@@ -1,16 +1,11 @@
 spring:
   data:
     mongodb:
-      uri: mongodb://localhost:27017/return
+      uri: mongodb://localhost:27017/return-test
   kafka:
     bootstrap-servers: localhost:9092
 
-management:
-  health:
-    mongo:
-      enabled: false
-    kafka:
-      enabled: false
-  otlp:
-    tracing:
-      endpoint: http://localhost:4318/v1/traces
+app:
+  integrations:
+    outward-service:
+      base-url: http://localhost:8087
