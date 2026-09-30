@@ -3,11 +3,14 @@ spring:
     name: return-service
   data:
     mongodb:
-      uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:return}?retryWrites=true&w=majority&appName=recnaile
+      uri: ${MONGODB_BASE_URI:mongodb://localhost:27017}/${MONGODB_DATABASE:return}?retryWrites=true&w=majority&appName=recnaile
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+
 server:
   port: ${SERVICE_PORT:8088}
+  shutdown: graceful
+
 management:
   endpoints:
     web:
@@ -17,14 +20,19 @@ management:
     health:
       probes:
         enabled: true
+      show-details: never
   tracing:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
-otel:
-  exporter:
-    otlp:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4318/v1/traces}
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: "Returns, condition verification and stock adjustment"
+    version: "0.1.0-SNAPSHOT"
 
 app:
-  service-name: return-service
-  description: "Returns, condition verification and stock adjustment"
+  service-name: ${spring.application.name}
