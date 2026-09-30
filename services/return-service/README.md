@@ -525,9 +525,35 @@ Phase 9 adds coverage for:
 
 ## Updated Upcoming Phases
 
-- Phase 10 — Inventory & Asset Integration
 - Phase 11 — Security, RBAC & Idempotency
 - Phase 12 — Audit & Notification Integration
 - Phase 13 — Observability & Operational Readiness
 - Phase 14 — Testing, OpenAPI & API Hardening
 - Phase 15 — Docker/Kubernetes & Final Integration
+
+## Phase 10 — Inventory Integration Contract
+
+Completed for the Inventory side of the Return workflow. The Return Service remains the authoritative source of the accepted return outcome and propagates it through the existing `RETURN_RECORDED` transactional-outbox event.
+
+### Inventory behavior represented by the event
+
+- `GOOD` return → Inventory increases **available stock** by the returned quantity.
+- `DAMAGED` return → Inventory increases **defect stock** by the returned quantity.
+- `returnId` provides the transaction identity for downstream idempotency.
+- `itemId` identifies the stock item.
+- `qty` is the server-calculated returned quantity.
+- `condition` determines the downstream stock bucket.
+
+### Integration boundary
+
+Return Service does **not** directly query or modify Inventory MongoDB. It does not make an assumed synchronous stock-adjustment call. The existing `RETURN_RECORDED` event is the asynchronous integration boundary, and the Phase 9 transactional outbox guarantees that the event is durably queued with the accepted Return state.
+
+This keeps the database-per-service rule intact and allows the already-completed Inventory Service to consume the event using its own transaction and idempotency rules.
+
+### Asset-service dependency
+
+The Asset Service has not yet been implemented in the project. Therefore Phase 10 intentionally does **not** add an Asset REST client, Kafka consumer, asset database dependency, or guessed Asset API. Reusable-asset lifecycle integration will be completed after Asset Service is available.
+
+### Tests
+
+Phase 10 adds Inventory integration contract tests verifying that `RETURN_RECORDED` carries the exact item, quantity, condition, return identity and occurrence timestamp required by Inventory.
