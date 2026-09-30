@@ -1,5 +1,6 @@
 package com.recnaile.returns.service;
 
+import com.recnaile.returns.event.ReturnEventPublisher;
 import com.recnaile.returns.exception.ReturnNotFoundException;
 import com.recnaile.returns.model.entity.ReturnRequest;
 import com.recnaile.returns.repository.ReturnRequestRepository;
@@ -15,19 +16,32 @@ public class ReturnProcessingService {
     private final ReturnRequestRepository repository;
     private final ReturnStateMachine stateMachine;
     private final Clock clock;
+    private final ReturnEventPublisher eventPublisher;
 
     @Autowired
-    public ReturnProcessingService(ReturnRequestRepository repository, ReturnStateMachine stateMachine) {
-        this(repository, stateMachine, Clock.systemUTC());
+    public ReturnProcessingService(
+            ReturnRequestRepository repository,
+            ReturnStateMachine stateMachine,
+            ReturnEventPublisher eventPublisher) {
+        this(repository, stateMachine, Clock.systemUTC(), eventPublisher);
     }
 
     ReturnProcessingService(
             ReturnRequestRepository repository,
             ReturnStateMachine stateMachine,
             Clock clock) {
+        this(repository, stateMachine, clock, returnRequest -> { });
+    }
+
+    ReturnProcessingService(
+            ReturnRequestRepository repository,
+            ReturnStateMachine stateMachine,
+            Clock clock,
+            ReturnEventPublisher eventPublisher) {
         this.repository = repository;
         this.stateMachine = stateMachine;
         this.clock = clock;
+        this.eventPublisher = eventPublisher;
     }
 
     public ReturnRequest process(String returnId) {
@@ -37,7 +51,9 @@ public class ReturnProcessingService {
 
         stateMachine.process(returnRequest);
         returnRequest.setUpdatedAt(Instant.now(clock));
-        return repository.save(returnRequest);
+        ReturnRequest saved = repository.save(returnRequest);
+        eventPublisher.publish(saved);
+        return saved;
     }
 
     private String normalizeReturnId(String returnId) {

@@ -422,3 +422,29 @@ Phase 7 adds coverage for:
 - successful processing REST response
 
 Inventory stock changes, reusable asset lifecycle changes, Kafka events, transactional outbox, RBAC and idempotency remain in their designated later phases.
+
+## Phase 8 — Kafka Events & Event Contracts
+
+Phase 8 adds the Return Service business-event boundary. After a return is successfully persisted in its final accepted state, the service publishes a `RETURN_RECORDED` Kafka event.
+
+### Event payload
+
+The business payload contains the documented return data:
+- `returnId`
+- `itemId`
+- `qty`
+- `condition`
+
+The event also carries `eventId`, `eventType`, and `occurredAt` metadata for traceability.
+
+### Topic
+
+The topic is configurable through `app.kafka.topics.return-recorded` and defaults to `return.recorded`.
+
+### Reliability boundary
+
+Phase 8 establishes Kafka publishing and the event contract. Transactional outbox and durable publish/retry semantics are intentionally deferred to Phase 9. The event is published only after the MongoDB save returns successfully.
+
+### Architecture rule
+
+Return Service does not directly update Inventory or Asset databases. Downstream services consume the return event and apply their own state changes.
