@@ -448,3 +448,86 @@ Phase 8 establishes Kafka publishing and the event contract. Transactional outbo
 ### Architecture rule
 
 Return Service does not directly update Inventory or Asset databases. Downstream services consume the return event and apply their own state changes.
+
+### Phase 9 — Transactional Outbox & Event Reliability
+
+Completed.
+
+Phase 9 replaces the direct Kafka publication from the Return processing transaction with a durable transactional outbox. The accepted Return state and its `RETURN_RECORDED` event record are written to MongoDB in the same transaction.
+
+#### Transactional processing flow
+
+```text
+Verified Return
+      ↓
+ReturnProcessingService
+      ↓
+MongoDB transaction
+   ┌──┴──────────────────────┐
+   │                         │
+Save ReturnRequest     Save ReturnEventOutbox
+   │                         │
+   └──────────────┬──────────┘
+                  ↓
+             COMMIT
+                  ↓
+        Outbox Dispatcher
+                  ↓
+              Kafka
+```
+
+#### Outbox document
+
+`return_event_outbox` stores the durable event record with:
+
+- `eventId` — stable event identifier used across retries
+- `aggregateId` — Return ID
+- `eventType` — `RETURN_RECORDED`
+- `topic` — configured Kafka topic
+- `returnId`
+- `itemId`
+- `qty`
+- `condition`
+- `occurredAt`
+- `status` — `PENDING` or `SENT`
+- `attempts`
+- `createdAt`
+- `publishedAt`
+- `lastError`
+- optimistic-concurrency `version`
+
+A unique index on `eventId` prevents duplicate outbox records for the same event identifier.
+
+#### Dispatcher behavior
+
+`ReturnEventOutboxDispatcher` periodically reads pending records and publishes them to Kafka. A record is marked `SENT` only after the Kafka send future completes successfully. If publication fails, the record remains `PENDING`, the attempt counter is incremented and the error is retained for the next dispatch cycle.
+
+The dispatcher uses the same stable `eventId` when reconstructing `RETURN_RECORDED`, so a retry does not generate a new event identity. Downstream consumers should therefore use event IDs for idempotent processing according to the platform event/idempotency standards.
+
+#### MongoDB transaction configuration
+
+`MongoTransactionManager` is registered as the service transaction manager and `ReturnProcessingService.process(...)` is annotated with `@Transactional`. The Return document and outbox document are therefore committed together when the deployment's MongoDB topology supports transactions (such as MongoDB Atlas or a configured replica set).
+
+#### Kafka boundary
+
+The processing service no longer calls Kafka directly. Kafka publication is performed only by the outbox dispatcher after the MongoDB transaction has committed. This prevents a successful Return transaction from losing its event merely because Kafka was temporarily unavailable.
+
+#### Tests
+
+Phase 9 adds coverage for:
+
+- Return processing enqueues an outbox record instead of directly publishing Kafka.
+- Outbox records start in `PENDING` state.
+- Stable event IDs are retained in the outbox payload.
+- Successful Kafka publication marks an outbox record `SENT`.
+- Failed Kafka publication leaves the record `PENDING` and records an attempt/error.
+- Existing Return state, verification, validation and Kafka contract tests remain part of the suite.
+
+## Updated Upcoming Phases
+
+- Phase 10 — Inventory & Asset Integration
+- Phase 11 — Security, RBAC & Idempotency
+- Phase 12 — Audit & Notification Integration
+- Phase 13 — Observability & Operational Readiness
+- Phase 14 — Testing, OpenAPI & API Hardening
+- Phase 15 — Docker/Kubernetes & Final Integration

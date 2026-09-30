@@ -4,6 +4,8 @@ import com.recnaile.returns.model.entity.ReturnRequest;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.CompletableFuture;
+
 @Component
 public class KafkaReturnEventPublisher implements ReturnEventPublisher {
 
@@ -19,12 +21,10 @@ public class KafkaReturnEventPublisher implements ReturnEventPublisher {
 
     @Override
     public void publish(ReturnRequest returnRequest) {
-        ReturnRecordedEvent event = new ReturnRecordedEvent(
-                returnRequest.getReturnId(),
-                returnRequest.getItemId(),
-                returnRequest.getQuantity(),
-                returnRequest.getCondition(),
-                returnRequest.getUpdatedAt());
-        kafkaTemplate.send(topic, returnRequest.getReturnId(), event);
+        publish(topic, returnRequest.getReturnId(), ReturnRecordedEvent.create(returnRequest));
+    }
+
+    public CompletableFuture<?> publish(String eventTopic, String key, ReturnRecordedEvent event) {
+        return kafkaTemplate.send(eventTopic, key, event);
     }
 }

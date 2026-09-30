@@ -6,6 +6,7 @@ import com.recnaile.returns.model.entity.ReturnRequest;
 import com.recnaile.returns.model.enums.ReturnCondition;
 import com.recnaile.returns.model.enums.ReturnStatus;
 import com.recnaile.returns.repository.ReturnRequestRepository;
+import com.recnaile.returns.outbox.ReturnEventOutboxService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -28,6 +29,9 @@ class ReturnProcessingServiceTest {
     @Mock
     private ReturnRequestRepository repository;
 
+    @Mock
+    private ReturnEventOutboxService outboxService;
+
     @Test
     void processGoodReturnSetsAcceptedGood() {
         Instant now = Instant.parse("2026-09-30T06:00:00Z");
@@ -37,13 +41,14 @@ class ReturnProcessingServiceTest {
         when(repository.save(request)).thenAnswer(invocation -> invocation.getArgument(0));
 
         ReturnProcessingService service = new ReturnProcessingService(
-                repository, new ReturnStateMachine(), Clock.fixed(now, ZoneOffset.UTC));
+                repository, new ReturnStateMachine(), Clock.fixed(now, ZoneOffset.UTC), outboxService);
 
         ReturnRequest result = service.process(" RET-1 ");
 
         assertThat(result.getStatus()).isEqualTo(ReturnStatus.ACCEPTED_GOOD);
         assertThat(result.getUpdatedAt()).isEqualTo(now);
         verify(repository).save(request);
+        org.mockito.Mockito.verify(outboxService).enqueue(request);
     }
 
     @Test
@@ -54,19 +59,20 @@ class ReturnProcessingServiceTest {
         when(repository.save(request)).thenAnswer(invocation -> invocation.getArgument(0));
 
         ReturnProcessingService service = new ReturnProcessingService(
-                repository, new ReturnStateMachine(), Clock.systemUTC());
+                repository, new ReturnStateMachine(), Clock.systemUTC(), outboxService);
 
         ReturnRequest result = service.process("RET-1");
 
         assertThat(result.getStatus()).isEqualTo(ReturnStatus.ACCEPTED_DAMAGED);
         verify(repository).save(request);
+        org.mockito.Mockito.verify(outboxService).enqueue(request);
     }
 
     @Test
     void processRejectsUnknownReturn() {
         when(repository.findById("RET-404")).thenReturn(Optional.empty());
         ReturnProcessingService service = new ReturnProcessingService(
-                repository, new ReturnStateMachine(), Clock.systemUTC());
+                repository, new ReturnStateMachine(), Clock.systemUTC(), outboxService);
 
         assertThatThrownBy(() -> service.process("RET-404"))
                 .isInstanceOf(ReturnNotFoundException.class);
@@ -77,7 +83,7 @@ class ReturnProcessingServiceTest {
         ReturnRequest request = returnRequest(ReturnCondition.GOOD);
         when(repository.findById("RET-1")).thenReturn(Optional.of(request));
         ReturnProcessingService service = new ReturnProcessingService(
-                repository, new ReturnStateMachine(), Clock.systemUTC());
+                repository, new ReturnStateMachine(), Clock.systemUTC(), outboxService);
 
         assertThatThrownBy(() -> service.process("RET-1"))
                 .isInstanceOf(InvalidReturnStateTransitionException.class);
@@ -89,7 +95,7 @@ class ReturnProcessingServiceTest {
         request.setStatus(ReturnStatus.ACCEPTED_GOOD);
         when(repository.findById("RET-1")).thenReturn(Optional.of(request));
         ReturnProcessingService service = new ReturnProcessingService(
-                repository, new ReturnStateMachine(), Clock.systemUTC());
+                repository, new ReturnStateMachine(), Clock.systemUTC(), outboxService);
 
         assertThatThrownBy(() -> service.process("RET-1"))
                 .isInstanceOf(InvalidReturnStateTransitionException.class);
@@ -98,7 +104,7 @@ class ReturnProcessingServiceTest {
     @Test
     void processRejectsBlankReturnId() {
         ReturnProcessingService service = new ReturnProcessingService(
-                repository, new ReturnStateMachine(), Clock.systemUTC());
+                repository, new ReturnStateMachine(), Clock.systemUTC(), outboxService);
 
         assertThatThrownBy(() -> service.process("  "))
                 .isInstanceOf(IllegalArgumentException.class)

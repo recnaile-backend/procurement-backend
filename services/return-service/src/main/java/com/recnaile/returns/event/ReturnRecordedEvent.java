@@ -1,16 +1,13 @@
 package com.recnaile.returns.event;
 
+import com.recnaile.returns.model.entity.ReturnRequest;
 import com.recnaile.returns.model.enums.ReturnCondition;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Kafka business event emitted after a return is successfully processed.
- * The business payload follows the platform RETURN_RECORDED contract:
- * returnId, itemId, qty and condition.
- */
+/** Kafka business event matching the platform RETURN_RECORDED contract. */
 public class ReturnRecordedEvent {
 
     private final String eventId;
@@ -21,14 +18,37 @@ public class ReturnRecordedEvent {
     private final BigDecimal qty;
     private final ReturnCondition condition;
 
+    public static ReturnRecordedEvent create(ReturnRequest returnRequest) {
+        return new ReturnRecordedEvent(
+                UUID.randomUUID().toString(),
+                "RETURN_RECORDED",
+                returnRequest.getUpdatedAt(),
+                returnRequest.getReturnId(),
+                returnRequest.getItemId(),
+                returnRequest.getQuantity(),
+                returnRequest.getCondition());
+    }
+
     public ReturnRecordedEvent(
             String returnId,
             String itemId,
             BigDecimal qty,
             ReturnCondition condition,
             Instant occurredAt) {
-        this.eventId = UUID.randomUUID().toString();
-        this.eventType = "RETURN_RECORDED";
+        this(UUID.randomUUID().toString(), "RETURN_RECORDED", occurredAt,
+                returnId, itemId, qty, condition);
+    }
+
+    public ReturnRecordedEvent(
+            String eventId,
+            String eventType,
+            Instant occurredAt,
+            String returnId,
+            String itemId,
+            BigDecimal qty,
+            ReturnCondition condition) {
+        this.eventId = eventId;
+        this.eventType = eventType;
         this.occurredAt = occurredAt;
         this.returnId = returnId;
         this.itemId = itemId;

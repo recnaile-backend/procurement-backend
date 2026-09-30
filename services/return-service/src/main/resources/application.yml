@@ -39,3 +39,7 @@ app:
   integrations:
     outward-service:
       base-url: ${OUTWARD_SERVICE_URL:http://outward-service:8087}
+  outbox:
+    dispatch-enabled: ${RETURN_OUTBOX_DISPATCH_ENABLED:true}
+    dispatch-interval-ms: ${RETURN_OUTBOX_DISPATCH_INTERVAL_MS:5000}
+

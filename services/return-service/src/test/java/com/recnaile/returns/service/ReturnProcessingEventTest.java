@@ -1,6 +1,6 @@
 package com.recnaile.returns.service;
 
-import com.recnaile.returns.event.ReturnEventPublisher;
+import com.recnaile.returns.outbox.ReturnEventOutboxService;
 import com.recnaile.returns.model.entity.ReturnRequest;
 import com.recnaile.returns.model.enums.ReturnCondition;
 import com.recnaile.returns.model.enums.ReturnStatus;
@@ -26,7 +26,7 @@ class ReturnProcessingEventTest {
     private ReturnRequestRepository repository;
 
     @Mock
-    private ReturnEventPublisher eventPublisher;
+    private ReturnEventOutboxService outboxService;
 
     @Test
     void publishesEventOnlyAfterSuccessfulPersistence() {
@@ -45,11 +45,11 @@ class ReturnProcessingEventTest {
                 repository,
                 new ReturnStateMachine(),
                 Clock.fixed(now, ZoneOffset.UTC),
-                eventPublisher);
+                outboxService);
 
         service.process("RET-1");
 
         verify(repository).save(request);
-        verify(eventPublisher).publish(request);
+        verify(outboxService).enqueue(request);
     }
 }

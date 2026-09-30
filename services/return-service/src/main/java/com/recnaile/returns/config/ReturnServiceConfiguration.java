@@ -1,13 +1,16 @@
 package com.recnaile.returns.config;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.MongoTransactionManager;
+import org.springframework.transaction.PlatformTransactionManager;
 
-/**
- * Root configuration marker for the Return Service.
- *
- * Business rules, domain state transitions and persistence behavior are intentionally
- * introduced in later implementation phases.
- */
 @Configuration
 public class ReturnServiceConfiguration {
+
+    @Bean
+    PlatformTransactionManager transactionManager(MongoDatabaseFactory databaseFactory) {
+        return new MongoTransactionManager(databaseFactory);
+    }
 }
