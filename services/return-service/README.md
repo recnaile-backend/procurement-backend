@@ -106,6 +106,28 @@ Phase 2 defines indexes for the primary Return query/reference patterns:
 - returned-by
 - creation time
 
+### Phase 3 — Return State Machine
+
+Completed.
+
+The lifecycle state machine is implemented in `com.recnaile.returns.service.ReturnStateMachine`. The documented persisted transition is:
+
+```text
+PENDING_VERIFICATION → VERIFIED
+```
+
+Rules enforced by the state machine:
+
+- A return can be verified only while it is `PENDING_VERIFICATION`.
+- A verified return cannot be verified again.
+- A verified return cannot move back to `PENDING_VERIFICATION`.
+- Null aggregates and null target states are rejected.
+- Invalid transitions raise `InvalidReturnStateTransitionException`.
+- The transition updates `updatedAt`.
+- Good/damaged stock processing and downstream event publication are intentionally deferred to their later phases.
+
+The state machine is kept in the application/service layer; the entity does not contain lifecycle decision logic.
+
 ## Business Rules Covered by the Model
 
 The documented Return workflow requires a Return to contain the item and quantity, identify who returned it, capture condition and remarks, and link the return to the issued item/asset where applicable. Verification actor and timestamp are retained on the aggregate.
@@ -150,7 +172,7 @@ docker compose up -d --build return-service
 
 ## Upcoming Phases
 
-- Phase 3 — Return State Machine
+- Phase 3 — Return State Machine — Completed
 - Phase 4 — Create Return Request
 - Phase 5 — Issued-Quantity / Asset Validation
 - Phase 6 — Return Verification Workflow
