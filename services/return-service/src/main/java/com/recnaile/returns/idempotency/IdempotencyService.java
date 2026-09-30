@@ -22,13 +22,9 @@ public class IdempotencyService {
     private final Clock clock;
 
     public IdempotencyService(IdempotencyRecordRepository repository, ReturnRequestRepository returnRepository) {
-        this(repository, returnRepository, Clock.systemUTC());
-    }
-
-    IdempotencyService(IdempotencyRecordRepository repository, ReturnRequestRepository returnRepository, Clock clock) {
         this.repository = repository;
         this.returnRepository = returnRepository;
-        this.clock = clock;
+        this.clock = Clock.systemUTC();
     }
 
     public Optional<ReturnRequest> findExisting(String key, String operation, String actor, String requestHash) {

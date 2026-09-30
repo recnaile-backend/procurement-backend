@@ -3,6 +3,7 @@ package com.recnaile.returns.config;
 import com.recnaile.returns.event.ReturnRecordedEvent;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,7 +19,7 @@ import java.util.Map;
 public class KafkaProducerConfiguration {
 
     @Bean
-    public ProducerFactory<String, ReturnRecordedEvent> returnEventProducerFactory(
+    ProducerFactory<String, ReturnRecordedEvent> returnEventProducerFactory(
             @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers) {
         Map<String, Object> properties = new HashMap<>();
         properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -31,8 +32,26 @@ public class KafkaProducerConfiguration {
     }
 
     @Bean
-    public KafkaTemplate<String, ReturnRecordedEvent> returnEventKafkaTemplate(
-            ProducerFactory<String, ReturnRecordedEvent> producerFactory) {
+    KafkaTemplate<String, ReturnRecordedEvent> returnEventKafkaTemplate(
+            @Qualifier("returnEventProducerFactory") ProducerFactory<String, ReturnRecordedEvent> producerFactory) {
+        return new KafkaTemplate<>(producerFactory);
+    }
+
+    @Bean
+    ProducerFactory<String, String> integrationEventProducerFactory(
+            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers) {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        properties.put(ProducerConfig.ACKS_CONFIG, "all");
+        properties.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+        return new DefaultKafkaProducerFactory<>(properties);
+    }
+
+    @Bean
+    KafkaTemplate<String, String> integrationEventKafkaTemplate(
+            @Qualifier("integrationEventProducerFactory") ProducerFactory<String, String> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
     }
 }

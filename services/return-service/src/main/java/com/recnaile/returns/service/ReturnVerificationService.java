@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.recnaile.returns.idempotency.IdempotencyService;
+import com.recnaile.returns.integration.outbox.ReturnIntegrationOutboxService;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -19,24 +20,30 @@ public class ReturnVerificationService {
     private final ReturnStateMachine stateMachine;
     private final Clock clock;
     private final IdempotencyService idempotencyService;
+    private final ReturnIntegrationOutboxService integrationOutboxService;
 
     @Autowired
-    public ReturnVerificationService(ReturnRequestRepository repository, ReturnStateMachine stateMachine, IdempotencyService idempotencyService) {
-        this(repository, stateMachine, Clock.systemUTC(), idempotencyService);
+    public ReturnVerificationService(ReturnRequestRepository repository, ReturnStateMachine stateMachine, IdempotencyService idempotencyService, ReturnIntegrationOutboxService integrationOutboxService) {
+        this(repository, stateMachine, Clock.systemUTC(), idempotencyService, integrationOutboxService);
     }
 
     ReturnVerificationService(
             ReturnRequestRepository repository,
             ReturnStateMachine stateMachine,
             Clock clock) {
-        this(repository, stateMachine, clock, null);
+        this(repository, stateMachine, clock, null, null);
     }
 
     ReturnVerificationService(ReturnRequestRepository repository, ReturnStateMachine stateMachine, Clock clock, IdempotencyService idempotencyService) {
+        this(repository, stateMachine, clock, idempotencyService, null);
+    }
+
+    ReturnVerificationService(ReturnRequestRepository repository, ReturnStateMachine stateMachine, Clock clock, IdempotencyService idempotencyService, ReturnIntegrationOutboxService integrationOutboxService) {
         this.repository = repository;
         this.stateMachine = stateMachine;
         this.clock = clock;
         this.idempotencyService = idempotencyService;
+        this.integrationOutboxService = integrationOutboxService;
     }
 
     public ReturnRequest verify(String returnId, VerifyReturnRequest request) {
@@ -70,6 +77,7 @@ public class ReturnVerificationService {
             returnRequest.setVerifiedAt(verifiedAt);
             returnRequest.setUpdatedAt(verifiedAt);
             ReturnRequest saved = repository.save(returnRequest);
+            enqueueIntegrations(saved, verifier, "VERIFY", "PENDING_VERIFICATION", saved.getStatus().name(), null);
             idempotencyService.record(key, "VERIFY_RETURN", verifier, fingerprint, saved.getReturnId());
             return saved;
         }
@@ -83,7 +91,15 @@ public class ReturnVerificationService {
         returnRequest.setVerifiedAt(verifiedAt);
         returnRequest.setUpdatedAt(verifiedAt);
 
-        return repository.save(returnRequest);
+        ReturnRequest saved = repository.save(returnRequest);
+        enqueueIntegrations(saved, verifier, "VERIFY", "PENDING_VERIFICATION", saved.getStatus().name(), null);
+        return saved;
+    }
+
+    private void enqueueIntegrations(ReturnRequest r, String actor, String action, String previous, String next, String correlationId) {
+        if (integrationOutboxService == null) return;
+        integrationOutboxService.audit(r.getReturnId(), actor, null, action, previous, next, correlationId);
+        integrationOutboxService.notify(r.getReturnId(), actor, action, "Return verified", correlationId);
     }
 
     private String normalizeReturnId(String returnId) {

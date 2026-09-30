@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.recnaile.returns.idempotency.IdempotencyService;
+import com.recnaile.returns.integration.outbox.ReturnIntegrationOutboxService;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -20,13 +21,14 @@ public class ReturnProcessingService {
     private final Clock clock;
     private final ReturnEventOutboxService outboxService;
     private final IdempotencyService idempotencyService;
+    private final ReturnIntegrationOutboxService integrationOutboxService;
 
     @Autowired
     public ReturnProcessingService(
             ReturnRequestRepository repository,
             ReturnStateMachine stateMachine,
-            ReturnEventOutboxService outboxService, IdempotencyService idempotencyService) {
-        this(repository, stateMachine, Clock.systemUTC(), outboxService, idempotencyService);
+            ReturnEventOutboxService outboxService, IdempotencyService idempotencyService, ReturnIntegrationOutboxService integrationOutboxService) {
+        this(repository, stateMachine, Clock.systemUTC(), outboxService, idempotencyService, integrationOutboxService);
     }
 
     ReturnProcessingService(
@@ -34,17 +36,24 @@ public class ReturnProcessingService {
             ReturnStateMachine stateMachine,
             Clock clock,
             ReturnEventOutboxService outboxService) {
-        this(repository, stateMachine, clock, outboxService, null);
+        this(repository, stateMachine, clock, outboxService, null, null);
     }
 
     ReturnProcessingService(
             ReturnRequestRepository repository, ReturnStateMachine stateMachine, Clock clock,
             ReturnEventOutboxService outboxService, IdempotencyService idempotencyService) {
+        this(repository, stateMachine, clock, outboxService, idempotencyService, null);
+    }
+
+    ReturnProcessingService(
+            ReturnRequestRepository repository, ReturnStateMachine stateMachine, Clock clock,
+            ReturnEventOutboxService outboxService, IdempotencyService idempotencyService, ReturnIntegrationOutboxService integrationOutboxService) {
         this.repository = repository;
         this.stateMachine = stateMachine;
         this.clock = clock;
         this.outboxService = outboxService;
         this.idempotencyService = idempotencyService;
+        this.integrationOutboxService = integrationOutboxService;
     }
 
     @Transactional
@@ -69,6 +78,7 @@ public class ReturnProcessingService {
             returnRequest.setUpdatedAt(Instant.now(clock));
             ReturnRequest saved = repository.save(returnRequest);
             outboxService.enqueue(saved);
+            enqueueIntegrations(saved, normalizedActor, "PROCESS", "VERIFIED", saved.getStatus().name(), null);
             idempotencyService.record(key, "PROCESS_RETURN", normalizedActor, fingerprint, saved.getReturnId());
             return saved;
         }
@@ -80,7 +90,14 @@ public class ReturnProcessingService {
         returnRequest.setUpdatedAt(Instant.now(clock));
         ReturnRequest saved = repository.save(returnRequest);
         outboxService.enqueue(saved);
+        enqueueIntegrations(saved, normalizedActor, "PROCESS", "VERIFIED", saved.getStatus().name(), null);
         return saved;
+    }
+
+    private void enqueueIntegrations(ReturnRequest r, String actor, String action, String previous, String next, String correlationId) {
+        if (integrationOutboxService == null) return;
+        integrationOutboxService.audit(r.getReturnId(), actor, null, action, previous, next, correlationId);
+        integrationOutboxService.notify(r.getReturnId(), actor, action, "Return processed as " + r.getCondition(), correlationId);
     }
 
     private String normalizeReturnId(String returnId) {

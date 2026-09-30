@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.recnaile.returns.idempotency.IdempotencyService;
+import com.recnaile.returns.integration.outbox.ReturnIntegrationOutboxService;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -18,21 +19,27 @@ public class ReturnRequestService {
     private final IssuedReturnValidationService issuedReturnValidationService;
     private final Clock clock;
     private final IdempotencyService idempotencyService;
+    private final ReturnIntegrationOutboxService integrationOutboxService;
 
     @Autowired
-    public ReturnRequestService(ReturnRequestRepository repository, IssuedReturnValidationService issuedReturnValidationService, IdempotencyService idempotencyService) {
-        this(repository, issuedReturnValidationService, Clock.systemUTC(), idempotencyService);
+    public ReturnRequestService(ReturnRequestRepository repository, IssuedReturnValidationService issuedReturnValidationService, IdempotencyService idempotencyService, ReturnIntegrationOutboxService integrationOutboxService) {
+        this(repository, issuedReturnValidationService, Clock.systemUTC(), idempotencyService, integrationOutboxService);
     }
 
     ReturnRequestService(ReturnRequestRepository repository, IssuedReturnValidationService issuedReturnValidationService, Clock clock) {
-        this(repository, issuedReturnValidationService, clock, null);
+        this(repository, issuedReturnValidationService, clock, null, null);
     }
 
     ReturnRequestService(ReturnRequestRepository repository, IssuedReturnValidationService issuedReturnValidationService, Clock clock, IdempotencyService idempotencyService) {
+        this(repository, issuedReturnValidationService, clock, idempotencyService, null);
+    }
+
+    ReturnRequestService(ReturnRequestRepository repository, IssuedReturnValidationService issuedReturnValidationService, Clock clock, IdempotencyService idempotencyService, ReturnIntegrationOutboxService integrationOutboxService) {
         this.repository = repository;
         this.issuedReturnValidationService = issuedReturnValidationService;
         this.clock = clock;
         this.idempotencyService = idempotencyService;
+        this.integrationOutboxService = integrationOutboxService;
     }
 
     public ReturnRequest create(CreateReturnRequest request) {
@@ -50,7 +57,9 @@ public class ReturnRequestService {
         }
         if (idempotencyService == null || idempotencyKey == null || idempotencyKey.isBlank()) {
             issuedReturnValidationService.validate(request);
-            return persist(request, normalizedActor);
+            ReturnRequest created = persist(request, normalizedActor);
+            enqueueIntegrations(created, normalizedActor, "CREATE", null, created.getStatus().name(), null);
+            return created;
         }
         String key = idempotencyService.normalizeKey(idempotencyKey);
         String fingerprint = idempotencyService.hash(request.toString());
@@ -60,6 +69,7 @@ public class ReturnRequestService {
         }
         issuedReturnValidationService.validate(request);
         ReturnRequest created = persist(request, normalizedActor);
+        enqueueIntegrations(created, normalizedActor, "CREATE", null, created.getStatus().name(), null);
         idempotencyService.record(key, "CREATE_RETURN", normalizedActor, fingerprint, created.getReturnId());
         return created;
     }
@@ -70,6 +80,12 @@ public class ReturnRequestService {
                 request.quantity(), actor, request.condition(), normalizeRemarks(request.remarks()),
                 normalizeOptional(request.assetId()), Instant.now(clock));
         return repository.save(returnRequest);
+    }
+
+    private void enqueueIntegrations(ReturnRequest r, String actor, String action, String previous, String next, String correlationId) {
+        if (integrationOutboxService == null) return;
+        integrationOutboxService.audit(r.getReturnId(), actor, null, action, previous, next, correlationId);
+        integrationOutboxService.notify(r.getReturnId(), actor, action, "Return " + action.toLowerCase() + " successfully", correlationId);
     }
 
     private String normalizeActor(String actor, String fallbackActor) {

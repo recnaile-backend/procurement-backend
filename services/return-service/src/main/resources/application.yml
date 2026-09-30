@@ -45,4 +45,11 @@ app:
   outbox:
     dispatch-enabled: ${RETURN_OUTBOX_DISPATCH_ENABLED:true}
     dispatch-interval-ms: ${RETURN_OUTBOX_DISPATCH_INTERVAL_MS:5000}
+  integration-outbox:
+    dispatch-enabled: ${RETURN_INTEGRATION_OUTBOX_DISPATCH_ENABLED:true}
+    dispatch-interval-ms: ${RETURN_INTEGRATION_OUTBOX_DISPATCH_INTERVAL_MS:5000}
+  kafka:
+    topics:
+      audit: ${AUDIT_TOPIC:audit.events}
+      notification: ${NOTIFICATION_TOPIC:notification.events}
 

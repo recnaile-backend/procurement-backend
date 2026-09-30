@@ -585,3 +585,7 @@ The implementation keeps idempotency state in Return Service's own MongoDB and d
 ### Phase 11 — Security, RBAC & Optional Idempotency
 
 `Idempotency-Key` is optional for return create, verification, and processing endpoints. When supplied, the key is validated and replay/conflict protection is applied. When omitted, the business operation proceeds without an idempotency record. Authenticated JWT identity remains authoritative for actor fields.
+
+
+## Phase 12 constructor hardening
+- Explicitly marks the production constructor of `ReturnIntegrationOutboxService` with `@Autowired` while retaining the clock-injectable package-private constructor for deterministic tests.

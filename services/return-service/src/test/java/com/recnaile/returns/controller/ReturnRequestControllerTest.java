@@ -14,6 +14,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
+import com.recnaile.returns.security.SecurityConfig;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -30,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = ReturnRequestController.class)
 @AutoConfigureMockMvc
-@Import(ReturnExceptionHandler.class)
+@Import({ReturnExceptionHandler.class, SecurityConfig.class})
 class ReturnRequestControllerTest {
 
     @Autowired MockMvc mockMvc;
@@ -38,6 +40,7 @@ class ReturnRequestControllerTest {
     @MockitoBean ReturnRequestService returnRequestService;
     @MockitoBean ReturnVerificationService returnVerificationService;
     @MockitoBean ReturnProcessingService returnProcessingService;
+    @MockitoBean JwtDecoder jwtDecoder;
 
     @Test
     @WithMockUser(username = "user-1", roles = "EMPLOYEE")
