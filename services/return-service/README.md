@@ -301,12 +301,68 @@ Phase 5 adds coverage for:
 
 Authentication/RBAC, idempotency, verification, stock movement, Kafka events and transactional outbox reliability remain in their later roadmap phases.
 
+
+### Phase 6 — Return Verification Workflow
+
+Completed.
+
+Implemented the documented verification workflow for a submitted Return request.
+
+#### Verification API
+
+`POST /api/v1/returns/{returnId}/verify`
+
+Request body:
+
+```json
+{
+  "verifiedBy": "procurement-user-1"
+}
+```
+
+A successful verification returns HTTP `200 OK` using the standard response envelope and updates the Return aggregate to `VERIFIED`.
+
+#### Verification behavior
+
+- Loads the Return request from the Return Service's own MongoDB repository.
+- Rejects a blank Return ID.
+- Rejects a missing Return request with HTTP `404` and error code `RETURN_NOT_FOUND`.
+- Rejects a blank verification actor.
+- Uses the Phase 3 state machine, so only `PENDING_VERIFICATION → VERIFIED` is allowed.
+- Rejects duplicate verification of an already verified return.
+- Records `verifiedBy` and `verifiedAt`.
+- Updates `updatedAt`.
+- Persists the verified aggregate only after the state transition succeeds.
+
+#### Separation of responsibilities
+
+- `ReturnRequestController` handles HTTP transport and request validation.
+- `ReturnVerificationService` owns the verification use case.
+- `ReturnStateMachine` remains the authority for lifecycle transition validity.
+- `ReturnRequestRepository` owns MongoDB persistence.
+- Authentication/RBAC enforcement for the verifier is intentionally deferred to Phase 11, where JWT validation and endpoint/entity authorization are implemented together.
+- Good/damaged inventory processing and reusable-asset updates are intentionally deferred to Phase 7 and Phase 10.
+- Kafka events and transactional outbox reliability are intentionally deferred to Phases 8 and 9.
+
+#### Tests
+
+Phase 6 adds coverage for:
+
+- successful pending-to-verified transition
+- verification actor and timestamp persistence
+- unknown Return ID handling
+- duplicate verification rejection
+- blank verifier rejection
+- successful verification REST response
+
+No stock movement, asset lifecycle mutation, Kafka publication, notification or audit integration is performed by Phase 6.
+
 ## Upcoming Phases
 
 - Phase 3 — Return State Machine — Completed
 - Phase 4 — Create Return Request — Completed
 - Phase 5 — Issued-Quantity / Asset Validation — Completed
-- Phase 6 — Return Verification Workflow
+- Phase 6 — Return Verification Workflow — Completed
 - Phase 7 — Good / Damaged Return Processing
 - Phase 8 — Kafka Events & Event Contracts
 - Phase 9 — Transactional Outbox & Event Reliability

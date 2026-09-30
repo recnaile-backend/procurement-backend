@@ -3,6 +3,7 @@ package com.recnaile.returns.controller;
 import com.recnaile.returns.api.ApiError;
 import com.recnaile.returns.api.ApiResponse;
 import com.recnaile.returns.exception.ReturnRequestException;
+import com.recnaile.returns.exception.ReturnNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -21,6 +22,13 @@ public class ReturnExceptionHandler {
                 .collect(Collectors.joining(", "));
         return ResponseEntity.badRequest()
                 .body(ApiResponse.failure(new ApiError("VALIDATION_ERROR", message, null)));
+    }
+
+
+    @ExceptionHandler(ReturnNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotFound(ReturnNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.failure(new ApiError("RETURN_NOT_FOUND", exception.getMessage(), null)));
     }
 
     @ExceptionHandler({IllegalArgumentException.class, ReturnRequestException.class})
