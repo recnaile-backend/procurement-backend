@@ -6,6 +6,10 @@ spring:
       uri: ${MONGODB_BASE_URI:mongodb://localhost:27017}/${MONGODB_DATABASE:return}?retryWrites=true&w=majority&appName=recnaile
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
 
 server:
   port: ${SERVICE_PORT:8088}
@@ -21,9 +25,16 @@ management:
       probes:
         enabled: true
       show-details: never
+      group:
+        liveness:
+          include: livenessState,ping
+        readiness:
+          include: readinessState,mongo
   tracing:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
+    propagation:
+      type: w3c
   otlp:
     tracing:
       endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4318/v1/traces}
@@ -53,3 +64,7 @@ app:
       audit: ${AUDIT_TOPIC:audit.events}
       notification: ${NOTIFICATION_TOPIC:notification.events}
 
+
+logging:
+  pattern:
+    level: "%5p [corr=%X{correlationId:-} trace=%X{traceId:-} span=%X{spanId:-}]"

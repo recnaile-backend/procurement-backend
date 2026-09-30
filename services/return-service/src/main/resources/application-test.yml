@@ -4,6 +4,10 @@ spring:
       uri: mongodb://localhost:27017/return-test
   kafka:
     bootstrap-servers: localhost:9092
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
 
 app:
   outbox:

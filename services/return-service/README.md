@@ -369,7 +369,6 @@ No stock movement, asset lifecycle mutation, Kafka publication, notification or 
 - Phase 10 — Inventory & Asset Integration
 - Phase 11 — Security, RBAC & Idempotency
 - Phase 12 — Audit & Notification Integration
-- Phase 13 — Observability & Operational Readiness
 - Phase 14 — Testing, OpenAPI & API Hardening
 - Phase 15 — Docker/Kubernetes & Final Integration
 
@@ -527,7 +526,6 @@ Phase 9 adds coverage for:
 
 - Phase 11 — Security, RBAC & Idempotency
 - Phase 12 — Audit & Notification Integration
-- Phase 13 — Observability & Operational Readiness
 - Phase 14 — Testing, OpenAPI & API Hardening
 - Phase 15 — Docker/Kubernetes & Final Integration
 
@@ -589,3 +587,52 @@ The implementation keeps idempotency state in Return Service's own MongoDB and d
 
 ## Phase 12 constructor hardening
 - Explicitly marks the production constructor of `ReturnIntegrationOutboxService` with `@Autowired` while retaining the clock-injectable package-private constructor for deterministic tests.
+
+
+## Phase 13 — Observability & Operational Readiness
+
+Completed.
+
+Phase 13 hardens the service's operational observability without moving business logic into infrastructure code.
+
+### Correlation IDs
+
+- `CorrelationIdFilter` accepts `X-Correlation-ID` from an upstream caller when it is valid and bounded.
+- If no valid correlation ID is supplied, the service generates a UUID correlation ID.
+- The correlation ID is returned on every HTTP response as `X-Correlation-ID`.
+- The value is placed in SLF4J MDC as `correlationId` for request-scoped structured logging.
+- Oversized or control-character correlation IDs are rejected and replaced with a generated ID.
+- MDC is always cleared after request processing to prevent thread-local leakage.
+
+### Tracing
+
+- W3C trace-context propagation is explicitly configured.
+- Existing Micrometer/OpenTelemetry tracing remains enabled.
+- OTLP trace export remains configurable through `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- Log output includes correlation ID, trace ID and span ID fields when available.
+
+### Health and metrics
+
+The service exposes the existing Actuator endpoints:
+
+- `/actuator/health`
+- `/actuator/health/liveness`
+- `/actuator/health/readiness`
+- `/actuator/info`
+- `/actuator/metrics`
+- `/actuator/prometheus`
+
+Liveness is limited to process-level availability. Readiness includes MongoDB so an instance is not reported ready when its required persistence dependency is unavailable.
+
+### Kafka observability
+
+Kafka producer and listener observations are enabled so Kafka operations can participate in the service's Micrometer/OpenTelemetry observation and tracing pipeline.
+
+### Tests
+
+Phase 13 adds focused tests for correlation-ID propagation, generated IDs, invalid/oversized header handling and MDC cleanup. Existing service, security, outbox, integration and context tests remain part of the cumulative suite.
+
+## Updated Upcoming Phases
+
+- Phase 14 — Testing, OpenAPI & API Hardening
+- Phase 15 — Docker/Kubernetes & Final Integration
