@@ -243,3 +243,30 @@ The outward number is generated only by the backend using an atomic MongoDB sequ
 ### Encoded outward number paths
 
 Outward numbers are persisted in encoded form such as `OUT%2F26-27%2F001`. The service explicitly permits the encoded percent/slash characters required by this identifier format and normalizes Swagger's double-encoded path value (`OUT%252F26-27%252F001`) back to the persisted identifier before service lookup. Other Spring Security firewall protections remain enabled.
+
+
+## Return Service integration boundary
+
+The outward service exposes the synchronous validation boundary used by Return Service:
+
+- `GET /api/v1/outward/return-validation?outwardId={outwardId}&itemId={itemId}`
+- The outward number is normalized using the same encoded-path convention used by the issue endpoint.
+- The endpoint requires the authenticated JWT.
+- It validates that the outward request is `ISSUED`, that an issue transaction exists, and that the requested `itemId` was actually issued.
+- The response uses the standard `{success,data,error}` envelope expected by Return Service.
+- `issuedQuantity` is returned as an integer because the Return Service contract uses integer return quantities.
+- `alreadyReturnedQuantity` is currently `0`; return quantities are owned by Return Service rather than stored in the Outward Service database.
+
+The Return Service should call the singular `/api/v1/outward/...` path (not `/api/v1/outwards/...`).
+## Recipient employee validation
+
+Recipient validation uses the existing Auth Service contract without changing Auth Service. The current Auth Service exposes `GET /api/v1/auth/users`, which is protected for MD callers and returns employee registration data (`employeeId`, `firstName`, `lastName`, `enabled`, etc.). Outward propagates the caller's bearer token through the existing `RestClientConfig`.
+
+- **MD caller:** Outward looks up the recipient in Auth Service, verifies the employee ID exists, verifies `enabled=true`, and verifies the submitted recipient name matches `firstName + lastName`.
+- **Non-MD caller:** because the current Auth Service does not expose an employee-directory lookup endpoint for non-MD callers, Outward permits only the authenticated employee's own `employeeId`. The JWT contains the authoritative `employeeId`; Auth Service does not place the first/last name in the JWT, so the submitted self-recipient display name is not independently name-verified.
+- **No Auth database access:** Outward never reads the Auth Service MongoDB directly.
+- **Auth Service remains unchanged.**
+
+Configuration: `AUTH_SERVICE_URL` defaults to `http://auth-service:8081`.
+
+Relevant error codes include `OUTWARD_EMPLOYEE_NOT_FOUND`, `OUTWARD_EMPLOYEE_INACTIVE`, `OUTWARD_EMPLOYEE_NAME_MISMATCH`, and `OUTWARD_EMPLOYEE_VALIDATION_FORBIDDEN`.

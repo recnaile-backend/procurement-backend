@@ -128,6 +128,43 @@ public class OutwardIssueService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public com.recnaile.outward.dto.IssuedReturnValidation validateReturn(String outwardNumber, String itemId) {
+        if (outwardNumber == null || outwardNumber.isBlank()) {
+            throw new OutwardException("OUTWARD_NUMBER_REQUIRED", "Outward number is required");
+        }
+        if (itemId == null || itemId.isBlank()) {
+            throw new OutwardException("OUTWARD_ITEM_REQUIRED", "Item ID is required");
+        }
+
+        OutwardRequest request = requestRepository.findByOutwardNumber(outwardNumber)
+                .orElseThrow(() -> new OutwardException("OUTWARD_NOT_FOUND", "Outward request not found"));
+
+        if (request.getStatus() != OutwardStatus.ISSUED) {
+            throw new OutwardException("OUTWARD_NOT_ISSUED",
+                    "Only an issued outward request can be returned");
+        }
+
+        OutwardIssueTransaction issued = issueRepository.findByOutwardNumber(outwardNumber)
+                .orElseThrow(() -> new OutwardException("OUTWARD_ISSUE_NOT_FOUND",
+                        "Outward issue transaction not found"));
+
+        OutwardItem matched = issued.getItems().stream()
+                .filter(item -> itemId.equals(item.getItemId()))
+                .findFirst()
+                .orElseThrow(() -> new OutwardException("OUTWARD_ITEM_NOT_ISSUED",
+                        "The requested item was not issued on this outward request"));
+
+        try {
+            int quantity = matched.getQuantity().intValueExact();
+            return new com.recnaile.outward.dto.IssuedReturnValidation(
+                    issued.getOutwardNumber(), matched.getItemId(), quantity, 0);
+        } catch (ArithmeticException ex) {
+            throw new OutwardException("OUTWARD_NON_INTEGER_ISSUED_QUANTITY",
+                    "Issued quantity is not an integer and cannot be returned through the Return Service");
+        }
+    }
+
     private List<OutwardItem> copyItems(List<OutwardItem> source) {
         if (source == null || source.isEmpty()) {
             throw new OutwardException("OUTWARD_ITEMS_REQUIRED", "At least one item is required to issue stock");
