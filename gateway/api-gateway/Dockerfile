@@ -10,7 +10,7 @@ RUN --mount=type=cache,target=/root/.gradle/caches,sharing=locked \
     --mount=type=cache,target=/root/.gradle/wrapper,sharing=locked \
     gradle :gateway:api-gateway:bootJar --no-daemon -x test
 
-FROM eclipse-temurin:21-jre-jammy AS runtime
+FROM eclipse-temurin:21-jre-noble AS runtime
 
 RUN groupadd --gid 10001 app &&     useradd --uid 10001 --gid app --shell /usr/sbin/nologin --no-create-home app
 
