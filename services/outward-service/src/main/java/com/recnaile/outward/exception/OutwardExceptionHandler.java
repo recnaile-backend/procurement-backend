@@ -23,6 +23,7 @@ public class OutwardExceptionHandler {
             case "OUTWARD_APPROVAL_ROLE_NOT_ALLOWED", "OUTWARD_APPROVAL_DEPARTMENT_REQUIRED",
                     "OUTWARD_APPROVAL_DEPARTMENT_MISMATCH" -> HttpStatus.FORBIDDEN;
             case "AUTHENTICATION_REQUIRED" -> HttpStatus.UNAUTHORIZED;
+            case "AUTH_EMPLOYEE_LOOKUP_FORBIDDEN" -> HttpStatus.FORBIDDEN;
             case "OUTWARD_CONCURRENT_MODIFICATION", "OUTWARD_NOT_APPROVED", "OUTWARD_ALREADY_ISSUED",
                     "OUTWARD_IDEMPOTENCY_KEY_REUSED" -> HttpStatus.CONFLICT;
             default -> HttpStatus.BAD_REQUEST;
