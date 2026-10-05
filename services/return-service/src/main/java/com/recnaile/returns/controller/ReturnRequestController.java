@@ -1,0 +1,69 @@
+package com.recnaile.returns.controller;
+
+import com.recnaile.returns.api.ApiResponse;
+import com.recnaile.returns.dto.CreateReturnRequest;
+import com.recnaile.returns.dto.VerifyReturnRequest;
+import com.recnaile.returns.model.entity.ReturnRequest;
+import com.recnaile.returns.service.ReturnRequestService;
+import com.recnaile.returns.service.ReturnProcessingService;
+import com.recnaile.returns.service.ReturnVerificationService;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/returns")
+public class ReturnRequestController {
+
+    private final ReturnRequestService returnRequestService;
+    private final ReturnVerificationService returnVerificationService;
+    private final ReturnProcessingService returnProcessingService;
+
+    public ReturnRequestController(
+            ReturnRequestService returnRequestService,
+            ReturnVerificationService returnVerificationService,
+            ReturnProcessingService returnProcessingService) {
+        this.returnRequestService = returnRequestService;
+        this.returnVerificationService = returnVerificationService;
+        this.returnProcessingService = returnProcessingService;
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'PROCUREMENT', 'TL', 'MD')")
+    public ResponseEntity<ApiResponse<ReturnRequest>> create(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            Authentication authentication,
+            @Valid @RequestBody CreateReturnRequest request) {
+        ReturnRequest created = returnRequestService.create(request, authentication.getName(), idempotencyKey);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(created));
+    }
+
+    @PostMapping("/{returnId}/verify")
+    @PreAuthorize("hasAnyRole('PROCUREMENT', 'TL', 'MD')")
+    public ResponseEntity<ApiResponse<ReturnRequest>> verify(
+            @PathVariable String returnId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            Authentication authentication,
+            @Valid @RequestBody VerifyReturnRequest request) {
+        ReturnRequest verified = returnVerificationService.verify(returnId, request, authentication.getName(), idempotencyKey);
+        return ResponseEntity.ok(ApiResponse.success(verified));
+    }
+
+    @PostMapping("/{returnId}/process")
+    @PreAuthorize("hasAnyRole('PROCUREMENT', 'TL', 'MD')")
+    public ResponseEntity<ApiResponse<ReturnRequest>> process(
+            @PathVariable String returnId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            Authentication authentication) {
+        ReturnRequest processed = returnProcessingService.process(returnId, authentication.getName(), idempotencyKey);
+        return ResponseEntity.ok(ApiResponse.success(processed));
+    }
+}

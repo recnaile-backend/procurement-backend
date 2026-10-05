@@ -1,0 +1,22 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/return-test
+  kafka:
+    bootstrap-servers: localhost:9092
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
+
+app:
+  outbox:
+    dispatch-enabled: false
+  integration-outbox:
+    dispatch-enabled: false
+  integrations:
+    outward-service:
+      base-url: http://localhost:8087
+  security:
+    jwt:
+      jwk-set-uri: http://localhost:8081/oauth2/jwks
