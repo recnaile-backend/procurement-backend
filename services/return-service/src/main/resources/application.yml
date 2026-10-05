@@ -1,30 +1,85 @@
 spring:
   application:
     name: return-service
+
   data:
     mongodb:
-      uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:return}?retryWrites=true&w=majority&appName=recnaile
+      uri: ${MONGODB_BASE_URI:mongodb://localhost:27017}/${MONGODB_DATABASE:return}?retryWrites=true&w=majority&appName=recnaile
+
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
+
 server:
   port: ${SERVICE_PORT:8088}
+  shutdown: graceful
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info,prometheus,metrics
+
   endpoint:
     health:
       probes:
         enabled: true
+      show-details: never
+      group:
+        liveness:
+          include: livenessState,ping
+        readiness:
+          include: readinessState,mongo
+
   tracing:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
-otel:
-  exporter:
-    otlp:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
+    propagation:
+      type: w3c
+
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4318/v1/traces}
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: "Returns, condition verification and stock adjustment"
+    version: "0.1.0-SNAPSHOT"
 
 app:
-  service-name: return-service
-  description: "Returns, condition verification and stock adjustment"
+  security:
+    jwt:
+      # Local/dev Auth Service signs access tokens with HS256.
+      secret: ${JWT_SECRET_KEY:}
+      mode: ${JWT_VALIDATION_MODE:hs256}
+      issuer: ${JWT_ISSUER:auth-service}
+
+      # Use JWT_VALIDATION_MODE=jwk only in deployments that use asymmetric JWT signing.
+      jwk-set-uri: ${AUTH_JWK_SET_URI:http://auth-service:8081/oauth2/jwks}
+
+  service-name: ${spring.application.name}
+
+  integrations:
+    outward-service:
+      base-url: ${OUTWARD_SERVICE_URL:http://outward-service:8087}
+
+  outbox:
+    dispatch-enabled: ${RETURN_OUTBOX_DISPATCH_ENABLED:true}
+    dispatch-interval-ms: ${RETURN_OUTBOX_DISPATCH_INTERVAL_MS:5000}
+
+  integration-outbox:
+    dispatch-enabled: ${RETURN_INTEGRATION_OUTBOX_DISPATCH_ENABLED:true}
+    dispatch-interval-ms: ${RETURN_INTEGRATION_OUTBOX_DISPATCH_INTERVAL_MS:5000}
+
+  kafka:
+    topics:
+      audit: ${AUDIT_TOPIC:audit.events}
+      notification: ${NOTIFICATION_TOPIC:notification.events}
+
+logging:
+  pattern:
+    level: "%5p [corr=%X{correlationId:-} trace=%X{traceId:-} span=%X{spanId:-}]"
