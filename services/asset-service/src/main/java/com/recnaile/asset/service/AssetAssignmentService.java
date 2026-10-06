@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.recnaile.asset.model.Asset;
@@ -19,12 +20,23 @@ public class AssetAssignmentService {
 
     private final AssetRepository assetRepository;
     private final AssetAssignmentRepository assignmentRepository;
+    private final com.recnaile.asset.event.AssetEventPublisher eventPublisher;
 
+    @Autowired
     public AssetAssignmentService(
             AssetRepository assetRepository,
-            AssetAssignmentRepository assignmentRepository) {
+            AssetAssignmentRepository assignmentRepository,
+            com.recnaile.asset.event.AssetEventPublisher eventPublisher) {
         this.assetRepository = assetRepository;
         this.assignmentRepository = assignmentRepository;
+        this.eventPublisher = eventPublisher;
+    }
+
+    /** Test-friendly constructor retained for unit tests that do not exercise Kafka publication. */
+    AssetAssignmentService(
+            AssetRepository assetRepository,
+            AssetAssignmentRepository assignmentRepository) {
+        this(assetRepository, assignmentRepository, null);
     }
 
     /** Starts one active assignment while preserving all previous assignments. */
@@ -59,8 +71,10 @@ public class AssetAssignmentService {
                 assignedAt,
                 remarks);
 
-        assetRepository.save(asset);
-        return assignmentRepository.save(assignment);
+        Asset savedAsset = assetRepository.save(asset);
+        AssetAssignment savedAssignment = assignmentRepository.save(assignment);
+        if (eventPublisher != null) eventPublisher.publishAssetAssigned(savedAsset, savedAssignment);
+        return savedAssignment;
     }
 
     /** Closes only the active assignment; the historical record remains stored. */
@@ -78,8 +92,10 @@ public class AssetAssignmentService {
 
         asset.returnFromAssignment(returnCondition, returnedAt);
         assignment.close(returnedAt, returnId, returnCondition);
-        assetRepository.save(asset);
-        return assignmentRepository.save(assignment);
+        Asset savedAsset = assetRepository.save(asset);
+        AssetAssignment savedAssignment = assignmentRepository.save(assignment);
+        if (eventPublisher != null) eventPublisher.publishAssetReturned(savedAsset, savedAssignment);
+        return savedAssignment;
     }
 
     public AssetAssignment getById(String assignmentId) {

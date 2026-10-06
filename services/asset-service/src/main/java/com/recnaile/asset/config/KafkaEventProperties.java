@@ -10,6 +10,9 @@ public record KafkaEventProperties(
 
     public record Topics(
             String stockIssueApproved,
-            String returnAccepted) {
+            String returnAccepted,
+            String assetAssigned,
+            String assetReturned,
+            String assetStatusChanged) {
     }
 }

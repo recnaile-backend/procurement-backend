@@ -1,6 +1,16 @@
 spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      retries: 10
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        compression.type: gzip
+        delivery.timeout.ms: 120000
+        max.in.flight.requests.per.connection: 5
     consumer:
       enable-auto-commit: false
       properties:
@@ -44,6 +54,9 @@ app:
     topics:
       stock-issue-approved: ${KAFKA_STOCK_ISSUE_APPROVED_TOPIC:stock-issue-approved}
       return-accepted: ${KAFKA_RETURN_ACCEPTED_TOPIC:return-accepted}
+      asset-assigned: ${KAFKA_ASSET_ASSIGNED_TOPIC:asset-assigned}
+      asset-returned: ${KAFKA_ASSET_RETURNED_TOPIC:asset-returned}
+      asset-status-changed: ${KAFKA_ASSET_STATUS_CHANGED_TOPIC:asset-status-changed}
   service-name: ${APP_SERVICE_NAME:asset-service}
   description: ${APP_SERVICE_DESCRIPTION:Reusable asset lifecycle and employee assignment}
   database-name: ${MONGODB_DATABASE:assetdb}
