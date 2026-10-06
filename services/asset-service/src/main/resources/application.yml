@@ -1,30 +1,31 @@
 spring:
   application:
-    name: asset-service
+    name: ${APP_SERVICE_NAME:asset-service}
   data:
     mongodb:
-      uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:asset}?retryWrites=true&w=majority&appName=recnaile
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+      uri: ${MONGODB_BASE_URI:mongodb://localhost:27017}/${MONGODB_DATABASE:assetdb}?retryWrites=true&w=majority&appName=recnaile
+
 server:
   port: ${SERVICE_PORT:8089}
+  shutdown: graceful
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,metrics
+        include: health,info
   endpoint:
     health:
       probes:
         enabled: true
-  tracing:
-    sampling:
-      probability: ${TRACING_SAMPLE_RATE:0.1}
-otel:
-  exporter:
-    otlp:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
+      show-details: never
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 app:
-  service-name: asset-service
-  description: "Reusable asset lifecycle and employee assignment"
+  service-name: ${APP_SERVICE_NAME:asset-service}
+  description: ${APP_SERVICE_DESCRIPTION:Reusable asset lifecycle and employee assignment}
+  database-name: ${MONGODB_DATABASE:assetdb}
