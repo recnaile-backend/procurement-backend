@@ -56,7 +56,13 @@ app:
   security:
     enabled: ${ASSET_SECURITY_ENABLED:true}
     jwt:
-      jwk-set-uri: ${JWT_JWK_SET_URI:http://auth-service:8081/oauth2/jwks}
+      # Local/dev Auth Service signs access tokens with HS256.
+      secret: ${JWT_SECRET_KEY:}
+      mode: ${JWT_VALIDATION_MODE:hs256}
+      issuer: ${JWT_ISSUER:auth-service}
+
+      # Use JWT_VALIDATION_MODE=jwk only in deployments that use asymmetric JWT signing.
+      jwk-set-uri: ${AUTH_JWK_SET_URI:http://auth-service:8081/oauth2/jwks}
   kafka:
     enabled: ${KAFKA_ENABLED:true}
     consumer-group: ${ASSET_KAFKA_CONSUMER_GROUP:asset-service}

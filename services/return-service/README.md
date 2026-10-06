@@ -1,650 +1,442 @@
-# Return Service
+# Asset Service — Phase 14
 
-RECNAILE Procurement Platform Return Service.
+Phase 11 adds outbound Kafka event publishing on top of the completed Phase 1–10 reusable-asset lifecycle. It preserves JWT/RBAC, optimistic concurrency, idempotency, duplicate-active-assignment protection, inbound Kafka event handling, and Good/Damaged return behavior.
 
-## Service Overview
+## Scope
 
-- Service name: `return-service`
-- Port: `8088`
-- Gateway route: `/api/v1/returns/**`
-- Database: MongoDB Atlas, database `return`
-- Collection introduced in Phase 2: `return_requests`
-- Messaging: Kafka
-- Security foundation: Spring Security + OAuth2 Resource Server dependencies
-- Observability foundation: Actuator, Prometheus metrics and OpenTelemetry/Micrometer tracing
+- `/api/v1/assets` asset creation and listing
+- Server-generated financial-year asset IDs (for example `ASSET%2F26-27%2F001`) with an atomic MongoDB sequence per financial year
+- Asset listing with optional `assetId` filter and lookup by issue reference
+- Asset assignment with employee and `departmentName`
+- Asset return with return condition
+- Repair completion
+- Retirement
+- Assignment history by asset, employee and department
+- Request validation and consistent API error responses
+- UTC clock bean for deterministic service behavior and testability
 
-## Architecture
+## Business rules
 
-The service follows the platform standard:
+- The Asset Service manages reusable/asset-tracked lifecycle records; it is not the stock ledger.
+- Historical assignment records are retained.
+- The active-assignment uniqueness constraint uses a standard unique compound MongoDB index (`assetId` + `returnedAt`) for compatibility with the project's Spring Data MongoDB version; it avoids the unsupported `partialFilterExpression` annotation attribute.
+- `departmentName` is used; there is no `departmentId` in this service.
+- Asset state transitions remain inside the service layer; controllers only handle transport and validation.
+- Kafka consumers handle `StockIssueApproved` and `ReturnAccepted` events.
+- Reusable approved issues create an Asset and start its assignment lifecycle.
+- ReturnAccepted is routed through the asset return service; Good returns move the asset to `RETURNED`, while Damaged returns move it to `UNDER_REPAIR` and close the active assignment.
+- Processed event IDs are stored to prevent duplicate event handling.
+- Asset and assignment aggregates use optimistic versioning.
+- A unique MongoDB compound index protects against duplicate active assignments under concurrent requests.
+- Optimistic-lock and duplicate-key persistence conflicts are returned as HTTP 409 responses.
+- Only `GOOD` and `DAMAGED` are valid asset return conditions; `UNDER_REPAIR` is an asset lifecycle state, not a return condition.
+- Kafka broker, topics and consumer group are configurable through environment variables.
+- JWT authentication and entity-level RBAC are enabled in this phase; transactional outbox remains a later concern; audit integration is implemented in Phase 12 and observability is implemented in Phase 13.
 
-```text
-Controller → Service/Application → Repository → MongoDB
-                         ↓
-                  Kafka / Outbox
-```
+## Endpoints
 
-Controllers remain transport/validation focused. Business state transitions belong in the application/service layer, repositories own persistence, and cross-service databases are never queried directly.
-
-## Phase Status
-
-| Phase | Area | Status |
+| Method | Endpoint | Purpose |
 |---|---|---|
-| 01 | Foundation & Service Setup | Completed |
-| 02 | Return Domain Model & Enums | Completed |
-| 03 | Return State Machine | Completed |
-| 04 | Create Return Request | Completed |
-| 05 | Issued-Quantity / Outward Validation | Completed |
-| 06 | Return Verification Workflow | Completed |
-| 07 | Good / Damaged Return Processing | Completed |
-| 08 | Kafka Events & Event Contracts | Completed |
-| 09 | Transactional Outbox & Event Reliability | Completed |
-| 10 | Inventory Integration | Completed; Asset deferred |
-| 11 | Security, RBAC & Optional Idempotency | Completed |
-| 12 | Audit & Notification Integration | Completed |
-| 13 | Observability & Operational Readiness | Completed |
-| 14 | Testing, OpenAPI & API Hardening | Completed |
-| 15 | Docker/Kubernetes & Final Integration | Pending |
-
-
-### Phase 1 — Foundation & Service Setup
-
-Completed.
-
-- Spring Boot service foundation
-- Java 21 baseline
-- Gradle service configuration
-- MongoDB configuration
-- Kafka configuration
-- Security dependencies
-- Actuator health/metrics
-- Prometheus metrics
-- OpenTelemetry/Micrometer tracing foundation
-- Environment-based configuration
-- Dockerfile
-- Context startup test
-- Generic CRUD scaffold removed
-
-### Phase 2 — Return Domain Model & Enums
-
-Completed.
-
-Implemented the explicit Return aggregate model and persisted lifecycle/condition enums required by the documented workflow.
-
-#### Return aggregate
-
-`com.recnaile.returns.model.entity.ReturnRequest`
-
-Fields:
-
-- `returnId` — generated Return identifier and MongoDB document ID
-- `outwardId` — originating outward issue
-- `itemId` — product/SKU identifier
-- `quantity` — returned quantity as a positive integer
-- Asset integration is deferred; no assetId is stored by Return Service
-- `returnByEmpId` — authenticated return initiator reference
-- `condition` — return condition
-- `remarks` — optional return remarks
-- `status` — persisted lifecycle state
-- `verifiedBy` — verification actor, populated during verification
-- `verifiedAt` — verification timestamp
-- `createdAt` — creation timestamp
-- `updatedAt` — last-update timestamp
-- `version` — optimistic-concurrency version
-
-The model uses explicit fields and does not use a generic payload map.
-
-#### Return condition
-
-`ReturnCondition`:
-
-- `GOOD`
-- `DAMAGED`
-
-These values follow the documented rule that a good return is restored to available stock and a damaged return is placed into defect stock.
-
-#### Return status
-
-`ReturnStatus`:
-
-- `PENDING_VERIFICATION`
-- `VERIFIED`
-
-The status enum defines the persisted lifecycle states. State-transition enforcement is intentionally implemented in Phase 3.
-
-#### MongoDB indexes
-
-Phase 2 defines indexes for the primary Return query/reference patterns:
-
-- outward + outward item
-- status + creation time
-- outward ID
-- outward item ID
-- item ID
-- Asset integration is deferred
-- return-by-employee-id
-- creation time
-
-### Phase 3 — Return State Machine
-
-Completed.
-
-The lifecycle state machine is implemented in `com.recnaile.returns.service.ReturnStateMachine`. The documented persisted transition is:
-
-```text
-PENDING_VERIFICATION → VERIFIED
-```
-
-Rules enforced by the state machine:
-
-- A return can be verified only while it is `PENDING_VERIFICATION`.
-- A verified return cannot be verified again.
-- A verified return cannot move back to `PENDING_VERIFICATION`.
-- Null aggregates and null target states are rejected.
-- Invalid transitions raise `InvalidReturnStateTransitionException`.
-- The transition updates `updatedAt`.
-- Good/damaged stock processing and downstream event publication are intentionally deferred to their later phases.
-
-The state machine is kept in the application/service layer; the entity does not contain lifecycle decision logic.
-
-## Business Rules Covered by the Model
-
-The Return workflow stores the outward ID, item ID, integer quantity, return-by-employee-id actor, condition and remarks. Asset lifecycle integration is deferred until the Asset Service is implemented. Verification actor and timestamp are retained on the aggregate.
-
-The model does not perform verification, stock movement, event publication, authorization, or state-transition decisions. Those responsibilities belong to later application/integration phases.
-
-## Current API
-
-Only the following business endpoints are exposed by Return Service:
-
-- `GET /api/v1/returns` — list returns (TL/MD/PROCUREMENT)
-- `POST /api/v1/returns` — create a return (EMPLOYEE/PROCUREMENT/TL/MD)
-- `POST /api/v1/returns/{returnId}/verify` — verify a pending return (PROCUREMENT/TL/MD)
-- `POST /api/v1/returns/{returnId}/process` — process a verified return (PROCUREMENT/TL/MD)
-
-There is intentionally no generic CRUD controller under `/api/v1/return`. The return lifecycle is controlled through the state-transition endpoints above.
-
-Return creation performs an internal synchronous validation call to Outward Service:
-
-`GET /api/v1/outward/return-validation?outwardId={outwardId}&itemId={itemId}`
-
-This Outward endpoint is a service-to-service validation dependency; clients do not call it as part of the Return workflow.
-
-## Current Event Status
-
-Return Kafka events are not implemented yet. They are introduced after the domain/state workflow is established.
+| POST | `/api/v1/assets` | Create an asset lifecycle record |
+| GET | `/api/v1/assets` | List assets; optionally filter by `assetId` using `?assetId=...` |
+| GET | `/api/v1/assets/by-issue/{issueReference}` | Find asset by issue reference |
+| POST | `/api/v1/assets/assign?assetId=...` | Start an assignment; query parameter is required because asset IDs contain `/` |
+| POST | `/api/v1/assets/return?assetId=...` | Close the current assignment and apply return condition |
+| POST | `/api/v1/assets/repair/complete?assetId=...` | Complete repair |
+| POST | `/api/v1/assets/retire?assetId=...` | Retire an available asset |
+| GET | `/api/v1/assets/history?assetId=...` | Assignment history for an asset |
+| GET | `/api/v1/assets/history/employee/{employeeId}` | Assignment history for an employee |
+| GET | `/api/v1/assets/history/department/{departmentName}` | Assignment history for a department |
 
 ## Configuration
 
-Production/deployment configuration must provide platform-managed values such as:
+MongoDB credentials must be supplied through environment variables. No secrets are stored in source control.
 
-- `MONGODB_BASE_URI`
-- `MONGODB_DATABASE`
-- `KAFKA_BOOTSTRAP_SERVERS`
-- `SERVICE_PORT`
-- `TRACING_SAMPLE_RATE`
-- `OTEL_EXPORTER_OTLP_ENDPOINT`
+## Build and test
 
-No credentials are stored in source control.
+From the procurement-backend repository root:
 
-## Verification
-
-From the repository root:
-
-```bash
-./gradlew :services:return-service:clean :services:return-service:test
-./gradlew :services:return-service:build
+```powershell
+.\gradlew :services:asset-service:clean :services:asset-service:test
+.\gradlew :services:asset-service:clean :services:asset-service:build
 ```
 
-For the local container build:
 
-```bash
-docker compose up -d --build return-service
+### Asset ID format
+
+Asset IDs are generated by the service and are never supplied by the client. The format is `ASSET%2FYY-YY%2FNNN`, based on the configured financial-year convention (April-March). For example, in financial year 2026-27 the first IDs are `ASSET%2F26-27%2F001`, `ASSET%2F26-27%2F002`, and so on. The sequence is persisted in MongoDB and incremented atomically per financial year.
+
+## Delivery commands
+
+Remove the previous Asset Service before replacing it:
+
+```powershell
+Remove-Item -Recurse -Force .\services\asset-service
 ```
 
-### Phase 4 — Create Return Request
+Run the complete service verification:
 
-Completed.
+```powershell
+.\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
+```
 
-Implemented the first business REST workflow for creating a Return request.
+Build the Docker image:
 
-#### API
+```powershell
+docker compose build --no-cache asset-service
+```
 
-`POST /api/v1/returns` accepts an explicit `CreateReturnRequest` payload containing:
+Start the service:
 
-- `outwardId` — originating outward issue
-- `item-level outward linkage` — specific issued item row
-- `itemId` — product/SKU identifier
-- `quantity` — positive integer returned quantity
-- Asset integration is deferred; no assetId is stored by Return Service
-- `returnByEmpId` — return initiator reference
-- `condition` — `GOOD` or `DAMAGED`
-- `remarks` — optional remarks, maximum 2000 characters
+```powershell
+docker compose up -d asset-service
+```
 
-A successful request returns HTTP `201 Created` using the platform response envelope:
+Verify the container:
+
+```powershell
+docker compose ps asset-service
+docker compose logs --tail=100 asset-service
+curl.exe http://localhost:8089/actuator/health
+```
+
+Expected health response:
+
+```json
+{"status":"UP"}
+```
+
+## Git
+
+```powershell
+git add services/asset-service
+git commit -m "feat(asset): add security and rbac"
+```
+
+## Verification notes
+
+- The ZIP contains one `README.md` only.
+- No application secrets, passwords, private keys, or credentials are included.
+- Asset IDs remain server-generated and are stored in the literal format `ASSET%2FYY-YY%2FNNN`.
+- Controllers do not generate asset IDs or implement lifecycle business rules.
+- Lifecycle and assignment rules remain in the service/domain layers.
+- Historical assignment records are retained.
+- The active-assignment uniqueness constraint uses a standard unique compound MongoDB index (`assetId` + `returnedAt`) for compatibility with the project's Spring Data MongoDB version; it avoids the unsupported `partialFilterExpression` annotation attribute.
+
+
+## Kafka configuration
+
+Environment variables:
+
+```text
+KAFKA_ENABLED=true
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+ASSET_KAFKA_CONSUMER_GROUP=asset-service
+KAFKA_STOCK_ISSUE_APPROVED_TOPIC=stock-issue-approved
+KAFKA_RETURN_ACCEPTED_TOPIC=return-accepted
+```
+
+The consumer expects an event envelope containing `eventId` and `eventType`
+(`StockIssueApproved` or `ReturnAccepted`) with a `payload` or `data` object.
+For `StockIssueApproved`, reusable events must contain `outwardId`, `itemId`,
+`userId`, `departmentName`, `issuedBy`, and `reusable=true`.
+For `ReturnAccepted`, asset lifecycle updates require `returnId` and `condition`, plus either
+`assetId` or an `issueReference`/`outwardId` that resolves to the asset.
+
+## Phase 8 verification
+
+```powershell
+Remove-Item -Recurse -Force .\services\asset-service
+.\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
+docker compose build --no-cache asset-service
+docker compose up -d asset-service
+docker compose ps asset-service
+docker compose logs --tail=100 asset-service
+curl.exe http://localhost:8089/actuator/health
+```
+
+### Idempotency-Key
+State-changing Asset Service POST endpoints accept an optional `Idempotency-Key` request header. The header is not required; requests without it remain valid.
+
+## Phase 10 — Idempotency & Concurrency
+
+Phase 10 makes retry-safe Asset Service mutations explicit while preserving the Phase 1–9 lifecycle and security behavior.
+
+### Idempotency behavior
+
+- `Idempotency-Key` is optional on state-changing Asset Service POST endpoints.
+- Requests without the header behave exactly as before.
+- When supplied, the key is scoped to the operation and stored in MongoDB.
+- Repeating the same key with the same request fingerprint replays the original resource instead of applying the mutation twice.
+- Reusing the same key with a different request is rejected with HTTP 409.
+- Concurrent requests using the same key are protected by a unique MongoDB constraint; a request already in progress is rejected with HTTP 409 and can be retried.
+- Idempotency records contain no credentials or secrets.
+
+### Concurrency behavior
+
+- `Asset` and `AssetAssignment` continue to use Spring Data MongoDB `@Version` optimistic locking.
+- Active assignment uniqueness remains protected by the unique `(assetId, returnedAt)` index.
+- Concurrent state changes are mapped to HTTP 409 by the global exception handler.
+- Historical assignments are never deleted.
+- Event-consumer duplicate protection from earlier phases remains enabled.
+
+### Protected operations
+
+| Endpoint | Operation | Replay resource |
+|---|---|---|
+| POST `/api/v1/assets` | Create asset | Asset |
+| POST `/api/v1/assets/assign` | Assign asset | Assignment |
+| POST `/api/v1/assets/return` | Return asset | Assignment |
+| POST `/api/v1/assets/repair/complete` | Complete repair | Asset |
+| POST `/api/v1/assets/retire` | Retire asset | Asset |
+
+### Request fingerprinting
+
+The service hashes the operation's business inputs with SHA-256. The idempotency key alone is never enough to replay a different request. This prevents accidental reuse of one key for different payloads.
+
+### Phase 10 verification
+
+From the procurement-backend repository root:
+
+```powershell
+Remove-Item -Recurse -Force .\services\asset-service
+.\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
+docker compose build --no-cache asset-service
+docker compose up -d asset-service
+docker compose ps asset-service
+docker compose logs --tail=100 asset-service
+curl.exe http://localhost:8089/actuator/health
+```
+
+Expected health response:
+
+```json
+{"status":"UP"}
+```
+
+### Git
+
+```powershell
+git add services/asset-service
+git commit -m "feat(asset): add idempotency and concurrency"
+git status
+```
+
+### Delivery verification
+
+- Exactly one `README.md` is included.
+- No application secrets, passwords, private keys, credentials or generated build output are included.
+- Asset IDs remain server-generated in the literal `ASSET%2FYY-YY%2FNNN` format.
+- The Idempotency-Key remains optional.
+- Existing JWT/RBAC, Kafka event handling, lifecycle rules, optimistic locking and assignment-history behavior are preserved.
+
+
+## Phase 11 — Kafka Integration
+
+Phase 11 adds reliable outbound Kafka publication for Asset Service lifecycle changes. Audit Service and Notification Service are **not** implemented in this phase; they remain separate later services.
+
+### Published events
+
+| Event type | Topic | Published when |
+|---|---|---|
+| `AssetAssigned` | `asset-assigned` | A new active asset assignment is successfully persisted |
+| `AssetReturned` | `asset-returned` | An active assignment is successfully closed by a return |
+| `AssetStatusChanged` | `asset-status-changed` | Repair completion or retirement changes the asset lifecycle status |
+
+The existing inbound consumers for `StockIssueApproved` and `ReturnAccepted` remain unchanged.
+
+### Event envelope
+
+Outbound events use the Asset Service event-envelope style:
 
 ```json
 {
-  "success": true,
-  "data": { ... },
-  "error": null
+  "eventId": "generated-uuid",
+  "eventType": "AssetAssigned",
+  "occurredAt": "2026-10-06T04:30:00Z",
+  "source": "asset-service",
+  "correlationId": "request-or-trace-id",
+  "payload": {
+    "assetId": "ASSET%2F26-27%2F001"
+  }
 }
 ```
 
-New returns are persisted with:
+The payload contains the relevant asset and assignment/status information for the event type. `eventId` is generated by Asset Service and `correlationId` uses the request MDC correlation/trace value when available, falling back to the event ID.
 
-- a generated Return ID
-- `PENDING_VERIFICATION` status
-- creation and update timestamps
-- the submitted item, quantity, outward linkage, actor, condition and remarks
+### Publication and failure behavior
 
-#### Application and persistence layers
+- Business state is persisted before the outbound event is registered for publication.
+- When a Spring transaction synchronization is active, publication is deferred until the transaction successfully commits.
+- Kafka producer configuration uses `acks=all` and idempotence.
+- Kafka send failures are logged by the publisher callback.
+- Transactional-outbox persistence is deliberately not implemented in Phase 11; it remains a later reliability concern.
+- Event consumers continue to use manual acknowledgements, `read_committed`, service-specific consumer groups and processed-event IDs.
 
-- `ReturnRequestController` handles HTTP transport and validation only.
-- `ReturnRequestService` creates the Return aggregate and owns creation business behavior.
-- `ReturnRequestRepository` provides MongoDB persistence through Spring Data.
-- Request fields are explicit; no generic payload map is used.
-- Input strings are trimmed and blank optional values are normalized to `null`.
-
-Issued-quantity/asset existence validation, authentication/RBAC enforcement, idempotency, verification, stock movement, events and outbox reliability remain in their later roadmap phases.
-
-#### Error handling
-
-Validation failures use the stable error envelope with `VALIDATION_ERROR`. Invalid creation arguments use `INVALID_RETURN_REQUEST`. Trace/correlation-aware error enrichment remains part of later operational/API hardening work.
-
-#### Tests
-
-Phase 4 adds tests for:
-
-- successful Return creation and persistence mapping
-- generated Return ID and initial `PENDING_VERIFICATION` state
-- timestamp handling
-- optional asset/remarks normalization
-- successful `201 Created` REST response
-- request validation failure response
-
-### Phase 5 — Issued-Quantity / Asset Validation
-
-Completed.
-
-Return creation now validates the requested return against the originating issued outward item before persistence. The Return Service uses a synchronous integration boundary to the Outward Service and does not query another service database directly.
-
-#### Validation flow
+### Kafka configuration
 
 ```text
-Create Return Request
-        ↓
-IssuedReturnValidationService
-        ↓
-Outward Service validation client
-        ↓
-Validate outward + item + quantity
-        ↓
-Persist Return Request
+KAFKA_ENABLED=true
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+ASSET_KAFKA_CONSUMER_GROUP=asset-service
+
+KAFKA_STOCK_ISSUE_APPROVED_TOPIC=stock-issue-approved
+KAFKA_RETURN_ACCEPTED_TOPIC=return-accepted
+
+KAFKA_ASSET_ASSIGNED_TOPIC=asset-assigned
+KAFKA_ASSET_RETURNED_TOPIC=asset-returned
+KAFKA_ASSET_STATUS_CHANGED_TOPIC=asset-status-changed
 ```
 
-The validation checks:
+`KAFKA_ENABLED=false` disables outbound publication without removing the Asset Service business operations.
 
-- The supplied `outwardId` matches the issued outward record.
-- The supplied `item-level outward linkage` matches the specific issued line.
-- The supplied `itemId` matches the item on the issued line.
-- The requested return quantity is greater than zero and does not exceed the remaining issued quantity.
-- Remaining quantity is calculated as issued quantity minus already returned quantity.
-- Asset matching is not performed because Asset Service has not yet been implemented.
-- No Asset Service API or database is queried by Return Service.
+### Phase 11 verification
 
-#### Integration boundary
+From the procurement-backend repository root:
 
-`IssuedReturnValidationClient` is the application integration boundary. `OutwardServiceRestClient` is the HTTP implementation. The Outward Service base URL is configured with:
-
-```text
-OUTWARD_SERVICE_URL
+```powershell
+Remove-Item -Recurse -Force .\services\asset-service
+.\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
+docker compose build --no-cache asset-service
+docker compose up -d asset-service
+docker compose ps asset-service
+docker compose logs --tail=100 asset-service
+curl.exe http://localhost:8089/actuator/health
 ```
 
-Default container value:
-
-```text
-http://outward-service:8087
-```
-
-The client uses the return-validation resource:
-
-```text
-GET /api/v1/outward/return-validation?outwardId={outwardId}&itemId={itemId}
-```
-
-The response supplies the issued outward/item identity, item ID, issued quantity and already-returned quantity. No Asset Service API or database is queried because Asset Service is not yet implemented. Cross-service database access is not used.
-
-#### Persistence behavior
-
-Validation occurs before `ReturnRequestRepository.save(...)`. A failed validation therefore does not create a Return document. Existing Phase 4 creation behavior remains unchanged after validation succeeds.
-
-#### Tests
-
-Phase 5 adds coverage for:
-
-- valid return quantity within remaining issued quantity
-- quantity exceeding remaining issued quantity
-- no remaining quantity
-- item mismatch
-- Asset validation deferred
-- Asset validation deferred
-- service creation continuing to persist only after successful validation
-
-Authentication/RBAC, idempotency, verification, stock movement, Kafka events and transactional outbox reliability remain in their later roadmap phases.
-
-
-### Phase 6 — Return Verification Workflow
-
-Completed.
-
-Implemented the documented verification workflow for a submitted Return request.
-
-#### Verification API
-
-`POST /api/v1/returns/{returnId}/verify`
-
-Request body:
+Expected health response:
 
 ```json
-{
-  "verifiedBy": "procurement-user-1"
-}
+{"status":"UP"}
 ```
 
-A successful verification returns HTTP `200 OK` using the standard response envelope and updates the Return aggregate to `VERIFIED`.
+### Git
 
-#### Verification behavior
+```powershell
+git add services/asset-service
+git commit -m "feat(asset): add kafka integration"
+git status
+```
 
-- Loads the Return request from the Return Service's own MongoDB repository.
-- Rejects a blank Return ID.
-- Rejects a missing Return request with HTTP `404` and error code `RETURN_NOT_FOUND`.
-- Rejects a blank verification actor.
-- Uses the Phase 3 state machine, so only `PENDING_VERIFICATION → VERIFIED` is allowed.
-- Rejects duplicate verification of an already verified return.
-- Records `verifiedBy` and `verifiedAt`.
-- Updates `updatedAt`.
-- Persists the verified aggregate only after the state transition succeeds.
+### Phase 11 delivery checks
 
-#### Separation of responsibilities
+- Exactly one `README.md` is included in the ZIP.
+- No application secrets, passwords, private keys, credentials or generated build output are included.
+- Existing inbound Kafka consumers are preserved.
+- Existing JWT/RBAC, idempotency and optimistic concurrency behavior is preserved.
+- No Audit Service or Notification Service implementation is included.
 
-- `ReturnRequestController` handles HTTP transport and request validation.
-- `ReturnVerificationService` owns the verification use case.
-- `ReturnStateMachine` remains the authority for lifecycle transition validity.
-- `ReturnRequestRepository` owns MongoDB persistence.
-- Authentication/RBAC enforcement for the verifier is intentionally deferred to Phase 11, where JWT validation and endpoint/entity authorization are implemented together.
-- Good/damaged inventory processing and reusable-asset updates are intentionally deferred to Phase 7 and Phase 10.
-- Kafka events and transactional outbox reliability are intentionally deferred to Phases 8 and 9.
+## Phase 12 — Audit & Notification Integration
 
-#### Tests
+Phase 12 prepares the completed Asset Service for the separately deployed Audit and Notification services. The services themselves are **not implemented in this Asset Service phase**. Asset Service only emits the events they will consume later.
 
-Phase 6 adds coverage for:
+### Audit integration
 
-- successful pending-to-verified transition
-- verification actor and timestamp persistence
-- unknown Return ID handling
-- duplicate verification rejection
-- blank verifier rejection
-- successful verification REST response
+Asset Service now publishes the centralized audit event contract to the configurable `audit-events` Kafka topic after successful business transactions.
 
-No stock movement, asset lifecycle mutation, Kafka publication, notification or audit integration is performed by Phase 6.
+Audit events are emitted for:
 
-## Upcoming Phases
+- `ASSET_CREATED`
+- `ASSET_ASSIGNED`
+- `ASSET_RETURNED`
+- `ASSET_STATUS_CHANGED`
+- `ASSET_RETIRED`
 
-- Phase 3 — Return State Machine — Completed
-- Phase 4 — Create Return Request — Completed
-- Phase 5 — Issued-Quantity / Asset Validation — Completed
-- Phase 6 — Return Verification Workflow — Completed
-- Phase 7 — Good / Damaged Return Processing
-- Phase 8 — Kafka Events & Event Contracts
-- Phase 9 — Transactional Outbox & Event Reliability
-- Phase 10 — Inventory & Asset Integration
-- Phase 11 — Security, RBAC & Idempotency
-- Phase 12 — Audit & Notification Integration
-- Phase 14 — Testing, OpenAPI & API Hardening
-- Phase 15 — Docker/Kubernetes & Final Integration
+The audit payload carries actor/user ID, actor role, service name, entity type, entity ID, action, timestamp, correlation ID through the event envelope, and before/after values where available.
 
-### Phase 7 — Good / Damaged Return Processing
+Audit persistence, audit search APIs and MD-only audit access remain responsibilities of the separate Audit Service.
 
-Completed.
+### Notification integration
 
-Implemented the Return Service's condition-based processing state transition after successful verification.
+The existing Phase 11 business events remain the notification integration surface:
 
-#### Processing API
+- `AssetAssigned` → `asset-assigned`
+- `AssetReturned` → `asset-returned`
+- `AssetStatusChanged` → `asset-status-changed`
 
-`POST /api/v1/returns/{returnId}/process`
+These events contain the asset, employee, department, condition and status information needed by the future Notification Service. No notification database, REST API or email provider is introduced into Asset Service.
 
-The endpoint does not accept a client-supplied condition. It uses the condition already recorded on the Return aggregate, preventing a caller from changing the business outcome during processing.
-
-#### Processing rules
-
-- Only a `VERIFIED` return can be processed.
-- `GOOD` condition transitions to `ACCEPTED_GOOD`.
-- `DAMAGED` condition transitions to `ACCEPTED_DAMAGED`.
-- A pending return cannot bypass verification.
-- An already accepted return cannot be processed again.
-- Unknown Return IDs return `RETURN_NOT_FOUND`.
-- The Return aggregate's `updatedAt` is updated using the service clock.
-- The processed aggregate is persisted only after a valid state transition.
-
-The documented business outcome is preserved: good returns are intended to restore available stock, while damaged returns are intended to increase defect stock. Actual Inventory Service stock mutation is deliberately deferred to Phase 10, and Kafka event publication is deferred to Phase 8/9. This phase therefore establishes the authoritative Return Service state without directly changing Inventory or Asset data.
-
-#### State machine additions
-
-The persisted lifecycle now supports:
+### Configuration
 
 ```text
-PENDING_VERIFICATION → VERIFIED → ACCEPTED_GOOD
-                                      └→ ACCEPTED_DAMAGED
+KAFKA_AUDIT_EVENT_TOPIC=audit-events
 ```
 
-No reverse transitions or duplicate processing transitions are allowed.
+`KAFKA_ENABLED=false` continues to disable both lifecycle and audit event publication without changing Asset Service business behavior.
 
-#### Tests
+### Reliability behavior
 
-Phase 7 adds coverage for:
+- Audit publication is deferred until transaction commit when a Spring transaction is active.
+- Kafka producer idempotence and `acks=all` remain enabled from Phase 11.
+- Audit event publication does not make Asset Service directly dependent on Audit Service availability.
+- No cross-service database access is introduced.
+- Centralized event contracts remain outside the service; no duplicate contract files are added.
 
-- verified GOOD return → `ACCEPTED_GOOD`
-- verified DAMAGED return → `ACCEPTED_DAMAGED`
-- processing before verification rejection
-- duplicate processing rejection
-- unknown Return ID handling
-- processing timestamp update
-- successful processing REST response
+### Phase 12 verification
 
-Inventory stock changes, reusable asset lifecycle changes, Kafka events, transactional outbox, RBAC and idempotency remain in their designated later phases.
+From the procurement-backend repository root:
 
-## Phase 8 — Kafka Events & Event Contracts
-
-Phase 8 adds the Return Service business-event boundary. After a return is successfully persisted in its final accepted state, the service publishes a `RETURN_RECORDED` Kafka event.
-
-### Event payload
-
-The business payload contains the documented return data:
-- `returnId`
-- `itemId`
-- `qty`
-- `condition`
-
-The event also carries `eventId`, `eventType`, and `occurredAt` metadata for traceability.
-
-### Topic
-
-The topic is configurable through `app.kafka.topics.return-recorded` and defaults to `return.recorded`.
-
-### Reliability boundary
-
-Phase 8 establishes Kafka publishing and the event contract. Transactional outbox and durable publish/retry semantics are intentionally deferred to Phase 9. The event is published only after the MongoDB save returns successfully.
-
-### Architecture rule
-
-Return Service does not directly update Inventory or Asset databases. Downstream services consume the return event and apply their own state changes.
-
-### Phase 9 — Transactional Outbox & Event Reliability
-
-Completed.
-
-Phase 9 replaces the direct Kafka publication from the Return processing transaction with a durable transactional outbox. The accepted Return state and its `RETURN_RECORDED` event record are written to MongoDB in the same transaction.
-
-#### Transactional processing flow
-
-```text
-Verified Return
-      ↓
-ReturnProcessingService
-      ↓
-MongoDB transaction
-   ┌──┴──────────────────────┐
-   │                         │
-Save ReturnRequest     Save ReturnEventOutbox
-   │                         │
-   └──────────────┬──────────┘
-                  ↓
-             COMMIT
-                  ↓
-        Outbox Dispatcher
-                  ↓
-              Kafka
+```powershell
+Remove-Item -Recurse -Force .\services\asset-service
+.\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
+docker compose build --no-cache asset-service
+docker compose up -d asset-service
+docker compose ps asset-service
+docker compose logs --tail=100 asset-service
+curl.exe http://localhost:8089/actuator/health
 ```
 
-#### Outbox document
+Expected health response:
 
-`return_event_outbox` stores the durable event record with:
+```json
+{"status":"UP"}
+```
 
-- `eventId` — stable event identifier used across retries
-- `aggregateId` — Return ID
-- `eventType` — `RETURN_RECORDED`
-- `topic` — configured Kafka topic
-- `returnId`
-- `itemId`
-- `qty`
-- `condition`
-- `occurredAt`
-- `status` — `PENDING` or `SENT`
-- `attempts`
-- `createdAt`
-- `publishedAt`
-- `lastError`
-- optimistic-concurrency `version`
+### Git
 
-A unique index on `eventId` prevents duplicate outbox records for the same event identifier.
+```powershell
+git add services/asset-service
+git commit -m "feat(asset): add audit and notification integration"
+git status
+```
 
-#### Dispatcher behavior
+### Phase 12 delivery checks
 
-`ReturnEventOutboxDispatcher` periodically reads pending records and publishes them to Kafka. A record is marked `SENT` only after the Kafka send future completes successfully. If publication fails, the record remains `PENDING`, the attempt counter is incremented and the error is retained for the next dispatch cycle.
-
-The dispatcher uses the same stable `eventId` when reconstructing `RETURN_RECORDED`, so a retry does not generate a new event identity. Downstream consumers should therefore use event IDs for idempotent processing according to the platform event/idempotency standards.
-
-#### MongoDB transaction configuration
-
-`MongoTransactionManager` is registered as the service transaction manager and `ReturnProcessingService.process(...)` is annotated with `@Transactional`. The Return document and outbox document are therefore committed together when the deployment's MongoDB topology supports transactions (such as MongoDB Atlas or a configured replica set).
-
-#### Kafka boundary
-
-The processing service no longer calls Kafka directly. Kafka publication is performed only by the outbox dispatcher after the MongoDB transaction has committed. This prevents a successful Return transaction from losing its event merely because Kafka was temporarily unavailable.
-
-#### Tests
-
-Phase 9 adds coverage for:
-
-- Return processing enqueues an outbox record instead of directly publishing Kafka.
-- Outbox records start in `PENDING` state.
-- Stable event IDs are retained in the outbox payload.
-- Successful Kafka publication marks an outbox record `SENT`.
-- Failed Kafka publication leaves the record `PENDING` and records an attempt/error.
-- Existing Return state, verification, validation and Kafka contract tests remain part of the suite.
-
-## Updated Upcoming Phases
-
-- Phase 11 — Security, RBAC & Idempotency
-- Phase 12 — Audit & Notification Integration
-- Phase 14 — Testing, OpenAPI & API Hardening
-- Phase 15 — Docker/Kubernetes & Final Integration
-
-## Phase 10 — Inventory Integration Contract
-
-Completed for the Inventory side of the Return workflow. The Return Service remains the authoritative source of the accepted return outcome and propagates it through the existing `RETURN_RECORDED` transactional-outbox event.
-
-### Inventory behavior represented by the event
-
-- `GOOD` return → Inventory increases **available stock** by the returned quantity.
-- `DAMAGED` return → Inventory increases **defect stock** by the returned quantity.
-- `returnId` provides the transaction identity for downstream idempotency.
-- `itemId` identifies the stock item.
-- `qty` is the server-calculated returned quantity.
-- `condition` determines the downstream stock bucket.
-
-### Integration boundary
-
-Return Service does **not** directly query or modify Inventory MongoDB. It does not make an assumed synchronous stock-adjustment call. The existing `RETURN_RECORDED` event is the asynchronous integration boundary, and the Phase 9 transactional outbox guarantees that the event is durably queued with the accepted Return state.
-
-This keeps the database-per-service rule intact and allows the already-completed Inventory Service to consume the event using its own transaction and idempotency rules.
-
-### Asset-service dependency
-
-The Asset Service has not yet been implemented in the project. Therefore Phase 10 intentionally does **not** add an Asset REST client, Kafka consumer, asset database dependency, or guessed Asset API. Reusable-asset lifecycle integration will be completed after Asset Service is available.
-
-### Tests
-
-Phase 10 adds Inventory integration contract tests verifying that `RETURN_RECORDED` carries the exact item, quantity, condition, return identity and occurrence timestamp required by Inventory.
+- Exactly one `README.md` is included in the ZIP.
+- No Audit Service or Notification Service implementation is included.
+- Existing JWT/RBAC, idempotency, optimistic concurrency and Kafka consumers are preserved.
+- Existing AssetAssigned, AssetReturned and AssetStatusChanged events are preserved for Notification Service consumption.
+- Generic audit events are emitted for Asset lifecycle mutations.
+- No duplicate centralized contract files are introduced.
+- No credentials, private keys, application secrets or generated build output are included.
 
 
-## Phase 11 — Security, RBAC & Idempotency
+## Phase 13 — Observability
 
-Phase 11 adds authenticated JWT resource-server security, endpoint-level role authorization and retry-safe idempotency for all state-changing Return POST operations.
+Phase 13 adds production-oriented observability while preserving all Phase 1–12 business, security, idempotency and Kafka behavior.
 
-### Security
+### Metrics
 
-- JWT Resource Server validation supports the local Auth Service HS256 configuration via `JWT_SECRET_KEY`, with configurable JWK Set validation retained as a fallback.
-- Roles are read from the JWT `roles` claim (or a single `role` claim) and normalized to `ROLE_*`.
-- Return creation is available to `EMPLOYEE`, `PROCUREMENT`, `TL` and `MD`.
-- Verification is restricted to `PROCUREMENT`, `TL` and `MD`.
-- Final good/damaged processing is restricted to `PROCUREMENT`, `TL` and `MD`.
-- Unauthenticated requests return `401 UNAUTHENTICATED`.
-- Authenticated users without the required role return `403 FORBIDDEN`.
-- The authenticated JWT principal is the authoritative actor; the `returnByEmpId` / `verifiedBy` payload values must match it rather than overriding it.
-- No raw identity headers are trusted.
+- Spring Boot Actuator metrics are enabled.
+- Prometheus scraping is available at `/actuator/prometheus`.
+- JVM, HTTP server, MongoDB and Kafka client metrics are exposed through Micrometer/Actuator where the underlying component provides them.
+- Metrics are tagged with the `application` service name.
 
-### Idempotency
+### Distributed tracing
 
-`Idempotency-Key` is optional on state-changing POST endpoints. When supplied, keys are persisted in `return_idempotency_records` with the operation, authenticated actor, request fingerprint and resulting Return ID. Repeating the same key with the same actor and request returns the original Return instead of applying the business transition again. Reusing a key with different operation, actor or request data returns `409 IDEMPOTENCY_CONFLICT`. When the header is omitted, the business operation proceeds normally without an idempotency record.
+- Micrometer Tracing with the OpenTelemetry bridge is enabled.
+- OTLP trace export is configurable through `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- Trace sampling is configurable through `TRACING_SAMPLE_RATE`.
+- W3C trace context remains compatible with the platform tracing/Tempo stack.
 
-The implementation keeps idempotency state in Return Service's own MongoDB and does not query another service's database.
+### Correlation and structured logging
 
+- `X-Correlation-Id` is accepted on incoming requests and generated when absent.
+- The correlation ID is placed in MDC for request-scoped logs and returned in the response header.
+- Structured ECS JSON console logging is enabled with service name, version and environment metadata.
+- Trace/correlation context is kept separate from authentication credentials; tokens and database secrets are never logged by this observability layer.
 
-### Phase 11 — Security, RBAC & Optional Idempotency
-
-`Idempotency-Key` is optional for return create, verification, and processing endpoints. When supplied, the key is validated and replay/conflict protection is applied. When omitted, the business operation proceeds without an idempotency record. Authenticated JWT identity remains authoritative for actor fields.
-
-
-## Phase 12 constructor hardening
-- Explicitly marks the production constructor of `ReturnIntegrationOutboxService` with `@Autowired` while retaining the clock-injectable package-private constructor for deterministic tests.
-
-
-## Phase 13 — Observability & Operational Readiness
-
-Completed.
-
-Phase 13 hardens the service's operational observability without moving business logic into infrastructure code.
-
-### Correlation IDs
-
-- `CorrelationIdFilter` accepts `X-Correlation-ID` from an upstream caller when it is valid and bounded.
-- If no valid correlation ID is supplied, the service generates a UUID correlation ID.
-- The correlation ID is returned on every HTTP response as `X-Correlation-ID`.
-- The value is placed in SLF4J MDC as `correlationId` for request-scoped structured logging.
-- Oversized or control-character correlation IDs are rejected and replaced with a generated ID.
-- MDC is always cleared after request processing to prevent thread-local leakage.
-
-### Tracing
-
-- W3C trace-context propagation is explicitly configured.
-- Existing Micrometer/OpenTelemetry tracing remains enabled.
-- OTLP trace export remains configurable through `OTEL_EXPORTER_OTLP_ENDPOINT`.
-- Log output includes correlation ID, trace ID and span ID fields when available.
-
-### Health and metrics
-
-The service exposes the existing Actuator endpoints:
+### Health and operational endpoints
 
 - `/actuator/health`
 - `/actuator/health/liveness`
@@ -653,146 +445,140 @@ The service exposes the existing Actuator endpoints:
 - `/actuator/metrics`
 - `/actuator/prometheus`
 
-Liveness is limited to process-level availability. Readiness includes MongoDB so an instance is not reported ready when its required persistence dependency is unavailable.
+Health details remain hidden from normal responses.
 
-### Kafka observability
+### Phase 13 verification
 
-Kafka producer and listener observations are enabled so Kafka operations can participate in the service's Micrometer/OpenTelemetry observation and tracing pipeline.
+```powershell
+Remove-Item -Recurse -Force .\services\asset-service
+.\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
+docker compose build --no-cache asset-service
+docker compose up -d asset-service
+docker compose ps asset-service
+docker compose logs --tail=100 asset-service
+curl.exe http://localhost:8089/actuator/health
+curl.exe http://localhost:8089/actuator/prometheus
+```
 
-### Tests
+Expected health response:
 
-Phase 13 adds focused tests for correlation-ID propagation, generated IDs, invalid/oversized header handling and MDC cleanup. Existing service, security, outbox, integration and context tests remain part of the cumulative suite.
+```json
+{"status":"UP"}
+```
 
-## Phase 14 — Testing, OpenAPI & API Hardening
+### Git
 
-Phase 14 adds API documentation and hardening without changing the Return Service business workflow.
-
-### OpenAPI
-- Added `springdoc-openapi-starter-webmvc-ui` for generated OpenAPI 3 documentation.
-- Added a dedicated OpenAPI configuration with service metadata and JWT Bearer authentication.
-- Documented create, verify and process endpoints, response codes, and idempotency headers.
-- Swagger UI is available at `/swagger-ui.html` and the OpenAPI document at `/v3/api-docs` when the service is running.
-
-### Get-all Returns API
-- Added `GET /api/v1/returns` to retrieve all return requests.
-- Access is restricted to `TL`, `MD`, and `PROCUREMENT`.
-- Employees and other authenticated roles receive `403 Forbidden`.
-- The endpoint is documented in OpenAPI.
-
-### API hardening
-- Validation and malformed JSON errors return the stable `ApiResponse`/`ApiError` envelope.
-- Missing required headers are reported with a stable error code.
-- Unexpected server errors return a generic message instead of leaking internal exception details.
-- Error responses include the active trace ID, falling back to the correlation ID when tracing has not populated one.
-- Existing JWT/RBAC, idempotency, state-transition, transactional-outbox and correlation-ID behavior is preserved.
-
-### Testing
-- Added an OpenAPI configuration test covering service metadata and JWT Bearer security metadata.
-- Existing unit, controller, integration-outbox, security and observability tests remain part of the cumulative test suite.
-
-### Next phase
-- Phase 15 — Docker/Kubernetes & Final Integration
+```powershell
+git add services/asset-service
+git commit -m "feat(asset): add observability"
+git status
+```
 
 
+## Phase 14 — Testing & OpenAPI
 
-## Current contract adjustments
+Phase 14 adds API contract verification and OpenAPI documentation while preserving the Phase 1–13 lifecycle, security, Kafka, audit and observability behavior.
 
-- `outwardLineId` has been removed from the Return Service because the current Outward Service contract does not use that field.
-- `quantity` is an integer (`Integer`) and must be at least 1.
-- `assetId` and Asset Service validation have been removed from the current Return Service. Asset integration remains deferred until the Asset Service is implemented.
-- `GET /api/v1/returns` accepts an optional `returnId` query parameter. If omitted, all returns are returned; if supplied, only that return is returned when it exists.
-- Get-all access remains restricted to `TL`, `MD`, and `PROCUREMENT`.
+### OpenAPI / Swagger
 
+- OpenAPI 3 documentation is generated from the Asset Service controllers.
+- Swagger UI is available at `/swagger-ui.html`.
+- OpenAPI JSON is available at `/v3/api-docs`.
+- OpenAPI YAML is available at `/v3/api-docs.yaml`.
+- JWT bearer authentication is represented by the `bearerAuth` security scheme.
+- Asset API operations are explicitly documented with `@Operation` metadata.
+- OpenAPI and Swagger endpoints are permitted by the service security filter so the documentation can be inspected without an access token; the business API remains JWT protected.
 
-## Current Identity Contract
+The OpenAPI integration uses `org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13`, which is available from Maven Central.
 
-- `returnByEmpId` is the employee business identifier supplied in the create-return request.
-- The Return Service compares `returnByEmpId` with the authenticated JWT `employeeId` claim.
-- The JWT `sub` remains the Auth Service MongoDB user ID and is not used as `returnByEmpId`.
-- A mismatch is rejected; the request cannot create a return on behalf of another employee.
-- Example create request:
+### Phase 14 test coverage
+
+- Existing unit tests from earlier phases are preserved.
+- Asset API route contract test verifies the documented endpoint set.
+- OpenAPI annotation test ensures every controller endpoint has `@Operation` documentation.
+- DTO validation contract tests verify required request fields and valid request behavior.
+- Existing controller validation tests remain in place.
+
+### Phase 14 verification
+
+From the procurement-backend repository root:
+
+```powershell
+Remove-Item -Recurse -Force .\services\asset-service
+.\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
+```
+
+Docker verification:
+
+```powershell
+docker compose build --no-cache asset-service
+docker compose up -d asset-service
+docker compose ps asset-service
+docker compose logs --tail=100 asset-service
+curl.exe http://localhost:8089/actuator/health
+curl.exe http://localhost:8089/v3/api-docs
+curl.exe http://localhost:8089/swagger-ui.html
+```
+
+### Git
+
+```powershell
+git add services/asset-service
+git commit -m "feat(asset): add testing and openapi"
+git status
+```
+
+## Swagger / OpenAPI and API Error Contract
+
+Phase 14 API documentation is exposed by Springdoc:
+
+- `GET /v3/api-docs` — OpenAPI JSON
+- `GET /v3/api-docs.yaml` — OpenAPI YAML
+- `GET /swagger-ui.html` — Swagger UI
+
+Swagger documents the Asset endpoints, request parameters, idempotency headers, JWT bearer authentication, success responses, and standard error responses.
+
+### Standard API error response
+
+All controller-level errors use the `ApiError` schema:
 
 ```json
 {
-  "outwardId": "OUT%2F26-27%2F003",
-  "itemId": "Item-1",
-  "quantity": 2,
-  "returnByEmpId": "EMP001",
-  "condition": "GOOD",
-  "remarks": "Work Done"
+  "timestamp": "2026-10-06T10:15:30Z",
+  "status": 400,
+  "error": "Bad Request",
+  "code": "ASSET_VALIDATION_ERROR",
+  "message": "itemId: must not be blank",
+  "path": "/api/v1/assets",
+  "traceId": "trace-id",
+  "correlationId": "correlation-id"
 }
 ```
 
-## Local JWT Configuration
+Supported error categories include validation/bad request (`400`), authentication (`401`), authorization (`403`), resource not found (`404`), state/idempotency/concurrency conflict (`409`), and unexpected server errors (`500`). Authentication and authorization failures are also returned using the same JSON error contract.
 
-The local Auth Service signs tokens with HS256 using `JWT_SECRET_KEY`. Return Service reads the same environment variable and validates HS256 tokens with issuer `auth-service`. The secret must be passed into the Return Service container by Docker Compose; it is not hard-coded in this service.
+### Phase 14 verification
 
+```powershell
+Remove-Item -Recurse -Force .\services\asset-service
 
-### Docker Compose environment
+.\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
 
-For the local HS256 Auth Service, the Return Service container must receive the same signing secret:
+docker compose build --no-cache asset-service
+docker compose up -d asset-service
 
-```yaml
-return-service:
-  environment:
-    JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-    JWT_VALIDATION_MODE: hs256
-    JWT_ISSUER: auth-service
+docker compose ps asset-service
+docker compose logs --tail=100 asset-service
+
+curl.exe http://localhost:8089/actuator/health
+curl.exe http://localhost:8089/v3/api-docs
+curl.exe http://localhost:8089/v3/api-docs.yaml
 ```
 
-The `.env` file is used by Docker Compose for variable substitution; it is not automatically injected into every container unless the service declares the variable in `environment` or `env_file`.
-### Outward Service authentication
+Git:
 
-When a create-return request validates an issued outward item, Return Service forwards the authenticated request JWT to Outward Service as the `Authorization: Bearer <token>` header. The Outward Service must validate the same JWT signing configuration used by the platform.
-
-
-
-## Outward Service return-validation integration
-
-The synchronous Outward Service validation call uses:
-`GET /api/v1/outward/return-validation?outwardId={outwardId}&itemId={itemId}`.
-
-The authenticated Return Service bearer token is forwarded to the Outward Service.
-
-
-## Final Implementation Checkpoint
-
-At this delivery, the Return Service is aligned with the current Outward Service return-validation contract and the current platform decisions:
-
-- Phase 1 — Foundation & Service Setup: **Completed**
-- Phase 2 — Return Domain Model & Enums: **Completed**
-- Phase 3 — Return State Machine: **Completed**
-- Phase 4 — Create Return Request: **Completed**
-- Phase 5 — Issued-Quantity Validation: **Completed**
-- Phase 6 — Return Verification Workflow: **Completed**
-- Phase 7 — Good / Damaged Return Processing: **Completed**
-- Phase 8 — Kafka Events & Event Contracts: **Completed**
-- Phase 9 — Transactional Outbox & Event Reliability: **Completed**
-- Phase 10 — Inventory Integration: **Completed for Inventory; Asset integration deferred**
-- Phase 11 — Security, RBAC & Optional Idempotency: **Completed**
-- Phase 12 — Audit & Notification Integration: **Completed**
-- Phase 13 — Observability & Operational Readiness: **Completed**
-- Phase 14 — Testing, OpenAPI & API Hardening: **Completed**
-- Phase 15 — Docker/Kubernetes & Final Integration: **Pending**
-
-### Asset Service boundary
-
-Asset Service is not implemented in the current project. This Return Service therefore contains **no Asset Service REST client, no Asset Service database access, no guessed Asset API, and no `assetId` field**. Reusable-asset lifecycle integration remains explicitly deferred until Asset Service is available.
-
-### Outward Service boundary
-
-Issued-item validation uses:
-
-`GET /api/v1/outward/return-validation?outwardId={outwardId}&itemId={itemId}`
-
-The authenticated Bearer token is forwarded from Return Service to Outward Service. Return Service does not access the Outward Service database directly.
-
-### Identity boundary
-
-The authenticated JWT `employeeId` claim is authoritative for:
-
-- `returnByEmpId` during creation
-- `verifiedBy` during verification
-- the actor recorded for processing
-
-The JWT `sub` is not used as the business employee ID.
+```powershell
+git add services/asset-service
+git commit -m "feat(asset): document api errors"
+git status
+```

@@ -1,85 +1,92 @@
 spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      retries: 10
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        compression.type: gzip
+        delivery.timeout.ms: 120000
+        max.in.flight.requests.per.connection: 5
+    consumer:
+      enable-auto-commit: false
+      properties:
+        isolation.level: read_committed
+    listener:
+      ack-mode: manual
   application:
-    name: return-service
-
+    name: ${APP_SERVICE_NAME:asset-service}
   data:
     mongodb:
-      uri: ${MONGODB_BASE_URI:mongodb://localhost:27017}/${MONGODB_DATABASE:return}?retryWrites=true&w=majority&appName=recnaile
-
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
-    template:
-      observation-enabled: true
-    listener:
-      observation-enabled: true
+      uri: ${MONGODB_BASE_URI:mongodb://localhost:27017}/${MONGODB_DATABASE:assetdb}?retryWrites=true&w=majority&appName=recnaile
 
 server:
-  port: ${SERVICE_PORT:8088}
+  port: ${SERVICE_PORT:8089}
   shutdown: graceful
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,metrics
-
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       probes:
         enabled: true
       show-details: never
-      group:
-        liveness:
-          include: livenessState,ping
-        readiness:
-          include: readinessState,mongo
-
+  metrics:
+    tags:
+      application: ${spring.application.name}
   tracing:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
-    propagation:
-      type: w3c
-
   otlp:
     tracing:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4318/v1/traces}
-
-info:
-  app:
-    name: ${spring.application.name}
-    description: "Returns, condition verification and stock adjustment"
-    version: "0.1.0-SNAPSHOT"
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 app:
   security:
+    enabled: ${ASSET_SECURITY_ENABLED:true}
     jwt:
-      # Local/dev Auth Service signs access tokens with HS256.
-      secret: ${JWT_SECRET_KEY:}
-      mode: ${JWT_VALIDATION_MODE:hs256}
-      issuer: ${JWT_ISSUER:auth-service}
-
-      # Use JWT_VALIDATION_MODE=jwk only in deployments that use asymmetric JWT signing.
-      jwk-set-uri: ${AUTH_JWK_SET_URI:http://auth-service:8081/oauth2/jwks}
-
-  service-name: ${spring.application.name}
-
-  integrations:
-    outward-service:
-      base-url: ${OUTWARD_SERVICE_URL:http://outward-service:8087}
-
-  outbox:
-    dispatch-enabled: ${RETURN_OUTBOX_DISPATCH_ENABLED:true}
-    dispatch-interval-ms: ${RETURN_OUTBOX_DISPATCH_INTERVAL_MS:5000}
-
-  integration-outbox:
-    dispatch-enabled: ${RETURN_INTEGRATION_OUTBOX_DISPATCH_ENABLED:true}
-    dispatch-interval-ms: ${RETURN_INTEGRATION_OUTBOX_DISPATCH_INTERVAL_MS:5000}
-
+      jwk-set-uri: ${JWT_JWK_SET_URI:http://auth-service:8081/oauth2/jwks}
   kafka:
+    enabled: ${KAFKA_ENABLED:true}
+    consumer-group: ${ASSET_KAFKA_CONSUMER_GROUP:asset-service}
     topics:
-      audit: ${AUDIT_TOPIC:audit.events}
-      notification: ${NOTIFICATION_TOPIC:notification.events}
+      stock-issue-approved: ${KAFKA_STOCK_ISSUE_APPROVED_TOPIC:stock-issue-approved}
+      return-accepted: ${KAFKA_RETURN_ACCEPTED_TOPIC:return-accepted}
+      asset-assigned: ${KAFKA_ASSET_ASSIGNED_TOPIC:asset-assigned}
+      asset-returned: ${KAFKA_ASSET_RETURNED_TOPIC:asset-returned}
+      asset-status-changed: ${KAFKA_ASSET_STATUS_CHANGED_TOPIC:asset-status-changed}
+      audit-event: ${KAFKA_AUDIT_EVENT_TOPIC:audit-events}
+  service-name: ${APP_SERVICE_NAME:asset-service}
+  description: ${APP_SERVICE_DESCRIPTION:Reusable asset lifecycle and employee assignment}
+  database-name: ${MONGODB_DATABASE:assetdb}
 
 logging:
-  pattern:
-    level: "%5p [corr=%X{correlationId:-} trace=%X{traceId:-} span=%X{spanId:-}]"
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        name: ${spring.application.name}
+        version: ${PLATFORM_VERSION:1.0.0}
+        environment: ${SPRING_PROFILES_ACTIVE:dev}
+
+
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  packages-to-scan: com.recnaile.asset.api
+  paths-to-match: /api/v1/**

@@ -2,7 +2,6 @@ package com.recnaile.asset.api;
 
 import java.time.Clock;
 import java.time.Instant;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -14,8 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,7 +31,6 @@ import com.recnaile.asset.idempotency.IdempotencyService;
 @RestController
 @RequestMapping("/api/v1/assets")
 @Tag(name = "Assets", description = "Reusable asset lifecycle and assignment operations")
-@SecurityRequirement(name = "bearerAuth")
 public class AssetController {
 
     private final AssetService assetService;
@@ -73,12 +70,15 @@ public class AssetController {
     @Operation(summary = "Create an asset", description = "Creates a reusable asset lifecycle record. Supports an optional Idempotency-Key header.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Asset created"),
-            @ApiResponse(responseCode = "400", description = "Validation failure", content = @Content(schema = @Schema(implementation = com.recnaile.asset.exception.ApiError.class))),
-            @ApiResponse(responseCode = "403", description = "Forbidden"),
-            @ApiResponse(responseCode = "409", description = "Idempotency or concurrency conflict")
+            @ApiResponse(responseCode = "400", description = "Invalid request or validation failure"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not allowed to create assets"),
+            @ApiResponse(responseCode = "409", description = "Idempotency or concurrency conflict"),
+            @ApiResponse(responseCode = "500", description = "Unexpected server error")
     })
     public ResponseEntity<AssetResponse> create(
             Authentication authentication,
+            @Parameter(description = "Optional idempotency key for safe retries", example = "asset-create-20261006-001")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreateAssetRequest request) {
         authorizationService.requireAnyRole(authentication, "ADMIN", "MD", "PROCUREMENT");
@@ -94,7 +94,15 @@ public class AssetController {
 
     @GetMapping
     @Operation(summary = "List assets", description = "Lists assets, optionally filtered by assetId.")
-    public List<AssetResponse> getAll(Authentication authentication, @RequestParam(required = false) String assetId) {
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Assets returned"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not allowed to read the requested assets"),
+            @ApiResponse(responseCode = "404", description = "Requested asset was not found"),
+            @ApiResponse(responseCode = "500", description = "Unexpected server error")
+    })
+    public List<AssetResponse> getAll(Authentication authentication, @Parameter(description = "Optional asset ID filter", example = "ASSET%2F26-27%2F001")
+            @RequestParam(required = false) String assetId) {
         List<Asset> assets = assetService.getAll(assetId);
         if (assetId != null && !assetId.isBlank()) {
             Asset asset = assets.get(0);
@@ -106,8 +114,16 @@ public class AssetController {
     }
 
     @GetMapping("/by-issue/{issueReference}")
-    @Operation(summary = "Find asset by issue reference")
-    public AssetResponse getByIssue(Authentication authentication, @PathVariable String issueReference) {
+    @Operation(summary = "Find asset by issue reference", description = "Returns the reusable asset associated with the supplied outward issue reference.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Asset returned"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not allowed to read the asset"),
+            @ApiResponse(responseCode = "404", description = "Asset was not found"),
+            @ApiResponse(responseCode = "500", description = "Unexpected server error")
+    })
+    public AssetResponse getByIssue(Authentication authentication, @Parameter(description = "Outward issue reference", example = "OUT%2F26-27%2F001")
+            @PathVariable String issueReference) {
         Asset asset = assetService.getByIssueReference(issueReference);
         authorizationService.requireAssetRead(authentication, asset);
         return AssetResponse.from(asset);
@@ -116,9 +132,20 @@ public class AssetController {
     /** Asset IDs contain '/', so asset-specific operations accept the ID as a query parameter. */
     @PostMapping("/assign")
     @Operation(summary = "Assign an asset", description = "Starts an assignment for an asset. Asset ID is a query parameter because the generated ID contains slashes.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Asset assigned"),
+            @ApiResponse(responseCode = "400", description = "Invalid request or validation failure"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not allowed to assign this asset"),
+            @ApiResponse(responseCode = "404", description = "Asset was not found"),
+            @ApiResponse(responseCode = "409", description = "Asset state, assignment, idempotency or concurrency conflict"),
+            @ApiResponse(responseCode = "500", description = "Unexpected server error")
+    })
     public ResponseEntity<AssignmentResponse> assign(
             Authentication authentication,
+            @Parameter(description = "Asset identifier", example = "ASSET%2F26-27%2F001")
             @RequestParam String assetId,
+            @Parameter(description = "Optional idempotency key for safe retries", example = "asset-action-20261006-001")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody AssignAssetRequest request) {
         Asset asset = assetService.get(assetId);
@@ -136,9 +163,20 @@ public class AssetController {
 
     @PostMapping("/return")
     @Operation(summary = "Return an asset", description = "Closes the current assignment and applies the return condition.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Asset return recorded"),
+            @ApiResponse(responseCode = "400", description = "Invalid request or validation failure"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not allowed to return this asset"),
+            @ApiResponse(responseCode = "404", description = "Asset or assignment was not found"),
+            @ApiResponse(responseCode = "409", description = "Asset state, idempotency or concurrency conflict"),
+            @ApiResponse(responseCode = "500", description = "Unexpected server error")
+    })
     public AssignmentResponse returnAsset(
             Authentication authentication,
+            @Parameter(description = "Asset identifier", example = "ASSET%2F26-27%2F001")
             @RequestParam String assetId,
+            @Parameter(description = "Optional idempotency key for safe retries", example = "asset-action-20261006-001")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody ReturnAssetRequest request) {
         Asset asset = assetService.get(assetId);
@@ -153,10 +191,21 @@ public class AssetController {
     }
 
     @PostMapping("/repair/complete")
-    @Operation(summary = "Complete asset repair")
+    @Operation(summary = "Complete asset repair", description = "Marks a repair workflow as completed and transitions the asset to its next valid lifecycle state.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Repair completed"),
+            @ApiResponse(responseCode = "400", description = "Invalid asset identifier or request"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not allowed to modify this asset"),
+            @ApiResponse(responseCode = "404", description = "Asset was not found"),
+            @ApiResponse(responseCode = "409", description = "Asset state, idempotency or concurrency conflict"),
+            @ApiResponse(responseCode = "500", description = "Unexpected server error")
+    })
     public AssetResponse completeRepair(
             Authentication authentication,
+            @Parameter(description = "Asset identifier", example = "ASSET%2F26-27%2F001")
             @RequestParam String assetId,
+            @Parameter(description = "Optional idempotency key for safe retries", example = "asset-action-20261006-001")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         Asset asset = assetService.get(assetId);
         authorizationService.requireAssetMutation(authentication, asset);
@@ -169,10 +218,21 @@ public class AssetController {
     }
 
     @PostMapping("/retire")
-    @Operation(summary = "Retire an asset")
+    @Operation(summary = "Retire an asset", description = "Retires an asset and prevents further normal assignment operations.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Asset retired"),
+            @ApiResponse(responseCode = "400", description = "Invalid asset identifier or request"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not allowed to modify this asset"),
+            @ApiResponse(responseCode = "404", description = "Asset was not found"),
+            @ApiResponse(responseCode = "409", description = "Asset state, idempotency or concurrency conflict"),
+            @ApiResponse(responseCode = "500", description = "Unexpected server error")
+    })
     public AssetResponse retire(
             Authentication authentication,
+            @Parameter(description = "Asset identifier", example = "ASSET%2F26-27%2F001")
             @RequestParam String assetId,
+            @Parameter(description = "Optional idempotency key for safe retries", example = "asset-action-20261006-001")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         Asset asset = assetService.get(assetId);
         authorizationService.requireAssetMutation(authentication, asset);
@@ -185,23 +245,45 @@ public class AssetController {
     }
 
     @GetMapping("/history")
-    @Operation(summary = "Get assignment history for an asset")
-    public List<AssignmentResponse> history(Authentication authentication, @RequestParam String assetId) {
+    @Operation(summary = "Get assignment history for an asset", description = "Returns the complete assignment history for the requested asset.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Assignment history returned"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not allowed to view this asset history"),
+            @ApiResponse(responseCode = "404", description = "Asset was not found"),
+            @ApiResponse(responseCode = "500", description = "Unexpected server error")
+    })
+    public List<AssignmentResponse> history(Authentication authentication, @Parameter(description = "Asset identifier", example = "ASSET%2F26-27%2F001")
+            @RequestParam String assetId) {
         Asset asset = assetService.get(assetId);
         authorizationService.requireAssetRead(authentication, asset);
         return assignmentService.historyForAsset(assetId).stream().map(AssignmentResponse::from).toList();
     }
 
     @GetMapping("/history/employee/{employeeId}")
-    @Operation(summary = "Get assignment history for an employee")
-    public List<AssignmentResponse> historyForEmployee(Authentication authentication, @PathVariable String employeeId) {
+    @Operation(summary = "Get assignment history for an employee", description = "Returns assignment history visible to the authenticated user for the supplied employee.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Assignment history returned"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not allowed to view this employee history"),
+            @ApiResponse(responseCode = "500", description = "Unexpected server error")
+    })
+    public List<AssignmentResponse> historyForEmployee(Authentication authentication, @Parameter(description = "Employee identifier", example = "EMP-001")
+            @PathVariable String employeeId) {
         authorizationService.requireEmployeeHistory(authentication, employeeId);
         return assignmentService.historyForEmployee(employeeId).stream().map(AssignmentResponse::from).toList();
     }
 
     @GetMapping("/history/department/{departmentName}")
-    @Operation(summary = "Get assignment history for a department")
-    public List<AssignmentResponse> historyForDepartment(Authentication authentication, @PathVariable String departmentName) {
+    @Operation(summary = "Get assignment history for a department", description = "Returns assignment history visible to the authenticated user for the supplied department.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Assignment history returned"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not allowed to view this department history"),
+            @ApiResponse(responseCode = "500", description = "Unexpected server error")
+    })
+    public List<AssignmentResponse> historyForDepartment(Authentication authentication, @Parameter(description = "Department name", example = "Engineering")
+            @PathVariable String departmentName) {
         authorizationService.requireDepartmentHistory(authentication, departmentName);
         return assignmentService.historyForDepartment(departmentName).stream().map(AssignmentResponse::from).toList();
     }
