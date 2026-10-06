@@ -60,7 +60,7 @@ public class AssetAssignmentService {
         assignment.close(now);
 
         Asset asset = getAsset(assetId);
-        asset.clearAssignment(now);
+        asset.markReturned(com.recnaile.asset.model.AssetCondition.GOOD, now);
         assetRepository.save(asset);
         return assignmentRepository.save(assignment);
     }

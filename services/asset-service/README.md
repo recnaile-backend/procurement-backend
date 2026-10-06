@@ -48,3 +48,17 @@ Expected health response:
 ```json
 {"status":"UP"}
 ```
+
+
+## Phase 4 — Lifecycle State Machine
+
+Lifecycle transitions are enforced by the Asset aggregate:
+
+- `RETURNED -> IN_USE` on a valid assignment.
+- `IN_USE -> RETURNED` for a good return.
+- `IN_USE -> UNDER_REPAIR` for a damaged/repair return.
+- `UNDER_REPAIR -> RETURNED` after repair completion.
+- `RETURNED -> RETIRED` for retirement.
+- `RETIRED` is terminal.
+
+Assignment history is closed on return and is never deleted.

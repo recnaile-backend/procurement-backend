@@ -142,7 +142,7 @@ public class Asset {
     }
 
 
-    /** Updates the current assignment snapshot without changing lifecycle status. */
+    /** Assigns the asset for a new lifecycle. A retired or repair-state asset cannot be assigned. */
     public void assignTo(String assignedUserId, String departmentName, Instant now) {
         requireText(assignedUserId, "Assigned user ID");
         requireText(departmentName, "Department name");
@@ -152,8 +152,71 @@ public class Asset {
         if (this.assignedUserId != null) {
             throw new IllegalStateException("Asset already has an assigned user");
         }
+        if (this.status == AssetStatus.RETIRED) {
+            throw new IllegalStateException("Retired asset cannot be assigned");
+        }
+        if (this.status == AssetStatus.UNDER_REPAIR) {
+            throw new IllegalStateException("Asset under repair cannot be assigned");
+        }
+        if (this.status != AssetStatus.RETURNED) {
+            throw new IllegalStateException("Asset must be in RETURNED state before assignment");
+        }
         this.assignedUserId = assignedUserId;
         this.departmentName = departmentName;
+        this.status = AssetStatus.IN_USE;
+        this.updatedAt = now;
+    }
+
+    /** Marks an issued asset as returned and closes its current lifecycle state. */
+    public void markReturned(AssetCondition returnedCondition, Instant now) {
+        if (now == null) {
+            throw new IllegalArgumentException("Timestamp is required");
+        }
+        if (this.status != AssetStatus.IN_USE) {
+            throw new IllegalStateException("Only an IN_USE asset can be returned");
+        }
+        if (returnedCondition == null) {
+            throw new IllegalArgumentException("Return condition is required");
+        }
+        this.assignedUserId = null;
+        if (returnedCondition == AssetCondition.DAMAGED || returnedCondition == AssetCondition.UNDER_REPAIR) {
+            this.condition = returnedCondition;
+            this.status = AssetStatus.UNDER_REPAIR;
+        } else {
+            this.condition = AssetCondition.GOOD;
+            this.status = AssetStatus.RETURNED;
+        }
+        this.updatedAt = now;
+    }
+
+    /** Completes repair and makes the asset available for a new lifecycle. */
+    public void completeRepair(Instant now) {
+        if (now == null) {
+            throw new IllegalArgumentException("Timestamp is required");
+        }
+        if (this.status != AssetStatus.UNDER_REPAIR) {
+            throw new IllegalStateException("Only an UNDER_REPAIR asset can complete repair");
+        }
+        this.condition = AssetCondition.GOOD;
+        this.status = AssetStatus.RETURNED;
+        this.updatedAt = now;
+    }
+
+    /** Retires an available asset. Retired is a terminal lifecycle state. */
+    public void retire(Instant now) {
+        if (now == null) {
+            throw new IllegalArgumentException("Timestamp is required");
+        }
+        if (this.status == AssetStatus.RETIRED) {
+            throw new IllegalStateException("Asset is already retired");
+        }
+        if (this.status == AssetStatus.IN_USE) {
+            throw new IllegalStateException("IN_USE asset must be returned before retirement");
+        }
+        if (this.assignedUserId != null) {
+            throw new IllegalStateException("Assigned asset cannot be retired");
+        }
+        this.status = AssetStatus.RETIRED;
         this.updatedAt = now;
     }
 
