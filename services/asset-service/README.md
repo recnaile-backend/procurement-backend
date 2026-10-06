@@ -1,6 +1,6 @@
-# Asset Service — Phase 7
+# Asset Service — Phase 8
 
-Phase 7 adds explicit reusable-asset return processing on top of the Phase 1–6 foundation. It handles Good/Damaged return outcomes, closes the active assignment, and preserves the asset lifecycle boundary from Inventory/Return stock processing.
+Phase 8 hardens the Phase 1–7 reusable-asset lifecycle with optimistic concurrency and duplicate-active-assignment protection. It prevents concurrent updates from silently overwriting asset/assignment state while preserving the existing Good/Damaged return behavior.
 
 ## Scope
 
@@ -19,15 +19,19 @@ Phase 7 adds explicit reusable-asset return processing on top of the Phase 1–6
 
 - The Asset Service manages reusable/asset-tracked lifecycle records; it is not the stock ledger.
 - Historical assignment records are retained.
+- The active-assignment uniqueness constraint uses a standard unique compound MongoDB index (`assetId` + `returnedAt`) for compatibility with the project's Spring Data MongoDB version; it avoids the unsupported `partialFilterExpression` annotation attribute.
 - `departmentName` is used; there is no `departmentId` in this service.
 - Asset state transitions remain inside the service layer; controllers only handle transport and validation.
 - Kafka consumers handle `StockIssueApproved` and `ReturnAccepted` events.
 - Reusable approved issues create an Asset and start its assignment lifecycle.
 - ReturnAccepted is routed through the asset return service; Good returns move the asset to `RETURNED`, while Damaged returns move it to `UNDER_REPAIR` and close the active assignment.
 - Processed event IDs are stored to prevent duplicate event handling.
+- Asset and assignment aggregates use optimistic versioning.
+- A unique partial MongoDB index prevents more than one active assignment for the same asset under concurrent requests.
+- Optimistic-lock and duplicate-key persistence conflicts are returned as HTTP 409 responses.
 - Only `GOOD` and `DAMAGED` are valid asset return conditions; `UNDER_REPAIR` is an asset lifecycle state, not a return condition.
 - Kafka broker, topics and consumer group are configurable through environment variables.
-- Authentication/RBAC, transactional outbox and audit integration remain later concerns.
+- Authentication/RBAC, transactional outbox, audit integration and full observability remain later concerns.
 
 ## Endpoints
 
@@ -106,7 +110,7 @@ Expected health response:
 
 ```powershell
 git add services/asset-service
-git commit -m "feat(asset): add asset return processing"
+git commit -m "feat(asset): harden asset concurrency"
 ```
 
 ## Verification notes
@@ -117,6 +121,7 @@ git commit -m "feat(asset): add asset return processing"
 - Controllers do not generate asset IDs or implement lifecycle business rules.
 - Lifecycle and assignment rules remain in the service/domain layers.
 - Historical assignment records are retained.
+- The active-assignment uniqueness constraint uses a standard unique compound MongoDB index (`assetId` + `returnedAt`) for compatibility with the project's Spring Data MongoDB version; it avoids the unsupported `partialFilterExpression` annotation attribute.
 
 
 ## Kafka configuration
@@ -138,7 +143,7 @@ For `StockIssueApproved`, reusable events must contain `outwardId`, `itemId`,
 For `ReturnAccepted`, asset lifecycle updates require `returnId` and `condition`, plus either
 `assetId` or an `issueReference`/`outwardId` that resolves to the asset.
 
-## Phase 7 verification
+## Phase 8 verification
 
 ```powershell
 Remove-Item -Recurse -Force .\services\asset-service
@@ -149,3 +154,6 @@ docker compose ps asset-service
 docker compose logs --tail=100 asset-service
 curl.exe http://localhost:8089/actuator/health
 ```
+
+### Idempotency-Key
+State-changing Asset Service POST endpoints accept an optional `Idempotency-Key` request header. The header is not required; requests without it remain valid.

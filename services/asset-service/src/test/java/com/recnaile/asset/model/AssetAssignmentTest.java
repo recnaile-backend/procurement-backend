@@ -9,8 +9,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Instant;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.data.annotation.Version;
 
 class AssetAssignmentTest {
+
+    @Test
+    void assignmentUsesOptimisticVersioning() throws Exception {
+        assertNotNull(AssetAssignment.class.getDeclaredField("version").getAnnotation(Version.class));
+    }
 
     @Test
     void startShouldCreateActiveHistoricalAssignment() {

@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.DuplicateKeyException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -21,6 +23,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<ApiError> badRequest(IllegalArgumentException ex, HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler({OptimisticLockingFailureException.class, DuplicateKeyException.class})
+    ResponseEntity<ApiError> persistenceConflict(RuntimeException ex, HttpServletRequest request) {
+        return error(HttpStatus.CONFLICT, "Asset state changed concurrently; refresh and retry the operation", request);
     }
 
     @ExceptionHandler(IllegalStateException.class)

@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -16,6 +17,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @CompoundIndex(name = "asset_assignment_timeline_idx", def = "{ 'assetId': 1, 'assignedAt': -1 }")
 @CompoundIndex(name = "employee_assignment_timeline_idx", def = "{ 'employeeId': 1, 'assignedAt': -1 }")
 @CompoundIndex(name = "department_assignment_timeline_idx", def = "{ 'departmentName': 1, 'assignedAt': -1 }")
+@CompoundIndex(name = "active_asset_assignment_unique_idx", def = "{ 'assetId': 1, 'returnedAt': 1 }", unique = true)
 public class AssetAssignment {
 
     @Id
@@ -37,6 +39,9 @@ public class AssetAssignment {
     private String returnId;
     private AssetCondition returnCondition;
     private String remarks;
+
+    @Version
+    private Long version;
 
     protected AssetAssignment() {
         // Required by Spring Data MongoDB.
@@ -133,4 +138,5 @@ public class AssetAssignment {
     public AssetCondition getReturnCondition() { return returnCondition; }
     public String getRemarks() { return remarks; }
     public boolean isActive() { return returnedAt == null; }
+    public Long getVersion() { return version; }
 }

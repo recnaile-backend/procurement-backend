@@ -36,7 +36,9 @@ public class AssetController {
     }
 
     @PostMapping
-    public ResponseEntity<AssetResponse> create(@Valid @RequestBody CreateAssetRequest request) {
+    public ResponseEntity<AssetResponse> create(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody CreateAssetRequest request) {
         Asset asset = assetService.create(request.itemId(), request.issueReference(), request.name(), request.brand(),
                 request.model(), request.issuedBy(), request.condition(), request.remarks(), Instant.now(clock));
         return ResponseEntity.status(HttpStatus.CREATED).body(AssetResponse.from(asset));
@@ -54,7 +56,9 @@ public class AssetController {
 
     /** Asset IDs contain '/', so asset-specific operations accept the ID as a query parameter. */
     @PostMapping("/assign")
-    public ResponseEntity<AssignmentResponse> assign(@RequestParam String assetId,
+    public ResponseEntity<AssignmentResponse> assign(
+            @RequestParam String assetId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody AssignAssetRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(AssignmentResponse.from(assignmentService.startAssignment(
                 assetId, request.employeeId(), request.departmentName(), request.issuedBy(), request.outwardId(),
@@ -62,19 +66,25 @@ public class AssetController {
     }
 
     @PostMapping("/return")
-    public AssignmentResponse returnAsset(@RequestParam String assetId,
+    public AssignmentResponse returnAsset(
+            @RequestParam String assetId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody ReturnAssetRequest request) {
         return AssignmentResponse.from(returnService.processReturn(
                 assetId, request.returnId(), request.condition(), Instant.now(clock)));
     }
 
     @PostMapping("/repair/complete")
-    public AssetResponse completeRepair(@RequestParam String assetId) {
+    public AssetResponse completeRepair(
+            @RequestParam String assetId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         return AssetResponse.from(lifecycleService.completeRepair(assetId, Instant.now(clock)));
     }
 
     @PostMapping("/retire")
-    public AssetResponse retire(@RequestParam String assetId) {
+    public AssetResponse retire(
+            @RequestParam String assetId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         return AssetResponse.from(lifecycleService.retire(assetId, Instant.now(clock)));
     }
 
