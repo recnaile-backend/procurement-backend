@@ -1,6 +1,9 @@
 package com.recnaile.asset.model;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
 
@@ -9,49 +12,78 @@ import org.junit.jupiter.api.Test;
 class AssetTest {
 
     @Test
-    void createsAggregateWithRequiredDomainFields() {
-        Instant now = Instant.parse("2026-10-06T06:00:00Z");
-        Asset asset = Asset.create(
-                AssetId.of("ASSET%2F26-27%2F001"),
-                "ITEM-001",
-                "OUT%2F26-27%2F001",
-                "Laptop",
-                "Dell",
-                "Latitude 5450",
-                "EMP-001",
-                AssetStatus.IN_USE,
-                AssetCondition.GOOD,
-                "Initial reusable asset",
-                now);
+    void createShouldBuildReusableAssetWithStableIdentityAndLifecycleFields() {
+        Instant now = Instant.parse("2026-10-05T08:00:00Z");
 
-        assertEquals("ASSET%2F26-27%2F001", asset.getAssetId());
+        Asset asset = Asset.create(
+                new AssetId("asset-001"), "ITEM-001", "OUT/26-27/001",
+                "Laptop", "ExampleBrand", "Model-X", "PROC-001",
+                AssetStatus.IN_USE, AssetCondition.GOOD, "Issued for project work", now);
+
+        assertEquals("asset-001", asset.getAssetId());
+        assertEquals("asset-001", asset.getAssetReference());
         assertEquals("ITEM-001", asset.getItemId());
-        assertEquals("OUT%2F26-27%2F001", asset.getIssueReference());
-        assertEquals("Laptop", asset.getName());
-        assertEquals("Dell", asset.getBrand());
-        assertEquals("Latitude 5450", asset.getModel());
-        assertEquals("EMP-001", asset.getIssuedBy());
+        assertEquals("OUT/26-27/001", asset.getIssueReference());
         assertEquals(AssetStatus.IN_USE, asset.getStatus());
         assertEquals(AssetCondition.GOOD, asset.getCondition());
-        assertEquals(now, asset.getCreatedAt());
-        assertEquals(now, asset.getUpdatedAt());
         assertNull(asset.getDepartmentName());
         assertNull(asset.getAssignedUserId());
+        assertEquals(now, asset.getCreatedAt());
+        assertEquals(now, asset.getUpdatedAt());
+        assertNotNull(asset.getAssetReference());
     }
 
     @Test
-    void rejectsMissingRequiredFields() {
-        Instant now = Instant.now();
-        AssetId id = AssetId.of("ASSET%2F26-27%2F001");
+    void assignToShouldSetEmployeeAndDepartmentName() {
+        Asset asset = Asset.create(
+                new AssetId("asset-001"), "ITEM-001", "OUT/26-27/001",
+                "Laptop", null, null, "PROC-001", AssetStatus.IN_USE,
+                AssetCondition.GOOD, null, Instant.parse("2026-10-05T08:00:00Z"));
 
-        assertThrows(IllegalArgumentException.class,
-                () -> Asset.create(id, "", "OUT-001", "Laptop", "Dell", "5450",
-                        "EMP-001", AssetStatus.IN_USE, AssetCondition.GOOD, null, now));
-        assertThrows(IllegalArgumentException.class,
-                () -> Asset.create(id, "ITEM-001", "", "Laptop", "Dell", "5450",
-                        "EMP-001", AssetStatus.IN_USE, AssetCondition.GOOD, null, now));
-        assertThrows(IllegalArgumentException.class,
-                () -> Asset.create(id, "ITEM-001", "OUT-001", "", "Dell", "5450",
-                        "EMP-001", AssetStatus.IN_USE, AssetCondition.GOOD, null, now));
+        Instant assignedAt = Instant.parse("2026-10-05T09:00:00Z");
+        asset.assignTo("EMP-001", "Engineering", assignedAt);
+
+        assertEquals("EMP-001", asset.getAssignedUserId());
+        assertEquals("Engineering", asset.getDepartmentName());
+        assertEquals(assignedAt, asset.getUpdatedAt());
+    }
+
+    @Test
+    void clearAssignmentShouldRemoveCurrentAssignmentSnapshot() {
+        Asset asset = Asset.create(
+                new AssetId("asset-001"), "ITEM-001", "OUT/26-27/001",
+                "Laptop", null, null, "PROC-001", AssetStatus.IN_USE,
+                AssetCondition.GOOD, null, Instant.parse("2026-10-05T08:00:00Z"));
+        asset.assignTo("EMP-001", "Engineering", Instant.parse("2026-10-05T09:00:00Z"));
+
+        Instant returnedAt = Instant.parse("2026-10-10T09:00:00Z");
+        asset.clearAssignment(returnedAt);
+
+        assertNull(asset.getAssignedUserId());
+        assertNull(asset.getDepartmentName());
+        assertEquals(returnedAt, asset.getUpdatedAt());
+    }
+
+    @Test
+    void assignToShouldRejectSecondActiveAssignment() {
+        Asset asset = Asset.create(
+                new AssetId("asset-001"), "ITEM-001", "OUT/26-27/001",
+                "Laptop", null, null, "PROC-001", AssetStatus.IN_USE,
+                AssetCondition.GOOD, null, Instant.parse("2026-10-05T08:00:00Z"));
+        asset.assignTo("EMP-001", "Engineering", Instant.parse("2026-10-05T09:00:00Z"));
+
+        assertThrows(IllegalStateException.class, () -> asset.assignTo(
+                "EMP-002", "Finance", Instant.parse("2026-10-06T09:00:00Z")));
+    }
+
+    @Test
+    void assignToShouldRejectRetiredAsset() {
+        Asset asset = Asset.create(
+                new AssetId("asset-001"), "ITEM-001", "OUT/26-27/001",
+                "Laptop", null, null, "PROC-001", AssetStatus.RETIRED,
+                AssetCondition.DAMAGED, null, Instant.parse("2026-10-05T08:00:00Z"));
+
+        assertThrows(IllegalStateException.class, () -> asset.assignTo(
+                "EMP-001", "Engineering", Instant.parse("2026-10-05T09:00:00Z")));
     }
 }

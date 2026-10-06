@@ -1,29 +1,25 @@
 package com.recnaile.asset.model;
 
 import java.util.Objects;
-import java.util.regex.Pattern;
 
-/**
- * Stable identifier for an asset lifecycle.
- *
- * <p>The persisted Asset ID intentionally contains the URL-encoded separator
- * sequence required by the project contract, for example
- * {@code ASSET%2F26-27%2F001}.</p>
- */
+/** Stable, server-generated identifier for an asset lifecycle. */
 public record AssetId(String value) {
-
-    private static final Pattern FORMAT =
-            Pattern.compile("ASSET%2F\\d{2}-\\d{2}%2F\\d{3,}");
 
     public AssetId {
         Objects.requireNonNull(value, "Asset ID must not be null");
-        if (!FORMAT.matcher(value).matches()) {
-            throw new IllegalArgumentException(
-                    "Asset ID must match ASSET%2FYY-YY%2FNNN format");
+        if (value.isBlank()) {
+            throw new IllegalArgumentException("Asset ID must not be blank");
         }
     }
 
-    public static AssetId of(String value) {
-        return new AssetId(value);
+    /**
+     * Normalizes an HTTP-decoded Asset ID to the canonical stored representation.
+     * The persisted value intentionally contains the literal %2F sequence.
+     */
+    public static String normalize(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Asset ID must not be blank");
+        }
+        return value.replace("/", "%2F");
     }
 }

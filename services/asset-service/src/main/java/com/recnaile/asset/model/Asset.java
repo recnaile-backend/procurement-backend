@@ -10,9 +10,9 @@ import org.springframework.data.mongodb.core.mapping.Document;
 /**
  * Aggregate root for a reusable/asset-tracked item.
  *
- * <p>The aggregate stores the current asset identity and lifecycle snapshot.
- * Stock quantities and stock movements are deliberately outside this model.
- * Historical assignment records are introduced in the assignment-history phase.</p>
+ * <p>The aggregate stores the current assignment snapshot. Assignment history
+ * is stored separately in {@link AssetAssignment}; historical records are
+ * never deleted by this service.</p>
  */
 @Document(collection = "assets")
 public class Asset {
@@ -20,10 +20,12 @@ public class Asset {
     @Id
     private String assetId;
 
+    @Indexed(unique = true)
+    private String assetReference;
+
     @Indexed
     private String itemId;
 
-    /** Approved/issued outward reference that created this asset lifecycle. */
     @Indexed(unique = true)
     private String issueReference;
 
@@ -56,6 +58,7 @@ public class Asset {
 
     private Asset(
             String assetId,
+            String assetReference,
             String itemId,
             String issueReference,
             String name,
@@ -70,6 +73,7 @@ public class Asset {
             Instant createdAt,
             Instant updatedAt) {
         this.assetId = assetId;
+        this.assetReference = assetReference;
         this.itemId = itemId;
         this.issueReference = issueReference;
         this.name = name;
@@ -85,10 +89,6 @@ public class Asset {
         this.updatedAt = updatedAt;
     }
 
-    /**
-     * Creates an asset lifecycle snapshot. Assignment is intentionally a
-     * separate concern and is not created by the aggregate factory.
-     */
     public static Asset create(
             AssetId assetId,
             String itemId,
@@ -120,6 +120,7 @@ public class Asset {
 
         return new Asset(
                 assetId.value(),
+                assetId.value(),
                 itemId,
                 issueReference,
                 name,
@@ -135,66 +136,58 @@ public class Asset {
                 now);
     }
 
-    private static void requireText(String value, String field) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(field + " is required");
-        }
-    }
-
-
-    /** Assigns the asset for a new lifecycle. A retired or repair-state asset cannot be assigned. */
-    public void assignTo(String assignedUserId, String departmentName, Instant now) {
-        requireText(assignedUserId, "Assigned user ID");
+    /** Starts the current assignment snapshot for this asset. */
+    public void assignTo(String employeeId, String departmentName, Instant now) {
+        requireText(employeeId, "Employee ID");
         requireText(departmentName, "Department name");
-        if (now == null) {
-            throw new IllegalArgumentException("Timestamp is required");
+        requireTimestamp(now);
+        if (assignedUserId != null) {
+            throw new IllegalStateException("Asset already has an active assignment");
         }
-        if (this.assignedUserId != null) {
-            throw new IllegalStateException("Asset already has an assigned user");
+        if (status != AssetStatus.IN_USE) {
+            throw new IllegalStateException("Only an IN_USE asset can be assigned");
         }
-        if (this.status == AssetStatus.RETIRED) {
-            throw new IllegalStateException("Retired asset cannot be assigned");
-        }
-        if (this.status == AssetStatus.UNDER_REPAIR) {
-            throw new IllegalStateException("Asset under repair cannot be assigned");
-        }
-        if (this.status != AssetStatus.RETURNED) {
-            throw new IllegalStateException("Asset must be in RETURNED state before assignment");
-        }
-        this.assignedUserId = assignedUserId;
+        this.assignedUserId = employeeId;
         this.departmentName = departmentName;
-        this.status = AssetStatus.IN_USE;
         this.updatedAt = now;
     }
 
-    /** Marks an issued asset as returned and closes its current lifecycle state. */
-    public void markReturned(AssetCondition returnedCondition, Instant now) {
-        if (now == null) {
-            throw new IllegalArgumentException("Timestamp is required");
-        }
-        if (this.status != AssetStatus.IN_USE) {
-            throw new IllegalStateException("Only an IN_USE asset can be returned");
-        }
-        if (returnedCondition == null) {
+    /**
+     * Applies a return outcome to the asset lifecycle. A good return makes the
+     * asset available for another lifecycle; a damaged return moves it to repair.
+     */
+    public void returnFromAssignment(AssetCondition returnCondition, Instant now) {
+        requireTimestamp(now);
+        if (returnCondition == null) {
             throw new IllegalArgumentException("Return condition is required");
         }
-        this.assignedUserId = null;
-        if (returnedCondition == AssetCondition.DAMAGED || returnedCondition == AssetCondition.UNDER_REPAIR) {
-            this.condition = returnedCondition;
-            this.status = AssetStatus.UNDER_REPAIR;
-        } else {
-            this.condition = AssetCondition.GOOD;
-            this.status = AssetStatus.RETURNED;
+        if (status != AssetStatus.IN_USE) {
+            throw new IllegalStateException("Only an IN_USE asset can be returned");
         }
-        this.updatedAt = now;
+        if (assignedUserId == null) {
+            throw new IllegalStateException("Asset has no active assignment");
+        }
+
+        this.condition = returnCondition;
+        this.status = returnCondition == AssetCondition.GOOD
+                ? AssetStatus.RETURNED
+                : AssetStatus.UNDER_REPAIR;
+        clearAssignment(now);
     }
 
-    /** Completes repair and makes the asset available for a new lifecycle. */
-    public void completeRepair(Instant now) {
-        if (now == null) {
-            throw new IllegalArgumentException("Timestamp is required");
+    /** Starts a new lifecycle after a good return. */
+    public void beginNewLifecycle(String employeeId, String departmentName, Instant now) {
+        if (status != AssetStatus.RETURNED) {
+            throw new IllegalStateException("Only a RETURNED asset can start a new lifecycle");
         }
-        if (this.status != AssetStatus.UNDER_REPAIR) {
+        this.status = AssetStatus.IN_USE;
+        assignTo(employeeId, departmentName, now);
+    }
+
+    /** Marks a repaired asset as available for its next lifecycle. */
+    public void completeRepair(Instant now) {
+        requireTimestamp(now);
+        if (status != AssetStatus.UNDER_REPAIR) {
             throw new IllegalStateException("Only an UNDER_REPAIR asset can complete repair");
         }
         this.condition = AssetCondition.GOOD;
@@ -202,34 +195,44 @@ public class Asset {
         this.updatedAt = now;
     }
 
-    /** Retires an available asset. Retired is a terminal lifecycle state. */
+    /** Retired is terminal and cannot be assigned again. */
     public void retire(Instant now) {
-        if (now == null) {
-            throw new IllegalArgumentException("Timestamp is required");
+        requireTimestamp(now);
+        if (assignedUserId != null) {
+            throw new IllegalStateException("Assigned asset cannot be retired");
         }
-        if (this.status == AssetStatus.RETIRED) {
+        if (status == AssetStatus.RETIRED) {
             throw new IllegalStateException("Asset is already retired");
         }
-        if (this.status == AssetStatus.IN_USE) {
-            throw new IllegalStateException("IN_USE asset must be returned before retirement");
-        }
-        if (this.assignedUserId != null) {
-            throw new IllegalStateException("Assigned asset cannot be retired");
+        if (status != AssetStatus.RETURNED) {
+            throw new IllegalStateException("Only a RETURNED asset can be retired");
         }
         this.status = AssetStatus.RETIRED;
         this.updatedAt = now;
     }
 
-    /** Clears the current assignment snapshot while preserving assignment history elsewhere. */
+    /** Clears the current assignment snapshot after the assignment is closed. */
     public void clearAssignment(Instant now) {
-        if (now == null) {
-            throw new IllegalArgumentException("Timestamp is required");
-        }
+        requireTimestamp(now);
         this.assignedUserId = null;
+        this.departmentName = null;
         this.updatedAt = now;
     }
 
+    private static void requireText(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " is required");
+        }
+    }
+
+    private static void requireTimestamp(Instant value) {
+        if (value == null) {
+            throw new IllegalArgumentException("Timestamp is required");
+        }
+    }
+
     public String getAssetId() { return assetId; }
+    public String getAssetReference() { return assetReference; }
     public String getItemId() { return itemId; }
     public String getIssueReference() { return issueReference; }
     public String getName() { return name; }
