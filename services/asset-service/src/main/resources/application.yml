@@ -81,3 +81,12 @@ logging:
         version: ${PLATFORM_VERSION:1.0.0}
         environment: ${SPRING_PROFILES_ACTIVE:dev}
 
+
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  packages-to-scan: com.recnaile.asset.api
+  paths-to-match: /api/v1/**

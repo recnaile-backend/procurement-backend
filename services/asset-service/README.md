@@ -1,4 +1,4 @@
-# Asset Service — Phase 13
+# Asset Service — Phase 14
 
 Phase 11 adds outbound Kafka event publishing on top of the completed Phase 1–10 reusable-asset lifecycle. It preserves JWT/RBAC, optimistic concurrency, idempotency, duplicate-active-assignment protection, inbound Kafka event handling, and Good/Damaged return behavior.
 
@@ -471,5 +471,59 @@ Expected health response:
 ```powershell
 git add services/asset-service
 git commit -m "feat(asset): add observability"
+git status
+```
+
+
+## Phase 14 — Testing & OpenAPI
+
+Phase 14 adds API contract verification and OpenAPI documentation while preserving the Phase 1–13 lifecycle, security, Kafka, audit and observability behavior.
+
+### OpenAPI / Swagger
+
+- OpenAPI 3 documentation is generated from the Asset Service controllers.
+- Swagger UI is available at `/swagger-ui.html`.
+- OpenAPI JSON is available at `/v3/api-docs`.
+- OpenAPI YAML is available at `/v3/api-docs.yaml`.
+- JWT bearer authentication is represented by the `bearerAuth` security scheme.
+- Asset API operations are explicitly documented with `@Operation` metadata.
+- OpenAPI and Swagger endpoints are permitted by the service security filter so the documentation can be inspected without an access token; the business API remains JWT protected.
+
+The OpenAPI integration uses `org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13`, which is available from Maven Central.
+
+### Phase 14 test coverage
+
+- Existing unit tests from earlier phases are preserved.
+- Asset API route contract test verifies the documented endpoint set.
+- OpenAPI annotation test ensures every controller endpoint has `@Operation` documentation.
+- DTO validation contract tests verify required request fields and valid request behavior.
+- Existing controller validation tests remain in place.
+
+### Phase 14 verification
+
+From the procurement-backend repository root:
+
+```powershell
+Remove-Item -Recurse -Force .\services\asset-service
+.\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
+```
+
+Docker verification:
+
+```powershell
+docker compose build --no-cache asset-service
+docker compose up -d asset-service
+docker compose ps asset-service
+docker compose logs --tail=100 asset-service
+curl.exe http://localhost:8089/actuator/health
+curl.exe http://localhost:8089/v3/api-docs
+curl.exe http://localhost:8089/swagger-ui.html
+```
+
+### Git
+
+```powershell
+git add services/asset-service
+git commit -m "feat(asset): add testing and openapi"
 git status
 ```

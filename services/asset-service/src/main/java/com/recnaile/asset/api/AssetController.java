@@ -2,6 +2,7 @@ package com.recnaile.asset.api;
 
 import java.time.Clock;
 import java.time.Instant;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -11,6 +12,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import com.recnaile.asset.api.dto.*;
 import com.recnaile.asset.model.Asset;
@@ -24,6 +32,8 @@ import com.recnaile.asset.idempotency.IdempotencyService;
 
 @RestController
 @RequestMapping("/api/v1/assets")
+@Tag(name = "Assets", description = "Reusable asset lifecycle and assignment operations")
+@SecurityRequirement(name = "bearerAuth")
 public class AssetController {
 
     private final AssetService assetService;
@@ -60,6 +70,13 @@ public class AssetController {
     }
 
     @PostMapping
+    @Operation(summary = "Create an asset", description = "Creates a reusable asset lifecycle record. Supports an optional Idempotency-Key header.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Asset created"),
+            @ApiResponse(responseCode = "400", description = "Validation failure", content = @Content(schema = @Schema(implementation = com.recnaile.asset.exception.ApiError.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden"),
+            @ApiResponse(responseCode = "409", description = "Idempotency or concurrency conflict")
+    })
     public ResponseEntity<AssetResponse> create(
             Authentication authentication,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
@@ -76,6 +93,7 @@ public class AssetController {
     }
 
     @GetMapping
+    @Operation(summary = "List assets", description = "Lists assets, optionally filtered by assetId.")
     public List<AssetResponse> getAll(Authentication authentication, @RequestParam(required = false) String assetId) {
         List<Asset> assets = assetService.getAll(assetId);
         if (assetId != null && !assetId.isBlank()) {
@@ -88,6 +106,7 @@ public class AssetController {
     }
 
     @GetMapping("/by-issue/{issueReference}")
+    @Operation(summary = "Find asset by issue reference")
     public AssetResponse getByIssue(Authentication authentication, @PathVariable String issueReference) {
         Asset asset = assetService.getByIssueReference(issueReference);
         authorizationService.requireAssetRead(authentication, asset);
@@ -96,6 +115,7 @@ public class AssetController {
 
     /** Asset IDs contain '/', so asset-specific operations accept the ID as a query parameter. */
     @PostMapping("/assign")
+    @Operation(summary = "Assign an asset", description = "Starts an assignment for an asset. Asset ID is a query parameter because the generated ID contains slashes.")
     public ResponseEntity<AssignmentResponse> assign(
             Authentication authentication,
             @RequestParam String assetId,
@@ -115,6 +135,7 @@ public class AssetController {
     }
 
     @PostMapping("/return")
+    @Operation(summary = "Return an asset", description = "Closes the current assignment and applies the return condition.")
     public AssignmentResponse returnAsset(
             Authentication authentication,
             @RequestParam String assetId,
@@ -132,6 +153,7 @@ public class AssetController {
     }
 
     @PostMapping("/repair/complete")
+    @Operation(summary = "Complete asset repair")
     public AssetResponse completeRepair(
             Authentication authentication,
             @RequestParam String assetId,
@@ -147,6 +169,7 @@ public class AssetController {
     }
 
     @PostMapping("/retire")
+    @Operation(summary = "Retire an asset")
     public AssetResponse retire(
             Authentication authentication,
             @RequestParam String assetId,
@@ -162,6 +185,7 @@ public class AssetController {
     }
 
     @GetMapping("/history")
+    @Operation(summary = "Get assignment history for an asset")
     public List<AssignmentResponse> history(Authentication authentication, @RequestParam String assetId) {
         Asset asset = assetService.get(assetId);
         authorizationService.requireAssetRead(authentication, asset);
@@ -169,12 +193,14 @@ public class AssetController {
     }
 
     @GetMapping("/history/employee/{employeeId}")
+    @Operation(summary = "Get assignment history for an employee")
     public List<AssignmentResponse> historyForEmployee(Authentication authentication, @PathVariable String employeeId) {
         authorizationService.requireEmployeeHistory(authentication, employeeId);
         return assignmentService.historyForEmployee(employeeId).stream().map(AssignmentResponse::from).toList();
     }
 
     @GetMapping("/history/department/{departmentName}")
+    @Operation(summary = "Get assignment history for a department")
     public List<AssignmentResponse> historyForDepartment(Authentication authentication, @PathVariable String departmentName) {
         authorizationService.requireDepartmentHistory(authentication, departmentName);
         return assignmentService.historyForDepartment(departmentName).stream().map(AssignmentResponse::from).toList();
