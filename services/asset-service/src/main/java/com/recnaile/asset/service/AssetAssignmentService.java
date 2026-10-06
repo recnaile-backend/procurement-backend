@@ -21,22 +21,25 @@ public class AssetAssignmentService {
     private final AssetRepository assetRepository;
     private final AssetAssignmentRepository assignmentRepository;
     private final com.recnaile.asset.event.AssetEventPublisher eventPublisher;
+    private final com.recnaile.asset.event.AssetAuditEventPublisher auditEventPublisher;
 
     @Autowired
     public AssetAssignmentService(
             AssetRepository assetRepository,
             AssetAssignmentRepository assignmentRepository,
-            com.recnaile.asset.event.AssetEventPublisher eventPublisher) {
+            com.recnaile.asset.event.AssetEventPublisher eventPublisher,
+            com.recnaile.asset.event.AssetAuditEventPublisher auditEventPublisher) {
         this.assetRepository = assetRepository;
         this.assignmentRepository = assignmentRepository;
         this.eventPublisher = eventPublisher;
+        this.auditEventPublisher = auditEventPublisher;
     }
 
     /** Test-friendly constructor retained for unit tests that do not exercise Kafka publication. */
     AssetAssignmentService(
             AssetRepository assetRepository,
             AssetAssignmentRepository assignmentRepository) {
-        this(assetRepository, assignmentRepository, null);
+        this(assetRepository, assignmentRepository, null, null);
     }
 
     /** Starts one active assignment while preserving all previous assignments. */
@@ -74,6 +77,9 @@ public class AssetAssignmentService {
         Asset savedAsset = assetRepository.save(asset);
         AssetAssignment savedAssignment = assignmentRepository.save(assignment);
         if (eventPublisher != null) eventPublisher.publishAssetAssigned(savedAsset, savedAssignment);
+        if (auditEventPublisher != null) {
+            auditEventPublisher.publish("ASSET_ASSIGNED", savedAsset.getAssetId(), null, savedAssignment, savedAssignment.getIssuedBy());
+        }
         return savedAssignment;
     }
 
@@ -95,6 +101,9 @@ public class AssetAssignmentService {
         Asset savedAsset = assetRepository.save(asset);
         AssetAssignment savedAssignment = assignmentRepository.save(assignment);
         if (eventPublisher != null) eventPublisher.publishAssetReturned(savedAsset, savedAssignment);
+        if (auditEventPublisher != null) {
+            auditEventPublisher.publish("ASSET_RETURNED", savedAsset.getAssetId(), null, savedAssignment, savedAssignment.getReturnId());
+        }
         return savedAssignment;
     }
 

@@ -21,18 +21,21 @@ public class AssetLifecycleService {
 
     private final AssetRepository assetRepository;
     private final com.recnaile.asset.event.AssetEventPublisher eventPublisher;
+    private final com.recnaile.asset.event.AssetAuditEventPublisher auditEventPublisher;
 
     @Autowired
     public AssetLifecycleService(
             AssetRepository assetRepository,
-            com.recnaile.asset.event.AssetEventPublisher eventPublisher) {
+            com.recnaile.asset.event.AssetEventPublisher eventPublisher,
+            com.recnaile.asset.event.AssetAuditEventPublisher auditEventPublisher) {
         this.assetRepository = assetRepository;
         this.eventPublisher = eventPublisher;
+        this.auditEventPublisher = auditEventPublisher;
     }
 
     /** Test-friendly constructor retained for lifecycle unit tests. */
     AssetLifecycleService(AssetRepository assetRepository) {
-        this(assetRepository, null);
+        this(assetRepository, null, null);
     }
 
     @Transactional
@@ -49,6 +52,7 @@ public class AssetLifecycleService {
         asset.completeRepair(now);
         Asset saved = assetRepository.save(asset);
         if (eventPublisher != null) eventPublisher.publishStatusChanged(saved, previousStatus, saved.getStatus().name());
+        if (auditEventPublisher != null) auditEventPublisher.publish("ASSET_STATUS_CHANGED", saved.getAssetId(), previousStatus, saved.getStatus(), null);
         return saved;
     }
 
@@ -59,6 +63,7 @@ public class AssetLifecycleService {
         asset.retire(now);
         Asset saved = assetRepository.save(asset);
         if (eventPublisher != null) eventPublisher.publishStatusChanged(saved, previousStatus, saved.getStatus().name());
+        if (auditEventPublisher != null) auditEventPublisher.publish("ASSET_RETIRED", saved.getAssetId(), previousStatus, saved.getStatus(), null);
         return saved;
     }
 

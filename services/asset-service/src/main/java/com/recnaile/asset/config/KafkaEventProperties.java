@@ -13,6 +13,7 @@ public record KafkaEventProperties(
             String returnAccepted,
             String assetAssigned,
             String assetReturned,
-            String assetStatusChanged) {
+            String assetStatusChanged,
+            String auditEvent) {
     }
 }

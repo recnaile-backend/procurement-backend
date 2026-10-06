@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.recnaile.asset.model.Asset;
 import com.recnaile.asset.exception.ResourceNotFoundException;
@@ -18,10 +19,21 @@ public class AssetService {
 
     private final AssetRepository assetRepository;
     private final AssetIdGenerator assetIdGenerator;
+    private final com.recnaile.asset.event.AssetAuditEventPublisher auditEventPublisher;
 
-    public AssetService(AssetRepository assetRepository, AssetIdGenerator assetIdGenerator) {
+    @Autowired
+    public AssetService(
+            AssetRepository assetRepository,
+            AssetIdGenerator assetIdGenerator,
+            com.recnaile.asset.event.AssetAuditEventPublisher auditEventPublisher) {
         this.assetRepository = assetRepository;
         this.assetIdGenerator = assetIdGenerator;
+        this.auditEventPublisher = auditEventPublisher;
+    }
+
+    /** Test-friendly constructor retained for service unit tests that do not exercise Kafka audit publication. */
+    AssetService(AssetRepository assetRepository, AssetIdGenerator assetIdGenerator) {
+        this(assetRepository, assetIdGenerator, null);
     }
 
     @Transactional
@@ -40,9 +52,13 @@ public class AssetService {
         if (assetRepository.findByIssueReference(issueReference).isPresent()) {
             throw new IllegalStateException("Asset already exists for issue reference: " + issueReference);
         }
-        return assetRepository.save(Asset.create(
+        Asset saved = assetRepository.save(Asset.create(
                 assetIdGenerator.next(), itemId, issueReference, name, brand, model,
                 issuedBy, AssetStatus.RETURNED, condition, remarks, now));
+        if (auditEventPublisher != null) {
+            auditEventPublisher.publish("ASSET_CREATED", saved.getAssetId(), null, saved, issuedBy);
+        }
+        return saved;
     }
 
     public Asset get(String assetId) {

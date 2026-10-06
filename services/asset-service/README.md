@@ -325,3 +325,87 @@ git status
 - Existing inbound Kafka consumers are preserved.
 - Existing JWT/RBAC, idempotency and optimistic concurrency behavior is preserved.
 - No Audit Service or Notification Service implementation is included.
+
+## Phase 12 — Audit & Notification Integration
+
+Phase 12 prepares the completed Asset Service for the separately deployed Audit and Notification services. The services themselves are **not implemented in this Asset Service phase**. Asset Service only emits the events they will consume later.
+
+### Audit integration
+
+Asset Service now publishes the centralized audit event contract to the configurable `audit-events` Kafka topic after successful business transactions.
+
+Audit events are emitted for:
+
+- `ASSET_CREATED`
+- `ASSET_ASSIGNED`
+- `ASSET_RETURNED`
+- `ASSET_STATUS_CHANGED`
+- `ASSET_RETIRED`
+
+The audit payload carries actor/user ID, actor role, service name, entity type, entity ID, action, timestamp, correlation ID through the event envelope, and before/after values where available.
+
+Audit persistence, audit search APIs and MD-only audit access remain responsibilities of the separate Audit Service.
+
+### Notification integration
+
+The existing Phase 11 business events remain the notification integration surface:
+
+- `AssetAssigned` → `asset-assigned`
+- `AssetReturned` → `asset-returned`
+- `AssetStatusChanged` → `asset-status-changed`
+
+These events contain the asset, employee, department, condition and status information needed by the future Notification Service. No notification database, REST API or email provider is introduced into Asset Service.
+
+### Configuration
+
+```text
+KAFKA_AUDIT_EVENT_TOPIC=audit-events
+```
+
+`KAFKA_ENABLED=false` continues to disable both lifecycle and audit event publication without changing Asset Service business behavior.
+
+### Reliability behavior
+
+- Audit publication is deferred until transaction commit when a Spring transaction is active.
+- Kafka producer idempotence and `acks=all` remain enabled from Phase 11.
+- Audit event publication does not make Asset Service directly dependent on Audit Service availability.
+- No cross-service database access is introduced.
+- Centralized event contracts remain outside the service; no duplicate contract files are added.
+
+### Phase 12 verification
+
+From the procurement-backend repository root:
+
+```powershell
+Remove-Item -Recurse -Force .\services\asset-service
+.\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
+docker compose build --no-cache asset-service
+docker compose up -d asset-service
+docker compose ps asset-service
+docker compose logs --tail=100 asset-service
+curl.exe http://localhost:8089/actuator/health
+```
+
+Expected health response:
+
+```json
+{"status":"UP"}
+```
+
+### Git
+
+```powershell
+git add services/asset-service
+git commit -m "feat(asset): add audit and notification integration"
+git status
+```
+
+### Phase 12 delivery checks
+
+- Exactly one `README.md` is included in the ZIP.
+- No Audit Service or Notification Service implementation is included.
+- Existing JWT/RBAC, idempotency, optimistic concurrency and Kafka consumers are preserved.
+- Existing AssetAssigned, AssetReturned and AssetStatusChanged events are preserved for Notification Service consumption.
+- Generic audit events are emitted for Asset lifecycle mutations.
+- No duplicate centralized contract files are introduced.
+- No credentials, private keys, application secrets or generated build output are included.

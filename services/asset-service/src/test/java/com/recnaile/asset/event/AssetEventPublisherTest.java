@@ -95,7 +95,8 @@ class AssetEventPublisherTest {
                         "return-accepted",
                         "asset-assigned",
                         "asset-returned",
-                        "asset-status-changed"));
+                        "asset-status-changed",
+                        "audit-events"));
 
         AssetEventPublisher publisher = new AssetEventPublisher(
                 kafkaTemplate,
@@ -121,7 +122,8 @@ class AssetEventPublisherTest {
                         "return-accepted",
                         "asset-assigned",
                         "asset-returned",
-                        "asset-status-changed"));
+                        "asset-status-changed",
+                        "audit-events"));
     }
 
     private static CompletableFuture<SendResult<String, String>> completedSendResult() {
