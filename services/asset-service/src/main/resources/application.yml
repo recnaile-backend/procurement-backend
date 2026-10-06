@@ -34,6 +34,10 @@ management:
       enabled: true
 
 app:
+  security:
+    enabled: ${ASSET_SECURITY_ENABLED:true}
+    jwt:
+      jwk-set-uri: ${JWT_JWK_SET_URI:http://auth-service:8081/oauth2/jwks}
   kafka:
     enabled: ${KAFKA_ENABLED:true}
     consumer-group: ${ASSET_KAFKA_CONSUMER_GROUP:asset-service}

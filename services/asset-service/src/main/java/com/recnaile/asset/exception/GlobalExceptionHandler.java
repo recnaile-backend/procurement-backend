@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.security.access.AccessDeniedException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -28,6 +29,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({OptimisticLockingFailureException.class, DuplicateKeyException.class})
     ResponseEntity<ApiError> persistenceConflict(RuntimeException ex, HttpServletRequest request) {
         return error(HttpStatus.CONFLICT, "Asset state changed concurrently; refresh and retry the operation", request);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<ApiError> forbidden(AccessDeniedException ex, HttpServletRequest request) {
+        return error(HttpStatus.FORBIDDEN, ex.getMessage(), request);
     }
 
     @ExceptionHandler(IllegalStateException.class)

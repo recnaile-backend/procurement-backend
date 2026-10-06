@@ -19,6 +19,7 @@ import com.recnaile.asset.model.Asset;
 import com.recnaile.asset.model.AssetCondition;
 import com.recnaile.asset.model.AssetId;
 import com.recnaile.asset.model.AssetStatus;
+import com.recnaile.asset.security.AssetAuthorizationService;
 import com.recnaile.asset.service.AssetAssignmentService;
 import com.recnaile.asset.service.AssetLifecycleService;
 import com.recnaile.asset.service.AssetService;
@@ -38,6 +39,7 @@ class AssetControllerTest {
     @Mock AssetAssignmentService assignmentService;
     @Mock AssetLifecycleService lifecycleService;
     @Mock AssetReturnService returnService;
+    @Mock AssetAuthorizationService authorizationService;
 
     MockMvc mockMvc;
     ObjectMapper objectMapper = new ObjectMapper();
@@ -45,7 +47,7 @@ class AssetControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(new AssetController(
-                assetService, assignmentService, lifecycleService, returnService,
+                assetService, assignmentService, lifecycleService, returnService, authorizationService,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)))
                 .setControllerAdvice(new com.recnaile.asset.exception.GlobalExceptionHandler())
                 .build();

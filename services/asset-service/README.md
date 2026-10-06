@@ -1,6 +1,6 @@
-# Asset Service — Phase 8
+# Asset Service — Phase 9
 
-Phase 8 hardens the Phase 1–7 reusable-asset lifecycle with optimistic concurrency and duplicate-active-assignment protection. It prevents concurrent updates from silently overwriting asset/assignment state while preserving the existing Good/Damaged return behavior.
+Phase 9 adds JWT authentication and entity-level RBAC on top of the completed Phase 1–8 reusable-asset lifecycle. It preserves optimistic concurrency, duplicate-active-assignment protection, Kafka event idempotency, and Good/Damaged return behavior.
 
 ## Scope
 
@@ -27,11 +27,11 @@ Phase 8 hardens the Phase 1–7 reusable-asset lifecycle with optimistic concurr
 - ReturnAccepted is routed through the asset return service; Good returns move the asset to `RETURNED`, while Damaged returns move it to `UNDER_REPAIR` and close the active assignment.
 - Processed event IDs are stored to prevent duplicate event handling.
 - Asset and assignment aggregates use optimistic versioning.
-- A unique partial MongoDB index prevents more than one active assignment for the same asset under concurrent requests.
+- A unique MongoDB compound index protects against duplicate active assignments under concurrent requests.
 - Optimistic-lock and duplicate-key persistence conflicts are returned as HTTP 409 responses.
 - Only `GOOD` and `DAMAGED` are valid asset return conditions; `UNDER_REPAIR` is an asset lifecycle state, not a return condition.
 - Kafka broker, topics and consumer group are configurable through environment variables.
-- Authentication/RBAC, transactional outbox, audit integration and full observability remain later concerns.
+- JWT authentication and entity-level RBAC are enabled in this phase; transactional outbox, audit integration and full observability remain later concerns.
 
 ## Endpoints
 
@@ -110,7 +110,7 @@ Expected health response:
 
 ```powershell
 git add services/asset-service
-git commit -m "feat(asset): harden asset concurrency"
+git commit -m "feat(asset): add security and rbac"
 ```
 
 ## Verification notes
@@ -157,3 +157,45 @@ curl.exe http://localhost:8089/actuator/health
 
 ### Idempotency-Key
 State-changing Asset Service POST endpoints accept an optional `Idempotency-Key` request header. The header is not required; requests without it remain valid.
+
+## Phase 9 — Security & RBAC
+
+Phase 9 adds JWT resource-server validation and entity-level authorization while preserving the Phase 1–8 asset lifecycle behavior.
+
+### Security behavior
+
+- Every Asset Service API except actuator health/info endpoints requires an authenticated JWT when `ASSET_SECURITY_ENABLED=true` (the default).
+- JWTs are validated as an OAuth2 Resource Server using the configured JWK Set URI. The expected production signing model is RS256.
+- JWT roles are read from `roles` and `role` claims and normalized to Spring `ROLE_*` authorities.
+- The service never trusts raw identity headers as the authorization authority.
+- `EMPLOYEE` can read only assets currently assigned to the authenticated employee and their own employee history.
+- `TL` can read assets/history belonging to the department in the JWT `departmentName`/`department`/`dept` claim.
+- `PROCUREMENT`, `MD`, and `ADMIN` can read and manage all asset records.
+- Asset mutations (create, assign, return, repair completion, retirement) are restricted to `PROCUREMENT`, `MD`, and `ADMIN`.
+- Unauthorized authenticated requests return HTTP 403; unauthenticated API requests are rejected by the security filter.
+- The `Idempotency-Key` header remains optional on state-changing POST endpoints.
+
+### Security configuration
+
+```text
+ASSET_SECURITY_ENABLED=true
+JWT_JWK_SET_URI=http://auth-service:8081/oauth2/jwks
+```
+
+The JWK Set URI is configurable because the Asset Service must validate tokens using the Auth Service's published signing keys in each environment. Do not hard-code private keys or credentials into this service.
+
+### Phase 9 verification
+
+From the procurement-backend repository root:
+
+```powershell
+Remove-Item -Recurse -Force .\services\asset-service
+.\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
+docker compose build --no-cache asset-service
+docker compose up -d asset-service
+docker compose ps asset-service
+docker compose logs --tail=100 asset-service
+curl.exe http://localhost:8089/actuator/health
+```
+
+For authenticated API calls, send a valid JWT issued by the platform Auth Service. Do not use a user/employee ID header as a substitute for the JWT identity.
