@@ -16,8 +16,8 @@ import com.recnaile.asset.model.AssetId;
 import com.recnaile.asset.model.AssetStatus;
 import com.recnaile.asset.repository.ProcessedEventRepository;
 import com.recnaile.asset.service.AssetAssignmentService;
-import com.recnaile.asset.service.AssetLifecycleService;
 import com.recnaile.asset.service.AssetService;
+import com.recnaile.asset.service.AssetReturnService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,7 +26,7 @@ class AssetEventHandlerTest {
 
     private AssetService assetService;
     private AssetAssignmentService assignmentService;
-    private AssetLifecycleService lifecycleService;
+    private AssetReturnService returnService;
     private ProcessedEventRepository processedEventRepository;
     private AssetEventHandler handler;
 
@@ -36,13 +36,13 @@ class AssetEventHandlerTest {
     void setUp() {
         assetService = mock(AssetService.class);
         assignmentService = mock(AssetAssignmentService.class);
-        lifecycleService = mock(AssetLifecycleService.class);
+        returnService = mock(AssetReturnService.class);
         processedEventRepository = mock(ProcessedEventRepository.class);
 
         handler = new AssetEventHandler(
                 assetService,
                 assignmentService,
-                lifecycleService,
+                returnService,
                 processedEventRepository,
                 Clock.fixed(Instant.parse("2026-10-06T08:00:00Z"), ZoneOffset.UTC));
     }
@@ -96,7 +96,7 @@ class AssetEventHandlerTest {
                         {"outwardId":"OUT-002","itemId":"ITEM-002","reusable":false}
                         """)));
 
-        verifyNoInteractions(assetService, assignmentService, lifecycleService);
+        verifyNoInteractions(assetService, assignmentService, returnService);
         verify(processedEventRepository).save(any(ProcessedEvent.class));
     }
 
@@ -113,7 +113,7 @@ class AssetEventHandlerTest {
                         """)));
 
         verify(processedEventRepository, never()).save(any());
-        verifyNoInteractions(assetService, assignmentService, lifecycleService);
+        verifyNoInteractions(assetService, assignmentService, returnService);
     }
 
     @Test
@@ -127,8 +127,8 @@ class AssetEventHandlerTest {
                         {"assetId":"ASSET%2F26-27%2F001","returnId":"RET-001","condition":"GOOD"}
                         """)));
 
-        verify(assignmentService).closeAssignment(
-                eq("ASSET%2F26-27%2F001"), any(Instant.class), eq("RET-001"), eq(AssetCondition.GOOD));
+        verify(returnService).processReturn(
+                eq("ASSET%2F26-27%2F001"), eq("RET-001"), eq(AssetCondition.GOOD), any(Instant.class));
         verify(processedEventRepository).save(any(ProcessedEvent.class));
     }
 }

@@ -22,6 +22,7 @@ import com.recnaile.asset.model.AssetStatus;
 import com.recnaile.asset.service.AssetAssignmentService;
 import com.recnaile.asset.service.AssetLifecycleService;
 import com.recnaile.asset.service.AssetService;
+import com.recnaile.asset.service.AssetReturnService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +37,7 @@ class AssetControllerTest {
     @Mock AssetService assetService;
     @Mock AssetAssignmentService assignmentService;
     @Mock AssetLifecycleService lifecycleService;
+    @Mock AssetReturnService returnService;
 
     MockMvc mockMvc;
     ObjectMapper objectMapper = new ObjectMapper();
@@ -43,7 +45,7 @@ class AssetControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(new AssetController(
-                assetService, assignmentService, lifecycleService,
+                assetService, assignmentService, lifecycleService, returnService,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC)))
                 .setControllerAdvice(new com.recnaile.asset.exception.GlobalExceptionHandler())
                 .build();

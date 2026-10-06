@@ -13,6 +13,7 @@ import com.recnaile.asset.api.dto.*;
 import com.recnaile.asset.model.Asset;
 import com.recnaile.asset.service.AssetAssignmentService;
 import com.recnaile.asset.service.AssetLifecycleService;
+import com.recnaile.asset.service.AssetReturnService;
 import com.recnaile.asset.service.AssetService;
 
 @RestController
@@ -22,13 +23,15 @@ public class AssetController {
     private final AssetService assetService;
     private final AssetAssignmentService assignmentService;
     private final AssetLifecycleService lifecycleService;
+    private final AssetReturnService returnService;
     private final Clock clock;
 
     public AssetController(AssetService assetService, AssetAssignmentService assignmentService,
-            AssetLifecycleService lifecycleService, Clock clock) {
+            AssetLifecycleService lifecycleService, AssetReturnService returnService, Clock clock) {
         this.assetService = assetService;
         this.assignmentService = assignmentService;
         this.lifecycleService = lifecycleService;
+        this.returnService = returnService;
         this.clock = clock;
     }
 
@@ -61,8 +64,8 @@ public class AssetController {
     @PostMapping("/return")
     public AssignmentResponse returnAsset(@RequestParam String assetId,
             @Valid @RequestBody ReturnAssetRequest request) {
-        return AssignmentResponse.from(assignmentService.closeAssignment(
-                assetId, Instant.now(clock), request.returnId(), request.condition()));
+        return AssignmentResponse.from(returnService.processReturn(
+                assetId, request.returnId(), request.condition(), Instant.now(clock)));
     }
 
     @PostMapping("/repair/complete")

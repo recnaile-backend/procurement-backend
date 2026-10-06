@@ -8,8 +8,8 @@ import com.recnaile.asset.model.Asset;
 import com.recnaile.asset.exception.ResourceNotFoundException;
 import com.recnaile.asset.model.AssetCondition;
 import com.recnaile.asset.service.AssetAssignmentService;
-import com.recnaile.asset.service.AssetLifecycleService;
 import com.recnaile.asset.service.AssetService;
+import com.recnaile.asset.service.AssetReturnService;
 import com.recnaile.asset.repository.ProcessedEventRepository;
 
 import org.springframework.stereotype.Service;
@@ -22,19 +22,19 @@ public class AssetEventHandler {
 
     private final AssetService assetService;
     private final AssetAssignmentService assignmentService;
-    private final AssetLifecycleService lifecycleService;
+    private final AssetReturnService returnService;
     private final ProcessedEventRepository processedEventRepository;
     private final Clock clock;
 
     public AssetEventHandler(
             AssetService assetService,
             AssetAssignmentService assignmentService,
-            AssetLifecycleService lifecycleService,
+            AssetReturnService returnService,
             ProcessedEventRepository processedEventRepository,
             Clock clock) {
         this.assetService = assetService;
         this.assignmentService = assignmentService;
-        this.lifecycleService = lifecycleService;
+        this.returnService = returnService;
         this.processedEventRepository = processedEventRepository;
         this.clock = clock;
     }
@@ -109,23 +109,20 @@ public class AssetEventHandler {
         String returnId = requiredText(payload, "returnId");
         AssetCondition condition = parseCondition(requiredText(payload, "condition"));
 
-        if (condition == AssetCondition.DAMAGED) {
-            Asset asset = assetService.get(assetId);
-            if (asset.getStatus() == com.recnaile.asset.model.AssetStatus.UNDER_REPAIR) {
-                return;
-            }
-        }
-
-        assignmentService.closeAssignment(
+        returnService.processReturn(
                 assetId,
-                Instant.now(clock),
                 returnId,
-                condition);
+                condition,
+                Instant.now(clock));
     }
 
     private static AssetCondition parseCondition(String value) {
         try {
-            return AssetCondition.valueOf(value.trim().toUpperCase());
+            AssetCondition condition = AssetCondition.valueOf(value.trim().toUpperCase());
+            if (condition != AssetCondition.GOOD && condition != AssetCondition.DAMAGED) {
+                throw new IllegalArgumentException("Return condition must be GOOD or DAMAGED");
+            }
+            return condition;
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("Unsupported asset return condition: " + value, ex);
         }

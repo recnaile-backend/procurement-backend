@@ -1,6 +1,6 @@
-# Asset Service — Phase 6
+# Asset Service — Phase 7
 
-Phase 6 adds Kafka event consumption and idempotent downstream asset lifecycle integration on top of the Phase 1–5 foundation.
+Phase 7 adds explicit reusable-asset return processing on top of the Phase 1–6 foundation. It handles Good/Damaged return outcomes, closes the active assignment, and preserves the asset lifecycle boundary from Inventory/Return stock processing.
 
 ## Scope
 
@@ -23,8 +23,9 @@ Phase 6 adds Kafka event consumption and idempotent downstream asset lifecycle i
 - Asset state transitions remain inside the service layer; controllers only handle transport and validation.
 - Kafka consumers handle `StockIssueApproved` and `ReturnAccepted` events.
 - Reusable approved issues create an Asset and start its assignment lifecycle.
-- ReturnAccepted closes the active asset assignment and applies Good/Damaged lifecycle rules.
+- ReturnAccepted is routed through the asset return service; Good returns move the asset to `RETURNED`, while Damaged returns move it to `UNDER_REPAIR` and close the active assignment.
 - Processed event IDs are stored to prevent duplicate event handling.
+- Only `GOOD` and `DAMAGED` are valid asset return conditions; `UNDER_REPAIR` is an asset lifecycle state, not a return condition.
 - Kafka broker, topics and consumer group are configurable through environment variables.
 - Authentication/RBAC, transactional outbox and audit integration remain later concerns.
 
@@ -105,7 +106,7 @@ Expected health response:
 
 ```powershell
 git add services/asset-service
-git commit -m "feat(asset): add asset REST APIs"
+git commit -m "feat(asset): add asset return processing"
 ```
 
 ## Verification notes
@@ -137,7 +138,7 @@ For `StockIssueApproved`, reusable events must contain `outwardId`, `itemId`,
 For `ReturnAccepted`, asset lifecycle updates require `returnId` and `condition`, plus either
 `assetId` or an `issueReference`/`outwardId` that resolves to the asset.
 
-## Phase 6 verification
+## Phase 7 verification
 
 ```powershell
 Remove-Item -Recurse -Force .\services\asset-service
