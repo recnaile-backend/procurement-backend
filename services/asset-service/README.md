@@ -1,81 +1,50 @@
-# Asset Service — Phase 2: Asset Domain Model
+# RECNAILE Asset Service - Phase 3
 
-RECNAILE Asset Service domain foundation for reusable / asset-tracked items.
+Phase 3 adds assignment history for reusable/asset-tracked assets. The service keeps a current assignment snapshot on the `Asset` aggregate and stores every assignment lifecycle in the `asset_assignments` MongoDB collection. Historical records are closed, never deleted.
 
-## Phase 2 scope
+## Runtime
+- Java 21
+- Spring Boot 3.5.16
+- Gradle
+- MongoDB database: `assetdb`
+- Service port: `8089`
+- Asset ID format: `ASSET%2F26-27%2F001`
 
-- Asset aggregate mapped to MongoDB collection `assets`
-- Stable Asset ID value object
-- Required Asset ID format: `ASSET%2FYY-YY%2FNNN`
-- Asset ID is a server-generated value; clients must not supply it during creation
-- Asset item and approved/issued issue reference
-- Asset name, brand and model
-- `departmentName` and assigned employee snapshot fields
-- Issued-by actor reference
-- Asset lifecycle status: `IN_USE`, `RETURNED`, `UNDER_REPAIR`, `RETIRED`
-- Asset condition: `GOOD`, `DAMAGED`, `UNDER_REPAIR`
-- Remarks and UTC timestamps
-- Optimistic concurrency with MongoDB `@Version`
-- MongoDB indexes for item, issue reference, department name, assigned user and status
-- Domain validation tests
+## Phase 3 scope
+- `AssetAssignment` historical record
+- Active-assignment uniqueness per asset
+- Assignment and close-assignment application service
+- Employee and department assignment-history queries
+- Current assignment snapshot on `Asset`
+- MongoDB indexes and optimistic versioning
+- Unit tests for assignment lifecycle/history
 
-## Asset ID convention
+## Assignment history rules
+1. An asset may have at most one active assignment.
+2. Creating an assignment updates the asset's current assigned user and department.
+3. Closing an assignment records `returnedAt` and marks the historical record inactive.
+4. Closing clears the current assignment snapshot but does not delete the historical record.
+5. Historical assignment records are never deleted by this service.
+6. Lifecycle status transitions are intentionally handled in a later phase.
 
-The persisted Asset ID is intentionally the encoded value itself:
+## Docker
+The Dockerfile follows the repository's existing multi-stage service pattern: Gradle builds `bootJar` inside the build stage and the runtime stage runs the generated JAR as UID 10001.
 
-```text
-ASSET%2F26-27%2F001
-ASSET%2F26-27%2F002
-ASSET%2F26-27%2F003
-```
-
-`%2F` is part of the actual Asset ID value. It is not converted back to `/` in the database.
-
-The financial-year sequence generator is implemented in the later creation/generation phase. This phase only validates the domain identifier format.
-
-## Important boundaries
-
-The Asset aggregate is not a stock ledger. Quantity, stock movements and inventory balances belong to Inventory Service.
-
-Assignment history is deliberately not implemented in this phase; it is handled by the assignment-history phase so historical records can be retained independently.
-
-State-transition enforcement is also implemented in the lifecycle/state-machine phase.
-
-## Build and test from repository root
-
+## Verification from repository root
 ```powershell
 Remove-Item -Recurse -Force .\services\asset-service
 ```
-
-After extracting this phase into `services/asset-service`:
+Extract this service into `services/asset-service`, then:
 
 ```powershell
 .\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
-```
-
-## Docker
-
-The Dockerfile follows the repository's existing multi-stage microservice pattern and builds the service inside Docker, so the root `.dockerignore` can continue to exclude `build/`.
-
-```powershell
 docker compose build --no-cache asset-service
 docker compose up -d asset-service
 docker compose ps asset-service
-docker compose logs --tail=100 asset-service
-```
-
-Health check:
-
-```powershell
 curl.exe http://localhost:8089/actuator/health
 ```
 
-Expected:
-
+Expected health response:
 ```json
 {"status":"UP"}
 ```
-
-## Later phases
-
-REST APIs, assignment history, lifecycle state machine, Kafka event consumers, idempotency, audit integration, security/RBAC, observability expansion and full integration tests are implemented in their respective phases.

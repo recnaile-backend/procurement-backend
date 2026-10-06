@@ -141,6 +141,31 @@ public class Asset {
         }
     }
 
+
+    /** Updates the current assignment snapshot without changing lifecycle status. */
+    public void assignTo(String assignedUserId, String departmentName, Instant now) {
+        requireText(assignedUserId, "Assigned user ID");
+        requireText(departmentName, "Department name");
+        if (now == null) {
+            throw new IllegalArgumentException("Timestamp is required");
+        }
+        if (this.assignedUserId != null) {
+            throw new IllegalStateException("Asset already has an assigned user");
+        }
+        this.assignedUserId = assignedUserId;
+        this.departmentName = departmentName;
+        this.updatedAt = now;
+    }
+
+    /** Clears the current assignment snapshot while preserving assignment history elsewhere. */
+    public void clearAssignment(Instant now) {
+        if (now == null) {
+            throw new IllegalArgumentException("Timestamp is required");
+        }
+        this.assignedUserId = null;
+        this.updatedAt = now;
+    }
+
     public String getAssetId() { return assetId; }
     public String getItemId() { return itemId; }
     public String getIssueReference() { return issueReference; }
