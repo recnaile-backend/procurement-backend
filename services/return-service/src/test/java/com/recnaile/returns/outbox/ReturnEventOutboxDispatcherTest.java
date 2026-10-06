@@ -8,7 +8,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -35,7 +34,7 @@ class ReturnEventOutboxDispatcherTest {
         Instant now = Instant.parse("2026-09-30T06:05:00Z");
         ReturnEventOutbox outbox = new ReturnEventOutbox(
                 "event-1", "RET-1", "RETURN_RECORDED", "return.recorded",
-                "RET-1", "ITEM-1", new BigDecimal("2"), ReturnCondition.GOOD,
+                "RET-1", "ITEM-1", 2, ReturnCondition.GOOD,
                 created, created);
         when(publisher.publish(eq("return.recorded"), eq("RET-1"), any()))
                 .thenReturn(CompletableFuture.completedFuture(null));
@@ -54,7 +53,7 @@ class ReturnEventOutboxDispatcherTest {
         Instant created = Instant.parse("2026-09-30T06:00:00Z");
         ReturnEventOutbox outbox = new ReturnEventOutbox(
                 "event-2", "RET-2", "RETURN_RECORDED", "return.recorded",
-                "RET-2", "ITEM-2", new BigDecimal("1"), ReturnCondition.DAMAGED,
+                "RET-2", "ITEM-2", 1, ReturnCondition.DAMAGED,
                 created, created);
         when(publisher.publish(eq("return.recorded"), eq("RET-2"), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Kafka unavailable")));

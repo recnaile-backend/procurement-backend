@@ -12,7 +12,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -37,7 +36,7 @@ class ReturnProcessingServiceTest {
         Instant now = Instant.parse("2026-09-30T06:00:00Z");
         ReturnRequest request = returnRequest(ReturnCondition.GOOD);
         request.setStatus(ReturnStatus.VERIFIED);
-        when(repository.findById("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
         when(repository.save(request)).thenAnswer(invocation -> invocation.getArgument(0));
 
         ReturnProcessingService service = new ReturnProcessingService(
@@ -55,7 +54,7 @@ class ReturnProcessingServiceTest {
     void processDamagedReturnSetsAcceptedDamaged() {
         ReturnRequest request = returnRequest(ReturnCondition.DAMAGED);
         request.setStatus(ReturnStatus.VERIFIED);
-        when(repository.findById("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
         when(repository.save(request)).thenAnswer(invocation -> invocation.getArgument(0));
 
         ReturnProcessingService service = new ReturnProcessingService(
@@ -70,7 +69,7 @@ class ReturnProcessingServiceTest {
 
     @Test
     void processRejectsUnknownReturn() {
-        when(repository.findById("RET-404")).thenReturn(Optional.empty());
+        when(repository.findByReturnId("RET-404")).thenReturn(Optional.empty());
         ReturnProcessingService service = new ReturnProcessingService(
                 repository, new ReturnStateMachine(), Clock.systemUTC(), outboxService);
 
@@ -81,7 +80,7 @@ class ReturnProcessingServiceTest {
     @Test
     void processRejectsPendingReturn() {
         ReturnRequest request = returnRequest(ReturnCondition.GOOD);
-        when(repository.findById("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
         ReturnProcessingService service = new ReturnProcessingService(
                 repository, new ReturnStateMachine(), Clock.systemUTC(), outboxService);
 
@@ -93,7 +92,7 @@ class ReturnProcessingServiceTest {
     void processRejectsAlreadyProcessedReturn() {
         ReturnRequest request = returnRequest(ReturnCondition.GOOD);
         request.setStatus(ReturnStatus.ACCEPTED_GOOD);
-        when(repository.findById("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
         ReturnProcessingService service = new ReturnProcessingService(
                 repository, new ReturnStateMachine(), Clock.systemUTC(), outboxService);
 
@@ -113,8 +112,8 @@ class ReturnProcessingServiceTest {
 
     private ReturnRequest returnRequest(ReturnCondition condition) {
         return new ReturnRequest(
-                "OUT-100", "OUT-100-L1", "ITEM-10", new BigDecimal("2"),
-                "user-1", condition, "return", null,
+                "OUT-100", "ITEM-10", 2,
+                "user-1", condition, "return",
                 Instant.parse("2026-09-30T05:00:00Z"));
     }
 }

@@ -34,7 +34,7 @@ public class IdempotencyService {
             if (record.getReturnId() == null) {
                 return null;
             }
-            return returnRepository.findById(record.getReturnId())
+            return returnRepository.findByReturnId(record.getReturnId())
                     .orElseThrow(() -> new ReturnNotFoundException(record.getReturnId()));
         });
     }

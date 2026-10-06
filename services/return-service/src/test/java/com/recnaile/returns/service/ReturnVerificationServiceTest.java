@@ -12,7 +12,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -37,7 +36,7 @@ class ReturnVerificationServiceTest {
         ReturnVerificationService service = new ReturnVerificationService(repository, stateMachine, clock);
         ReturnRequest request = returnRequest();
 
-        when(repository.findById("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
         when(repository.save(request)).thenAnswer(invocation -> invocation.getArgument(0));
 
         ReturnRequest result = service.verify(" RET-1 ", new VerifyReturnRequest(" verifier-1 "));
@@ -53,7 +52,7 @@ class ReturnVerificationServiceTest {
     void verifyRejectsUnknownReturn() {
         ReturnVerificationService service = new ReturnVerificationService(
                 repository, new ReturnStateMachine(), Clock.systemUTC());
-        when(repository.findById("RET-404")).thenReturn(Optional.empty());
+        when(repository.findByReturnId("RET-404")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.verify("RET-404", new VerifyReturnRequest("verifier-1")))
                 .isInstanceOf(ReturnNotFoundException.class);
@@ -65,7 +64,7 @@ class ReturnVerificationServiceTest {
                 repository, new ReturnStateMachine(), Clock.systemUTC());
         ReturnRequest request = returnRequest();
         request.setStatus(ReturnStatus.VERIFIED);
-        when(repository.findById("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
 
         assertThatThrownBy(() -> service.verify("RET-1", new VerifyReturnRequest("verifier-1")))
                 .isInstanceOf(InvalidReturnStateTransitionException.class);
@@ -83,8 +82,8 @@ class ReturnVerificationServiceTest {
 
     private ReturnRequest returnRequest() {
         return new ReturnRequest(
-                "OUT-100", "OUT-100-L1", "ITEM-10", new BigDecimal("2"),
-                "user-1", ReturnCondition.GOOD, "return", null,
+                "OUT-100", "ITEM-10", 2,
+                "user-1", ReturnCondition.GOOD, "return",
                 Instant.parse("2026-09-30T05:00:00Z"));
     }
 }

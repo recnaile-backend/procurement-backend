@@ -72,7 +72,7 @@ public class ReturnProcessingService {
             if (existing.isPresent()) {
                 return existing.get();
             }
-            ReturnRequest returnRequest = repository.findById(normalizedReturnId)
+            ReturnRequest returnRequest = repository.findByReturnId(normalizedReturnId)
                     .orElseThrow(() -> new ReturnNotFoundException(normalizedReturnId));
             stateMachine.process(returnRequest);
             returnRequest.setUpdatedAt(Instant.now(clock));
@@ -83,7 +83,7 @@ public class ReturnProcessingService {
             return saved;
         }
 
-        ReturnRequest returnRequest = repository.findById(normalizedReturnId)
+        ReturnRequest returnRequest = repository.findByReturnId(normalizedReturnId)
                 .orElseThrow(() -> new ReturnNotFoundException(normalizedReturnId));
 
         stateMachine.process(returnRequest);

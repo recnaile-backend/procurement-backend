@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.env.Environment;
 import org.springframework.kafka.core.KafkaTemplate;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 import static org.mockito.ArgumentMatchers.eq;
@@ -26,8 +25,8 @@ class KafkaReturnEventPublisherTest {
 
         KafkaReturnEventPublisher publisher = new KafkaReturnEventPublisher(kafkaTemplate, environment);
         ReturnRequest request = new ReturnRequest(
-                "OUT-1", "LINE-1", "ITEM-1", new BigDecimal("2"),
-                "USER-1", ReturnCondition.GOOD, "ok", null,
+                "OUT-1", "ITEM-1", 2,
+                "USER-1", ReturnCondition.GOOD, "ok",
                 Instant.parse("2026-09-30T06:00:00Z"));
         request.setReturnId("RET-1");
         request.setStatus(com.recnaile.returns.model.enums.ReturnStatus.ACCEPTED_GOOD);
@@ -39,7 +38,7 @@ class KafkaReturnEventPublisherTest {
                 event -> "RETURN_RECORDED".equals(event.getEventType())
                         && "RET-1".equals(event.getReturnId())
                         && "ITEM-1".equals(event.getItemId())
-                        && new BigDecimal("2").compareTo(event.getQty()) == 0
+                        && Integer.valueOf(2).equals(event.getQty())
                         && ReturnCondition.GOOD == event.getCondition()
                         && Instant.parse("2026-09-30T06:05:00Z").equals(event.getOccurredAt())));
     }

@@ -6,7 +6,6 @@ import com.recnaile.returns.model.enums.ReturnCondition;
 import com.recnaile.returns.model.enums.ReturnStatus;
 import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -133,13 +132,11 @@ class ReturnStateMachineTest {
     private ReturnRequest pendingReturn() {
         return new ReturnRequest(
                 "OUT/26-27/001",
-                "OUT-LINE-001",
                 "ITEM-001",
-                new BigDecimal("2"),
+                2,
                 "EMP-001",
                 ReturnCondition.GOOD,
                 "Returned in good condition",
-                null,
                 Instant.parse("2026-09-30T04:00:00Z"));
     }
 }

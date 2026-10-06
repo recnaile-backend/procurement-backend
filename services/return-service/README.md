@@ -27,6 +27,25 @@ Controllers remain transport/validation focused. Business state transitions belo
 
 ## Phase Status
 
+| Phase | Area | Status |
+|---|---|---|
+| 01 | Foundation & Service Setup | Completed |
+| 02 | Return Domain Model & Enums | Completed |
+| 03 | Return State Machine | Completed |
+| 04 | Create Return Request | Completed |
+| 05 | Issued-Quantity / Outward Validation | Completed |
+| 06 | Return Verification Workflow | Completed |
+| 07 | Good / Damaged Return Processing | Completed |
+| 08 | Kafka Events & Event Contracts | Completed |
+| 09 | Transactional Outbox & Event Reliability | Completed |
+| 10 | Inventory Integration | Completed; Asset deferred |
+| 11 | Security, RBAC & Optional Idempotency | Completed |
+| 12 | Audit & Notification Integration | Completed |
+| 13 | Observability & Operational Readiness | Completed |
+| 14 | Testing, OpenAPI & API Hardening | Completed |
+| 15 | Docker/Kubernetes & Final Integration | Pending |
+
+
 ### Phase 1 — Foundation & Service Setup
 
 Completed.
@@ -59,11 +78,10 @@ Fields:
 
 - `returnId` — generated Return identifier and MongoDB document ID
 - `outwardId` — originating outward issue
-- `outwardLineId` — specific issued item row within the outward request
 - `itemId` — product/SKU identifier
-- `quantity` — returned quantity
-- `assetId` — optional reusable-asset reference
-- `returnedBy` — authenticated return initiator reference
+- `quantity` — returned quantity as a positive integer
+- Asset integration is deferred; no assetId is stored by Return Service
+- `returnByEmpId` — authenticated return initiator reference
 - `condition` — return condition
 - `remarks` — optional return remarks
 - `status` — persisted lifecycle state
@@ -97,13 +115,13 @@ The status enum defines the persisted lifecycle states. State-transition enforce
 
 Phase 2 defines indexes for the primary Return query/reference patterns:
 
-- outward + outward line
+- outward + outward item
 - status + creation time
 - outward ID
-- outward line ID
+- outward item ID
 - item ID
-- asset ID
-- returned-by
+- Asset integration is deferred
+- return-by-employee-id
 - creation time
 
 ### Phase 3 — Return State Machine
@@ -130,13 +148,26 @@ The state machine is kept in the application/service layer; the entity does not 
 
 ## Business Rules Covered by the Model
 
-The documented Return workflow requires a Return to contain the item and quantity, identify who returned it, capture condition and remarks, and link the return to the issued item/asset where applicable. Verification actor and timestamp are retained on the aggregate.
+The Return workflow stores the outward ID, item ID, integer quantity, return-by-employee-id actor, condition and remarks. Asset lifecycle integration is deferred until the Asset Service is implemented. Verification actor and timestamp are retained on the aggregate.
 
 The model does not perform verification, stock movement, event publication, authorization, or state-transition decisions. Those responsibilities belong to later application/integration phases.
 
-## Current API Status
+## Current API
 
-Business REST endpoints are not implemented yet. They are introduced in the appropriate workflow/API phases.
+Only the following business endpoints are exposed by Return Service:
+
+- `GET /api/v1/returns` — list returns (TL/MD/PROCUREMENT)
+- `POST /api/v1/returns` — create a return (EMPLOYEE/PROCUREMENT/TL/MD)
+- `POST /api/v1/returns/{returnId}/verify` — verify a pending return (PROCUREMENT/TL/MD)
+- `POST /api/v1/returns/{returnId}/process` — process a verified return (PROCUREMENT/TL/MD)
+
+There is intentionally no generic CRUD controller under `/api/v1/return`. The return lifecycle is controlled through the state-transition endpoints above.
+
+Return creation performs an internal synchronous validation call to Outward Service:
+
+`GET /api/v1/outward/return-validation?outwardId={outwardId}&itemId={itemId}`
+
+This Outward endpoint is a service-to-service validation dependency; clients do not call it as part of the Return workflow.
 
 ## Current Event Status
 
@@ -181,11 +212,11 @@ Implemented the first business REST workflow for creating a Return request.
 `POST /api/v1/returns` accepts an explicit `CreateReturnRequest` payload containing:
 
 - `outwardId` — originating outward issue
-- `outwardLineId` — specific issued item row
+- `item-level outward linkage` — specific issued item row
 - `itemId` — product/SKU identifier
-- `quantity` — positive returned quantity
-- `assetId` — optional reusable-asset reference
-- `returnedBy` — return initiator reference
+- `quantity` — positive integer returned quantity
+- Asset integration is deferred; no assetId is stored by Return Service
+- `returnByEmpId` — return initiator reference
 - `condition` — `GOOD` or `DAMAGED`
 - `remarks` — optional remarks, maximum 2000 characters
 
@@ -235,7 +266,7 @@ Phase 4 adds tests for:
 
 Completed.
 
-Return creation now validates the requested return against the originating issued outward line before persistence. The Return Service uses a synchronous integration boundary to the Outward Service and does not query another service database directly.
+Return creation now validates the requested return against the originating issued outward item before persistence. The Return Service uses a synchronous integration boundary to the Outward Service and does not query another service database directly.
 
 #### Validation flow
 
@@ -246,7 +277,7 @@ IssuedReturnValidationService
         ↓
 Outward Service validation client
         ↓
-Validate outward + line + item + quantity + asset
+Validate outward + item + quantity
         ↓
 Persist Return Request
 ```
@@ -254,12 +285,12 @@ Persist Return Request
 The validation checks:
 
 - The supplied `outwardId` matches the issued outward record.
-- The supplied `outwardLineId` matches the specific issued line.
+- The supplied `item-level outward linkage` matches the specific issued line.
 - The supplied `itemId` matches the item on the issued line.
 - The requested return quantity is greater than zero and does not exceed the remaining issued quantity.
 - Remaining quantity is calculated as issued quantity minus already returned quantity.
-- When the issued line has an `assetId`, the return must provide the same asset ID.
-- A return cannot introduce an unrelated asset when the issued line is not asset-linked.
+- Asset matching is not performed because Asset Service has not yet been implemented.
+- No Asset Service API or database is queried by Return Service.
 
 #### Integration boundary
 
@@ -278,10 +309,10 @@ http://outward-service:8087
 The client uses the return-validation resource:
 
 ```text
-GET /api/v1/outwards/{outwardId}/lines/{outwardLineId}/return-validation
+GET /api/v1/outward/return-validation?outwardId={outwardId}&itemId={itemId}
 ```
 
-The response supplies the issued outward/line identity, item ID, issued quantity, already-returned quantity and optional asset ID. Cross-service database access is not used.
+The response supplies the issued outward/item identity, item ID, issued quantity and already-returned quantity. No Asset Service API or database is queried because Asset Service is not yet implemented. Cross-service database access is not used.
 
 #### Persistence behavior
 
@@ -295,8 +326,8 @@ Phase 5 adds coverage for:
 - quantity exceeding remaining issued quantity
 - no remaining quantity
 - item mismatch
-- asset mismatch
-- matching asset
+- Asset validation deferred
+- Asset validation deferred
 - service creation continuing to persist only after successful validation
 
 Authentication/RBAC, idempotency, verification, stock movement, Kafka events and transactional outbox reliability remain in their later roadmap phases.
@@ -563,19 +594,19 @@ Phase 11 adds authenticated JWT resource-server security, endpoint-level role au
 
 ### Security
 
-- JWT Resource Server validation is enabled with a configurable JWK Set URI.
+- JWT Resource Server validation supports the local Auth Service HS256 configuration via `JWT_SECRET_KEY`, with configurable JWK Set validation retained as a fallback.
 - Roles are read from the JWT `roles` claim (or a single `role` claim) and normalized to `ROLE_*`.
 - Return creation is available to `EMPLOYEE`, `PROCUREMENT`, `TL` and `MD`.
 - Verification is restricted to `PROCUREMENT`, `TL` and `MD`.
 - Final good/damaged processing is restricted to `PROCUREMENT`, `TL` and `MD`.
 - Unauthenticated requests return `401 UNAUTHENTICATED`.
 - Authenticated users without the required role return `403 FORBIDDEN`.
-- The authenticated JWT principal is the authoritative actor; the `returnedBy` / `verifiedBy` payload values must match it rather than overriding it.
+- The authenticated JWT principal is the authoritative actor; the `returnByEmpId` / `verifiedBy` payload values must match it rather than overriding it.
 - No raw identity headers are trusted.
 
 ### Idempotency
 
-State-changing POST endpoints require `Idempotency-Key`. Keys are persisted in `return_idempotency_records` with the operation, authenticated actor, request fingerprint and resulting Return ID. Repeating the same key with the same actor and request returns the original Return instead of applying the business transition again. Reusing a key with different operation, actor or request data returns `409 IDEMPOTENCY_CONFLICT`.
+`Idempotency-Key` is optional on state-changing POST endpoints. When supplied, keys are persisted in `return_idempotency_records` with the operation, authenticated actor, request fingerprint and resulting Return ID. Repeating the same key with the same actor and request returns the original Return instead of applying the business transition again. Reusing a key with different operation, actor or request data returns `409 IDEMPOTENCY_CONFLICT`. When the header is omitted, the business operation proceeds normally without an idempotency record.
 
 The implementation keeps idempotency state in Return Service's own MongoDB and does not query another service's database.
 
@@ -632,7 +663,136 @@ Kafka producer and listener observations are enabled so Kafka operations can par
 
 Phase 13 adds focused tests for correlation-ID propagation, generated IDs, invalid/oversized header handling and MDC cleanup. Existing service, security, outbox, integration and context tests remain part of the cumulative suite.
 
-## Updated Upcoming Phases
+## Phase 14 — Testing, OpenAPI & API Hardening
 
-- Phase 14 — Testing, OpenAPI & API Hardening
+Phase 14 adds API documentation and hardening without changing the Return Service business workflow.
+
+### OpenAPI
+- Added `springdoc-openapi-starter-webmvc-ui` for generated OpenAPI 3 documentation.
+- Added a dedicated OpenAPI configuration with service metadata and JWT Bearer authentication.
+- Documented create, verify and process endpoints, response codes, and idempotency headers.
+- Swagger UI is available at `/swagger-ui.html` and the OpenAPI document at `/v3/api-docs` when the service is running.
+
+### Get-all Returns API
+- Added `GET /api/v1/returns` to retrieve all return requests.
+- Access is restricted to `TL`, `MD`, and `PROCUREMENT`.
+- Employees and other authenticated roles receive `403 Forbidden`.
+- The endpoint is documented in OpenAPI.
+
+### API hardening
+- Validation and malformed JSON errors return the stable `ApiResponse`/`ApiError` envelope.
+- Missing required headers are reported with a stable error code.
+- Unexpected server errors return a generic message instead of leaking internal exception details.
+- Error responses include the active trace ID, falling back to the correlation ID when tracing has not populated one.
+- Existing JWT/RBAC, idempotency, state-transition, transactional-outbox and correlation-ID behavior is preserved.
+
+### Testing
+- Added an OpenAPI configuration test covering service metadata and JWT Bearer security metadata.
+- Existing unit, controller, integration-outbox, security and observability tests remain part of the cumulative test suite.
+
+### Next phase
 - Phase 15 — Docker/Kubernetes & Final Integration
+
+
+
+## Current contract adjustments
+
+- `outwardLineId` has been removed from the Return Service because the current Outward Service contract does not use that field.
+- `quantity` is an integer (`Integer`) and must be at least 1.
+- `assetId` and Asset Service validation have been removed from the current Return Service. Asset integration remains deferred until the Asset Service is implemented.
+- `GET /api/v1/returns` accepts an optional `returnId` query parameter. If omitted, all returns are returned; if supplied, only that return is returned when it exists.
+- Get-all access remains restricted to `TL`, `MD`, and `PROCUREMENT`.
+
+
+## Current Identity Contract
+
+- `returnByEmpId` is the employee business identifier supplied in the create-return request.
+- The Return Service compares `returnByEmpId` with the authenticated JWT `employeeId` claim.
+- The JWT `sub` remains the Auth Service MongoDB user ID and is not used as `returnByEmpId`.
+- A mismatch is rejected; the request cannot create a return on behalf of another employee.
+- Example create request:
+
+```json
+{
+  "outwardId": "OUT%2F26-27%2F003",
+  "itemId": "Item-1",
+  "quantity": 2,
+  "returnByEmpId": "EMP001",
+  "condition": "GOOD",
+  "remarks": "Work Done"
+}
+```
+
+## Local JWT Configuration
+
+The local Auth Service signs tokens with HS256 using `JWT_SECRET_KEY`. Return Service reads the same environment variable and validates HS256 tokens with issuer `auth-service`. The secret must be passed into the Return Service container by Docker Compose; it is not hard-coded in this service.
+
+
+### Docker Compose environment
+
+For the local HS256 Auth Service, the Return Service container must receive the same signing secret:
+
+```yaml
+return-service:
+  environment:
+    JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+    JWT_VALIDATION_MODE: hs256
+    JWT_ISSUER: auth-service
+```
+
+The `.env` file is used by Docker Compose for variable substitution; it is not automatically injected into every container unless the service declares the variable in `environment` or `env_file`.
+### Outward Service authentication
+
+When a create-return request validates an issued outward item, Return Service forwards the authenticated request JWT to Outward Service as the `Authorization: Bearer <token>` header. The Outward Service must validate the same JWT signing configuration used by the platform.
+
+
+
+## Outward Service return-validation integration
+
+The synchronous Outward Service validation call uses:
+`GET /api/v1/outward/return-validation?outwardId={outwardId}&itemId={itemId}`.
+
+The authenticated Return Service bearer token is forwarded to the Outward Service.
+
+
+## Final Implementation Checkpoint
+
+At this delivery, the Return Service is aligned with the current Outward Service return-validation contract and the current platform decisions:
+
+- Phase 1 — Foundation & Service Setup: **Completed**
+- Phase 2 — Return Domain Model & Enums: **Completed**
+- Phase 3 — Return State Machine: **Completed**
+- Phase 4 — Create Return Request: **Completed**
+- Phase 5 — Issued-Quantity Validation: **Completed**
+- Phase 6 — Return Verification Workflow: **Completed**
+- Phase 7 — Good / Damaged Return Processing: **Completed**
+- Phase 8 — Kafka Events & Event Contracts: **Completed**
+- Phase 9 — Transactional Outbox & Event Reliability: **Completed**
+- Phase 10 — Inventory Integration: **Completed for Inventory; Asset integration deferred**
+- Phase 11 — Security, RBAC & Optional Idempotency: **Completed**
+- Phase 12 — Audit & Notification Integration: **Completed**
+- Phase 13 — Observability & Operational Readiness: **Completed**
+- Phase 14 — Testing, OpenAPI & API Hardening: **Completed**
+- Phase 15 — Docker/Kubernetes & Final Integration: **Pending**
+
+### Asset Service boundary
+
+Asset Service is not implemented in the current project. This Return Service therefore contains **no Asset Service REST client, no Asset Service database access, no guessed Asset API, and no `assetId` field**. Reusable-asset lifecycle integration remains explicitly deferred until Asset Service is available.
+
+### Outward Service boundary
+
+Issued-item validation uses:
+
+`GET /api/v1/outward/return-validation?outwardId={outwardId}&itemId={itemId}`
+
+The authenticated Bearer token is forwarded from Return Service to Outward Service. Return Service does not access the Outward Service database directly.
+
+### Identity boundary
+
+The authenticated JWT `employeeId` claim is authoritative for:
+
+- `returnByEmpId` during creation
+- `verifiedBy` during verification
+- the actor recorded for processing
+
+The JWT `sub` is not used as the business employee ID.

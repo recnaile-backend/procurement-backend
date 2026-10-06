@@ -4,7 +4,11 @@ import com.recnaile.returns.api.ApiResponse;
 import com.recnaile.returns.dto.IssuedReturnValidation;
 import com.recnaile.returns.exception.ReturnRequestException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -20,27 +24,36 @@ public class OutwardServiceRestClient implements IssuedReturnValidationClient {
     }
 
     @Override
-    public IssuedReturnValidation validateIssuedLine(String outwardId, String outwardLineId) {
+    public IssuedReturnValidation validateIssuedItem(String outwardId, String itemId) {
         try {
-            ApiResponse<IssuedReturnValidation> response = restClient.get()
+            RestClient.RequestHeadersSpec<?> request = restClient.get()
                     .uri(uriBuilder -> uriBuilder
-                            .path("/api/v1/outwards/{outwardId}/lines/{outwardLineId}/return-validation")
-                            .build(outwardId, outwardLineId))
+                            .path("/api/v1/outward/return-validation")
+                            .queryParam("outwardId", outwardId)
+                            .queryParam("itemId", itemId)
+                            .build());
+
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication instanceof JwtAuthenticationToken jwtAuthentication) {
+                request.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtAuthentication.getToken().getTokenValue());
+            }
+
+            ApiResponse<IssuedReturnValidation> response = request
                     .retrieve()
-                    .onStatus(HttpStatusCode::isError, (request, httpResponse) -> {
+                    .onStatus(HttpStatusCode::isError, (errorRequest, httpResponse) -> {
                         throw new ReturnRequestException(
-                                "Unable to validate issued outward line: HTTP " + httpResponse.getStatusCode().value());
+                                "Unable to validate issued outward item: HTTP " + httpResponse.getStatusCode().value());
                     })
                     .body(new org.springframework.core.ParameterizedTypeReference<ApiResponse<IssuedReturnValidation>>() {});
 
             if (response == null || !response.success() || response.data() == null) {
-                throw new ReturnRequestException("Issued outward line was not found or could not be validated");
+                throw new ReturnRequestException("Issued outward item was not found or could not be validated");
             }
             return response.data();
         } catch (ReturnRequestException exception) {
             throw exception;
         } catch (RuntimeException exception) {
-            throw new ReturnRequestException("Unable to validate issued outward line");
+            throw new ReturnRequestException("Unable to validate issued outward item");
         }
     }
 }

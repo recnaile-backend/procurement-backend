@@ -6,7 +6,6 @@ import com.recnaile.returns.model.enums.ReturnCondition;
 import com.recnaile.returns.model.enums.ReturnStatus;
 import org.junit.jupiter.api.Test;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -19,7 +18,7 @@ class InventoryReturnIntegrationContractTest {
 
         assertThat(event.getEventType()).isEqualTo("RETURN_RECORDED");
         assertThat(event.getItemId()).isEqualTo("ITEM-001");
-        assertThat(event.getQty()).isEqualByComparingTo("3");
+        assertThat(event.getQty()).isEqualTo(3);
         assertThat(event.getCondition()).isEqualTo(ReturnCondition.GOOD);
     }
 
@@ -29,7 +28,7 @@ class InventoryReturnIntegrationContractTest {
 
         assertThat(event.getEventType()).isEqualTo("RETURN_RECORDED");
         assertThat(event.getItemId()).isEqualTo("ITEM-001");
-        assertThat(event.getQty()).isEqualByComparingTo("2");
+        assertThat(event.getQty()).isEqualTo(2);
         assertThat(event.getCondition()).isEqualTo(ReturnCondition.DAMAGED);
     }
 
@@ -37,9 +36,9 @@ class InventoryReturnIntegrationContractTest {
     void eventContainsStableReturnIdentityAndOccurrenceTime() {
         Instant occurredAt = Instant.parse("2026-09-30T05:00:00Z");
         ReturnRequest request = new ReturnRequest(
-                "OUT-001", "LINE-001", "ITEM-001",
-                new BigDecimal("1"), "USER-001", ReturnCondition.GOOD,
-                "returned", null, occurredAt);
+                "OUT-001", "ITEM-001",
+                1, "USER-001", ReturnCondition.GOOD,
+                "returned", occurredAt);
         request.setReturnId("RET-001");
         request.setStatus(ReturnStatus.ACCEPTED_GOOD);
         request.setUpdatedAt(occurredAt);
@@ -55,9 +54,9 @@ class InventoryReturnIntegrationContractTest {
     private ReturnRecordedEvent event(ReturnCondition condition) {
         Instant occurredAt = Instant.parse("2026-09-30T05:00:00Z");
         ReturnRequest request = new ReturnRequest(
-                "OUT-001", "LINE-001", "ITEM-001",
-                condition == ReturnCondition.GOOD ? new BigDecimal("3") : new BigDecimal("2"),
-                "USER-001", condition, "returned", null, occurredAt);
+                "OUT-001", "ITEM-001",
+                condition == ReturnCondition.GOOD ? 3 : 2,
+                "USER-001", condition, "returned", occurredAt);
         request.setReturnId("RET-001");
         request.setStatus(condition == ReturnCondition.GOOD
                 ? ReturnStatus.ACCEPTED_GOOD

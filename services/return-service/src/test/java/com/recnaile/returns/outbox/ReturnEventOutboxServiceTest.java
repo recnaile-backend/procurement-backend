@@ -10,7 +10,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.env.Environment;
 
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -36,8 +35,8 @@ class ReturnEventOutboxServiceTest {
 
         Instant now = Instant.parse("2026-09-30T06:05:00Z");
         ReturnRequest request = new ReturnRequest(
-                "OUT-1", "LINE-1", "ITEM-1", new BigDecimal("2"),
-                "USER-1", ReturnCondition.GOOD, "ok", null,
+                "OUT-1", "ITEM-1", 2,
+                "USER-1", ReturnCondition.GOOD, "ok",
                 Instant.parse("2026-09-30T05:00:00Z"));
         request.setReturnId("RET-1");
         request.setStatus(ReturnStatus.ACCEPTED_GOOD);

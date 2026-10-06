@@ -10,8 +10,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
@@ -24,73 +22,47 @@ class IssuedReturnValidationServiceTest {
     @Test
     void acceptsReturnWithinRemainingIssuedQuantity() {
         IssuedReturnValidationService service = new IssuedReturnValidationService(client);
-        when(client.validateIssuedLine("OUT-1", "LINE-1"))
-                .thenReturn(new IssuedReturnValidation("OUT-1", "LINE-1", "ITEM-1",
-                        new BigDecimal("10"), new BigDecimal("4"), null));
+        when(client.validateIssuedItem("OUT-1", "ITEM-1"))
+                .thenReturn(new IssuedReturnValidation("OUT-1", "ITEM-1", 10, 4));
 
-        service.validate(request("OUT-1", "LINE-1", "ITEM-1", "5", null));
+        service.validate(request("OUT-1", "ITEM-1", 5));
     }
 
     @Test
     void rejectsReturnWhenQuantityExceedsRemainingIssuedQuantity() {
         IssuedReturnValidationService service = new IssuedReturnValidationService(client);
-        when(client.validateIssuedLine("OUT-1", "LINE-1"))
-                .thenReturn(new IssuedReturnValidation("OUT-1", "LINE-1", "ITEM-1",
-                        new BigDecimal("10"), new BigDecimal("4"), null));
+        when(client.validateIssuedItem("OUT-1", "ITEM-1"))
+                .thenReturn(new IssuedReturnValidation("OUT-1", "ITEM-1", 10, 4));
 
-        assertThatThrownBy(() -> service.validate(request("OUT-1", "LINE-1", "ITEM-1", "7", null)))
+        assertThatThrownBy(() -> service.validate(request("OUT-1", "ITEM-1", 7)))
                 .isInstanceOf(ReturnRequestException.class)
                 .hasMessage("Return quantity exceeds the remaining issued quantity");
     }
 
     @Test
-    void rejectsReturnWhenItemDoesNotMatchIssuedLine() {
+    void rejectsReturnWhenItemDoesNotMatchIssuedItem() {
         IssuedReturnValidationService service = new IssuedReturnValidationService(client);
-        when(client.validateIssuedLine("OUT-1", "LINE-1"))
-                .thenReturn(new IssuedReturnValidation("OUT-1", "LINE-1", "ITEM-2",
-                        new BigDecimal("10"), BigDecimal.ZERO, null));
+        when(client.validateIssuedItem("OUT-1", "ITEM-1"))
+                .thenReturn(new IssuedReturnValidation("OUT-1", "ITEM-2", 10, 0));
 
-        assertThatThrownBy(() -> service.validate(request("OUT-1", "LINE-1", "ITEM-1", "1", null)))
+        assertThatThrownBy(() -> service.validate(request("OUT-1", "ITEM-1", 1)))
                 .isInstanceOf(ReturnRequestException.class)
-                .hasMessage("Item ID does not match the issued line");
+                .hasMessage("Item ID does not match the issued item");
     }
 
     @Test
     void rejectsReturnWhenNoRemainingQuantityExists() {
         IssuedReturnValidationService service = new IssuedReturnValidationService(client);
-        when(client.validateIssuedLine("OUT-1", "LINE-1"))
-                .thenReturn(new IssuedReturnValidation("OUT-1", "LINE-1", "ITEM-1",
-                        new BigDecimal("5"), new BigDecimal("5"), null));
+        when(client.validateIssuedItem("OUT-1", "ITEM-1"))
+                .thenReturn(new IssuedReturnValidation("OUT-1", "ITEM-1", 5, 5));
 
-        assertThatThrownBy(() -> service.validate(request("OUT-1", "LINE-1", "ITEM-1", "1", null)))
+        assertThatThrownBy(() -> service.validate(request("OUT-1", "ITEM-1", 1)))
                 .isInstanceOf(ReturnRequestException.class)
                 .hasMessage("No quantity remains available for return");
     }
 
-    @Test
-    void rejectsMismatchedAsset() {
-        IssuedReturnValidationService service = new IssuedReturnValidationService(client);
-        when(client.validateIssuedLine("OUT-1", "LINE-1"))
-                .thenReturn(new IssuedReturnValidation("OUT-1", "LINE-1", "ITEM-1",
-                        new BigDecimal("1"), BigDecimal.ZERO, "ASSET-1"));
-
-        assertThatThrownBy(() -> service.validate(request("OUT-1", "LINE-1", "ITEM-1", "1", "ASSET-2")))
-                .isInstanceOf(ReturnRequestException.class)
-                .hasMessage("Asset ID does not match the issued asset");
-    }
-
-    @Test
-    void acceptsMatchingAsset() {
-        IssuedReturnValidationService service = new IssuedReturnValidationService(client);
-        when(client.validateIssuedLine("OUT-1", "LINE-1"))
-                .thenReturn(new IssuedReturnValidation("OUT-1", "LINE-1", "ITEM-1",
-                        new BigDecimal("1"), BigDecimal.ZERO, "ASSET-1"));
-
-        service.validate(request("OUT-1", "LINE-1", "ITEM-1", "1", "ASSET-1"));
-    }
-
-    private CreateReturnRequest request(String outwardId, String lineId, String itemId, String quantity, String assetId) {
-        return new CreateReturnRequest(outwardId, lineId, itemId, new BigDecimal(quantity),
-                assetId, "user-1", ReturnCondition.GOOD, null);
+    private CreateReturnRequest request(String outwardId, String itemId, int quantity) {
+        return new CreateReturnRequest(outwardId, itemId, quantity,
+                "user-1", ReturnCondition.GOOD, null);
     }
 }

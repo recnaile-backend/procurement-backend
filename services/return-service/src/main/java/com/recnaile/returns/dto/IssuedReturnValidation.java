@@ -1,22 +1,15 @@
 package com.recnaile.returns.dto;
 
-import java.math.BigDecimal;
-
-/**
- * Read-only validation data supplied by the Outward Service for a returnable
- * issued line. The Return Service never queries the Outward Service database.
- */
+/** Read-only validation data supplied by the Outward Service. */
 public record IssuedReturnValidation(
         String outwardId,
-        String outwardLineId,
         String itemId,
-        BigDecimal issuedQuantity,
-        BigDecimal alreadyReturnedQuantity,
-        String assetId) {
+        Integer issuedQuantity,
+        Integer alreadyReturnedQuantity) {
 
-    public BigDecimal remainingQuantity() {
-        BigDecimal issued = issuedQuantity == null ? BigDecimal.ZERO : issuedQuantity;
-        BigDecimal returned = alreadyReturnedQuantity == null ? BigDecimal.ZERO : alreadyReturnedQuantity;
-        return issued.subtract(returned);
+    public int remainingQuantity() {
+        int issued = issuedQuantity == null ? 0 : issuedQuantity;
+        int returned = alreadyReturnedQuantity == null ? 0 : alreadyReturnedQuantity;
+        return issued - returned;
     }
 }

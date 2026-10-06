@@ -2,7 +2,7 @@ package com.recnaile.returns.model.entity;
 
 import com.recnaile.returns.model.enums.ReturnCondition;
 import com.recnaile.returns.model.enums.ReturnStatus;
-import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -12,53 +12,37 @@ import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;
-import java.util.UUID;
 
-/**
- * MongoDB aggregate root for a Return request.
- *
- * This class intentionally contains explicit business fields rather than the
- * generic payload map used by the original scaffold. Business state changes are
- * performed by the application/service layer in later phases.
- */
+/** MongoDB aggregate root for a Return request. */
 @Document(collection = "return_requests")
-@CompoundIndex(name = "idx_return_outward_line", def = "{'outwardId': 1, 'outwardLineId': 1}")
+@CompoundIndex(name = "idx_return_outward_item", def = "{'outwardId': 1, 'itemId': 1}")
 @CompoundIndex(name = "idx_return_status_created_at", def = "{'status': 1, 'createdAt': -1}")
 public class ReturnRequest {
 
     @Id
+    private String id;
+
+    @NotBlank
+    @Indexed(unique = true)
     private String returnId;
 
     @NotBlank
     @Indexed
     private String outwardId;
 
-    /**
-     * Identifies the specific issued item row inside the outward request.
-     * This is distinct from itemId, which identifies the product/SKU itself.
-     */
-    @NotBlank
-    @Indexed
-    private String outwardLineId;
-
     @NotBlank
     @Indexed
     private String itemId;
 
     @NotNull
-    @DecimalMin(value = "0.000001")
-    private BigDecimal quantity;
-
-    /** Optional for reusable/asset-managed items. */
-    @Indexed
-    private String assetId;
+    @Min(1)
+    private Integer quantity;
 
     @NotBlank
     @Indexed
-    private String returnedBy;
+    private String returnByEmpId;
 
     @NotNull
     private ReturnCondition condition;
@@ -71,7 +55,6 @@ public class ReturnRequest {
     private ReturnStatus status;
 
     private String verifiedBy;
-
     private Instant verifiedAt;
 
     @NotNull
@@ -85,40 +68,33 @@ public class ReturnRequest {
     private Long version;
 
     protected ReturnRequest() {
-        // Required by Spring Data MongoDB.
     }
 
     public ReturnRequest(
             String outwardId,
-            String outwardLineId,
             String itemId,
-            BigDecimal quantity,
-            String returnedBy,
+            Integer quantity,
+            String returnByEmpId,
             ReturnCondition condition,
             String remarks,
-            String assetId,
             Instant createdAt) {
-        this.returnId = UUID.randomUUID().toString();
         this.outwardId = outwardId;
-        this.outwardLineId = outwardLineId;
         this.itemId = itemId;
         this.quantity = quantity;
-        this.returnedBy = returnedBy;
+        this.returnByEmpId = returnByEmpId;
         this.condition = condition;
         this.remarks = remarks;
-        this.assetId = assetId;
         this.status = ReturnStatus.PENDING_VERIFICATION;
         this.createdAt = createdAt;
         this.updatedAt = createdAt;
     }
 
+    public String getId() { return id; }
     public String getReturnId() { return returnId; }
     public String getOutwardId() { return outwardId; }
-    public String getOutwardLineId() { return outwardLineId; }
     public String getItemId() { return itemId; }
-    public BigDecimal getQuantity() { return quantity; }
-    public String getAssetId() { return assetId; }
-    public String getReturnedBy() { return returnedBy; }
+    public Integer getQuantity() { return quantity; }
+    public String getReturnByEmpId() { return returnByEmpId; }
     public ReturnCondition getCondition() { return condition; }
     public String getRemarks() { return remarks; }
     public ReturnStatus getStatus() { return status; }
@@ -128,13 +104,12 @@ public class ReturnRequest {
     public Instant getUpdatedAt() { return updatedAt; }
     public Long getVersion() { return version; }
 
+    public void setId(String id) { this.id = id; }
     public void setReturnId(String returnId) { this.returnId = returnId; }
     public void setOutwardId(String outwardId) { this.outwardId = outwardId; }
-    public void setOutwardLineId(String outwardLineId) { this.outwardLineId = outwardLineId; }
     public void setItemId(String itemId) { this.itemId = itemId; }
-    public void setQuantity(BigDecimal quantity) { this.quantity = quantity; }
-    public void setAssetId(String assetId) { this.assetId = assetId; }
-    public void setReturnedBy(String returnedBy) { this.returnedBy = returnedBy; }
+    public void setQuantity(Integer quantity) { this.quantity = quantity; }
+    public void setReturnByEmpId(String returnByEmpId) { this.returnByEmpId = returnByEmpId; }
     public void setCondition(ReturnCondition condition) { this.condition = condition; }
     public void setRemarks(String remarks) { this.remarks = remarks; }
     public void setStatus(ReturnStatus status) { this.status = status; }
@@ -148,9 +123,9 @@ public class ReturnRequest {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof ReturnRequest that)) return false;
-        return Objects.equals(returnId, that.returnId);
+        return Objects.equals(id, that.id);
     }
 
     @Override
-    public int hashCode() { return Objects.hash(returnId); }
+    public int hashCode() { return Objects.hash(id); }
 }

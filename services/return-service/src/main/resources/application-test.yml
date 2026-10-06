@@ -19,4 +19,7 @@ app:
       base-url: http://localhost:8087
   security:
     jwt:
+      secret: test-test-test-test-test-test-test-test
+      mode: hs256
+      issuer: auth-service
       jwk-set-uri: http://localhost:8081/oauth2/jwks

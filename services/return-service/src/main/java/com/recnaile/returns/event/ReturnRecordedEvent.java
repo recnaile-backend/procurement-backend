@@ -3,7 +3,6 @@ package com.recnaile.returns.event;
 import com.recnaile.returns.model.entity.ReturnRequest;
 import com.recnaile.returns.model.enums.ReturnCondition;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -15,7 +14,7 @@ public class ReturnRecordedEvent {
     private final Instant occurredAt;
     private final String returnId;
     private final String itemId;
-    private final BigDecimal qty;
+    private final Integer qty;
     private final ReturnCondition condition;
 
     public static ReturnRecordedEvent create(ReturnRequest returnRequest) {
@@ -32,7 +31,7 @@ public class ReturnRecordedEvent {
     public ReturnRecordedEvent(
             String returnId,
             String itemId,
-            BigDecimal qty,
+            Integer qty,
             ReturnCondition condition,
             Instant occurredAt) {
         this(UUID.randomUUID().toString(), "RETURN_RECORDED", occurredAt,
@@ -45,7 +44,7 @@ public class ReturnRecordedEvent {
             Instant occurredAt,
             String returnId,
             String itemId,
-            BigDecimal qty,
+            Integer qty,
             ReturnCondition condition) {
         this.eventId = eventId;
         this.eventType = eventType;
@@ -61,6 +60,6 @@ public class ReturnRecordedEvent {
     public Instant getOccurredAt() { return occurredAt; }
     public String getReturnId() { return returnId; }
     public String getItemId() { return itemId; }
-    public BigDecimal getQty() { return qty; }
+    public Integer getQty() { return qty; }
     public ReturnCondition getCondition() { return condition; }
 }

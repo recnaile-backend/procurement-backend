@@ -11,6 +11,7 @@ import com.recnaile.returns.integration.outbox.ReturnIntegrationOutboxService;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 
 @Service
 public class ReturnRequestService {
@@ -20,30 +21,46 @@ public class ReturnRequestService {
     private final Clock clock;
     private final IdempotencyService idempotencyService;
     private final ReturnIntegrationOutboxService integrationOutboxService;
+    private final ReturnNumberService returnNumberService;
 
     @Autowired
-    public ReturnRequestService(ReturnRequestRepository repository, IssuedReturnValidationService issuedReturnValidationService, IdempotencyService idempotencyService, ReturnIntegrationOutboxService integrationOutboxService) {
-        this(repository, issuedReturnValidationService, Clock.systemUTC(), idempotencyService, integrationOutboxService);
+    public ReturnRequestService(ReturnRequestRepository repository, IssuedReturnValidationService issuedReturnValidationService, IdempotencyService idempotencyService, ReturnIntegrationOutboxService integrationOutboxService, ReturnNumberService returnNumberService) {
+        this(repository, issuedReturnValidationService, Clock.systemUTC(), idempotencyService, integrationOutboxService, returnNumberService);
     }
 
     ReturnRequestService(ReturnRequestRepository repository, IssuedReturnValidationService issuedReturnValidationService, Clock clock) {
-        this(repository, issuedReturnValidationService, clock, null, null);
+        this(repository, issuedReturnValidationService, clock, null, null, null);
     }
 
     ReturnRequestService(ReturnRequestRepository repository, IssuedReturnValidationService issuedReturnValidationService, Clock clock, IdempotencyService idempotencyService) {
-        this(repository, issuedReturnValidationService, clock, idempotencyService, null);
+        this(repository, issuedReturnValidationService, clock, idempotencyService, null, null);
     }
 
-    ReturnRequestService(ReturnRequestRepository repository, IssuedReturnValidationService issuedReturnValidationService, Clock clock, IdempotencyService idempotencyService, ReturnIntegrationOutboxService integrationOutboxService) {
+    ReturnRequestService(ReturnRequestRepository repository, IssuedReturnValidationService issuedReturnValidationService, Clock clock, IdempotencyService idempotencyService, ReturnIntegrationOutboxService integrationOutboxService, ReturnNumberService returnNumberService) {
         this.repository = repository;
         this.issuedReturnValidationService = issuedReturnValidationService;
         this.clock = clock;
         this.idempotencyService = idempotencyService;
         this.integrationOutboxService = integrationOutboxService;
+        this.returnNumberService = returnNumberService;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReturnRequest> getAll(String returnId) {
+        String normalizedReturnId = normalizeOptional(returnId);
+        if (normalizedReturnId != null) {
+            return repository.findByReturnId(normalizedReturnId).map(List::of).orElseGet(List::of);
+        }
+        return repository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReturnRequest> getAll() {
+        return getAll(null);
     }
 
     public ReturnRequest create(CreateReturnRequest request) {
-        return create(request, request == null ? null : request.returnedBy(), null);
+        return create(request, request == null ? null : request.returnByEmpId(), null);
     }
 
     @Transactional
@@ -51,9 +68,9 @@ public class ReturnRequestService {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");
         }
-        String normalizedActor = normalizeActor(actor, request.returnedBy());
-        if (!normalizedActor.equals(request.returnedBy().trim())) {
-            throw new IllegalArgumentException("returnedBy must match the authenticated user");
+        String normalizedActor = normalizeActor(actor, request.returnByEmpId());
+        if (!normalizedActor.equals(request.returnByEmpId().trim())) {
+            throw new IllegalArgumentException("returnByEmpId must match the authenticated employeeId");
         }
         if (idempotencyService == null || idempotencyKey == null || idempotencyKey.isBlank()) {
             issuedReturnValidationService.validate(request);
@@ -76,9 +93,12 @@ public class ReturnRequestService {
 
     private ReturnRequest persist(CreateReturnRequest request, String actor) {
         ReturnRequest returnRequest = new ReturnRequest(
-                request.outwardId().trim(), request.outwardLineId().trim(), request.itemId().trim(),
-                request.quantity(), actor, request.condition(), normalizeRemarks(request.remarks()),
-                normalizeOptional(request.assetId()), Instant.now(clock));
+                request.outwardId().trim(), request.itemId().trim(), request.quantity(),
+                actor, request.condition(), normalizeRemarks(request.remarks()), Instant.now(clock));
+        if (returnNumberService == null) {
+            throw new IllegalStateException("ReturnNumberService is required");
+        }
+        returnRequest.setReturnId(returnNumberService.nextNumber());
         return repository.save(returnRequest);
     }
 

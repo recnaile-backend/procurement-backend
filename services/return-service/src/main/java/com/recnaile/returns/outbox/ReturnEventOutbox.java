@@ -8,7 +8,6 @@ import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 @Document(collection = "return_event_outbox")
@@ -28,7 +27,7 @@ public class ReturnEventOutbox {
     private String topic;
     private String returnId;
     private String itemId;
-    private BigDecimal qty;
+    private Integer qty;
     private ReturnCondition condition;
     private Instant occurredAt;
     private OutboxStatus status;
@@ -50,7 +49,7 @@ public class ReturnEventOutbox {
             String topic,
             String returnId,
             String itemId,
-            BigDecimal qty,
+            Integer qty,
             ReturnCondition condition,
             Instant occurredAt,
             Instant createdAt) {
@@ -75,7 +74,7 @@ public class ReturnEventOutbox {
     public String getTopic() { return topic; }
     public String getReturnId() { return returnId; }
     public String getItemId() { return itemId; }
-    public BigDecimal getQty() { return qty; }
+    public Integer getQty() { return qty; }
     public ReturnCondition getCondition() { return condition; }
     public Instant getOccurredAt() { return occurredAt; }
     public OutboxStatus getStatus() { return status; }

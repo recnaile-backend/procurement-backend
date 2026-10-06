@@ -10,7 +10,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -32,13 +31,13 @@ class ReturnProcessingEventTest {
     void publishesEventOnlyAfterSuccessfulPersistence() {
         Instant now = Instant.parse("2026-09-30T06:00:00Z");
         ReturnRequest request = new ReturnRequest(
-                "OUT-1", "LINE-1", "ITEM-1", new BigDecimal("2"),
-                "USER-1", ReturnCondition.GOOD, "ok", null,
+                "OUT-1", "ITEM-1", 2,
+                "USER-1", ReturnCondition.GOOD, "ok",
                 Instant.parse("2026-09-30T05:00:00Z"));
         request.setReturnId("RET-1");
         request.setStatus(ReturnStatus.VERIFIED);
 
-        when(repository.findById("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
         when(repository.save(request)).thenReturn(request);
 
         ReturnProcessingService service = new ReturnProcessingService(

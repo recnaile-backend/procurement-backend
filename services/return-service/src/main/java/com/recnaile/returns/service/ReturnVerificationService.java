@@ -69,7 +69,7 @@ public class ReturnVerificationService {
             if (existing.isPresent()) {
                 return existing.get();
             }
-            ReturnRequest returnRequest = repository.findById(normalizedReturnId)
+            ReturnRequest returnRequest = repository.findByReturnId(normalizedReturnId)
                     .orElseThrow(() -> new ReturnNotFoundException(normalizedReturnId));
             stateMachine.verify(returnRequest);
             Instant verifiedAt = Instant.now(clock);
@@ -82,7 +82,7 @@ public class ReturnVerificationService {
             return saved;
         }
 
-        ReturnRequest returnRequest = repository.findById(normalizedReturnId)
+        ReturnRequest returnRequest = repository.findByReturnId(normalizedReturnId)
                 .orElseThrow(() -> new ReturnNotFoundException(normalizedReturnId));
 
         stateMachine.verify(returnRequest);

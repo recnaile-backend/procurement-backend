@@ -14,12 +14,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,19 +32,22 @@ class ReturnRequestServiceTest {
     @Mock
     private IssuedReturnValidationClient issuedReturnValidationClient;
 
+    @Mock
+    private ReturnNumberService returnNumberService;
+
     @Test
     void createBuildsPendingReturnAndPersistsIt() {
         Instant now = Instant.parse("2026-09-30T05:00:00Z");
         Clock clock = Clock.fixed(now, ZoneOffset.UTC);
         IssuedReturnValidationService validationService = new IssuedReturnValidationService(issuedReturnValidationClient);
-        when(issuedReturnValidationClient.validateIssuedLine("OUT-100", "OUT-100-L1"))
-                .thenReturn(new IssuedReturnValidation("OUT-100", "OUT-100-L1", "ITEM-10",
-                        new BigDecimal("5"), new BigDecimal("1"), "ASSET-1"));
-        ReturnRequestService service = new ReturnRequestService(repository, validationService, clock);
+        when(issuedReturnValidationClient.validateIssuedItem("OUT-100", "ITEM-10"))
+                .thenReturn(new IssuedReturnValidation("OUT-100", "ITEM-10", 5, 1));
+        when(returnNumberService.nextNumber()).thenReturn("RETURN%2F26-27%2F001");
+        ReturnRequestService service = new ReturnRequestService(repository, validationService, clock, null, null, returnNumberService);
 
         CreateReturnRequest request = new CreateReturnRequest(
-                "OUT-100", "OUT-100-L1", "ITEM-10", new BigDecimal("2"),
-                "ASSET-1", "user-1", ReturnCondition.GOOD, "  returned  ");
+                "OUT-100", "ITEM-10", 2,
+                "user-1", ReturnCondition.GOOD, "  returned  ");
 
         ArgumentCaptor<ReturnRequest> captor = ArgumentCaptor.forClass(ReturnRequest.class);
         when(repository.save(captor.capture())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -53,11 +56,9 @@ class ReturnRequestServiceTest {
 
         assertThat(result.getReturnId()).isNotBlank();
         assertThat(result.getOutwardId()).isEqualTo("OUT-100");
-        assertThat(result.getOutwardLineId()).isEqualTo("OUT-100-L1");
-        assertThat(result.getItemId()).isEqualTo("ITEM-10");
-        assertThat(result.getQuantity()).isEqualByComparingTo("2");
-        assertThat(result.getAssetId()).isEqualTo("ASSET-1");
-        assertThat(result.getReturnedBy()).isEqualTo("user-1");
+                assertThat(result.getItemId()).isEqualTo("ITEM-10");
+        assertThat(result.getQuantity()).isEqualTo(2);
+                assertThat(result.getReturnByEmpId()).isEqualTo("user-1");
         assertThat(result.getCondition()).isEqualTo(ReturnCondition.GOOD);
         assertThat(result.getRemarks()).isEqualTo("returned");
         assertThat(result.getStatus()).isEqualTo(ReturnStatus.PENDING_VERIFICATION);
@@ -65,4 +66,21 @@ class ReturnRequestServiceTest {
         assertThat(result.getUpdatedAt()).isEqualTo(now);
         verify(repository).save(captor.getValue());
     }
+
+    @Test
+    void createRejectsReturnByEmpIdThatDiffersFromAuthenticatedEmployee() {
+        Instant now = Instant.parse("2026-09-30T05:00:00Z");
+        Clock clock = Clock.fixed(now, ZoneOffset.UTC);
+        IssuedReturnValidationService validationService = new IssuedReturnValidationService(issuedReturnValidationClient);
+        ReturnRequestService service = new ReturnRequestService(repository, validationService, clock);
+
+        CreateReturnRequest request = new CreateReturnRequest(
+                "OUT-100", "ITEM-10", 2,
+                "EMP001", ReturnCondition.GOOD, "return");
+
+        assertThatThrownBy(() -> service.create(request, "EMP002", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("returnByEmpId must match the authenticated employeeId");
+    }
+
 }

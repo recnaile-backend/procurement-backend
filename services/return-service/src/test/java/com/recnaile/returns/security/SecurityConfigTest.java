@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,6 +25,26 @@ class SecurityConfigTest {
     @MockitoBean ReturnVerificationService returnVerificationService;
     @MockitoBean ReturnProcessingService returnProcessingService;
     @MockitoBean JwtDecoder jwtDecoder;
+
+    @Test
+    void unauthenticatedGetAllReturnsIsRejected() throws Exception {
+        mockMvc.perform(get("/api/v1/returns"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @org.springframework.security.test.context.support.WithMockUser(roles = "TL")
+    void tlCanGetAllReturns() throws Exception {
+        mockMvc.perform(get("/api/v1/returns"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @org.springframework.security.test.context.support.WithMockUser(roles = "EMPLOYEE")
+    void employeeCannotGetAllReturns() throws Exception {
+        mockMvc.perform(get("/api/v1/returns"))
+                .andExpect(status().isForbidden());
+    }
 
     @Test
     void unauthenticatedCreateIsRejected() throws Exception {
