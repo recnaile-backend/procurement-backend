@@ -1,4 +1,4 @@
-# Asset Service — Phase 11
+# Asset Service — Phase 13
 
 Phase 11 adds outbound Kafka event publishing on top of the completed Phase 1–10 reusable-asset lifecycle. It preserves JWT/RBAC, optimistic concurrency, idempotency, duplicate-active-assignment protection, inbound Kafka event handling, and Good/Damaged return behavior.
 
@@ -31,7 +31,7 @@ Phase 11 adds outbound Kafka event publishing on top of the completed Phase 1–
 - Optimistic-lock and duplicate-key persistence conflicts are returned as HTTP 409 responses.
 - Only `GOOD` and `DAMAGED` are valid asset return conditions; `UNDER_REPAIR` is an asset lifecycle state, not a return condition.
 - Kafka broker, topics and consumer group are configurable through environment variables.
-- JWT authentication and entity-level RBAC are enabled in this phase; transactional outbox, audit integration and full observability remain later concerns.
+- JWT authentication and entity-level RBAC are enabled in this phase; transactional outbox remains a later concern; audit integration is implemented in Phase 12 and observability is implemented in Phase 13.
 
 ## Endpoints
 
@@ -409,3 +409,67 @@ git status
 - Generic audit events are emitted for Asset lifecycle mutations.
 - No duplicate centralized contract files are introduced.
 - No credentials, private keys, application secrets or generated build output are included.
+
+
+## Phase 13 — Observability
+
+Phase 13 adds production-oriented observability while preserving all Phase 1–12 business, security, idempotency and Kafka behavior.
+
+### Metrics
+
+- Spring Boot Actuator metrics are enabled.
+- Prometheus scraping is available at `/actuator/prometheus`.
+- JVM, HTTP server, MongoDB and Kafka client metrics are exposed through Micrometer/Actuator where the underlying component provides them.
+- Metrics are tagged with the `application` service name.
+
+### Distributed tracing
+
+- Micrometer Tracing with the OpenTelemetry bridge is enabled.
+- OTLP trace export is configurable through `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- Trace sampling is configurable through `TRACING_SAMPLE_RATE`.
+- W3C trace context remains compatible with the platform tracing/Tempo stack.
+
+### Correlation and structured logging
+
+- `X-Correlation-Id` is accepted on incoming requests and generated when absent.
+- The correlation ID is placed in MDC for request-scoped logs and returned in the response header.
+- Structured ECS JSON console logging is enabled with service name, version and environment metadata.
+- Trace/correlation context is kept separate from authentication credentials; tokens and database secrets are never logged by this observability layer.
+
+### Health and operational endpoints
+
+- `/actuator/health`
+- `/actuator/health/liveness`
+- `/actuator/health/readiness`
+- `/actuator/info`
+- `/actuator/metrics`
+- `/actuator/prometheus`
+
+Health details remain hidden from normal responses.
+
+### Phase 13 verification
+
+```powershell
+Remove-Item -Recurse -Force .\services\asset-service
+.\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
+docker compose build --no-cache asset-service
+docker compose up -d asset-service
+docker compose ps asset-service
+docker compose logs --tail=100 asset-service
+curl.exe http://localhost:8089/actuator/health
+curl.exe http://localhost:8089/actuator/prometheus
+```
+
+Expected health response:
+
+```json
+{"status":"UP"}
+```
+
+### Git
+
+```powershell
+git add services/asset-service
+git commit -m "feat(asset): add observability"
+git status
+```

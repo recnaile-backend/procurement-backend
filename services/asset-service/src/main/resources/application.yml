@@ -31,12 +31,21 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       probes:
         enabled: true
       show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLE_RATE:0.1}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
   health:
     livenessstate:
       enabled: true
@@ -61,3 +70,14 @@ app:
   service-name: ${APP_SERVICE_NAME:asset-service}
   description: ${APP_SERVICE_DESCRIPTION:Reusable asset lifecycle and employee assignment}
   database-name: ${MONGODB_DATABASE:assetdb}
+
+logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        name: ${spring.application.name}
+        version: ${PLATFORM_VERSION:1.0.0}
+        environment: ${SPRING_PROFILES_ACTIVE:dev}
+
