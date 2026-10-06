@@ -1,6 +1,6 @@
-# Asset Service — Phase 5
+# Asset Service — Phase 6
 
-Phase 5 adds the REST API layer on top of the Phase 1–4 asset foundation.
+Phase 6 adds Kafka event consumption and idempotent downstream asset lifecycle integration on top of the Phase 1–5 foundation.
 
 ## Scope
 
@@ -21,7 +21,12 @@ Phase 5 adds the REST API layer on top of the Phase 1–4 asset foundation.
 - Historical assignment records are retained.
 - `departmentName` is used; there is no `departmentId` in this service.
 - Asset state transitions remain inside the service layer; controllers only handle transport and validation.
-- Authentication/RBAC, Kafka event consumers, idempotency and audit integration are implemented in later phases.
+- Kafka consumers handle `StockIssueApproved` and `ReturnAccepted` events.
+- Reusable approved issues create an Asset and start its assignment lifecycle.
+- ReturnAccepted closes the active asset assignment and applies Good/Damaged lifecycle rules.
+- Processed event IDs are stored to prevent duplicate event handling.
+- Kafka broker, topics and consumer group are configurable through environment variables.
+- Authentication/RBAC, transactional outbox and audit integration remain later concerns.
 
 ## Endpoints
 
@@ -111,3 +116,35 @@ git commit -m "feat(asset): add asset REST APIs"
 - Controllers do not generate asset IDs or implement lifecycle business rules.
 - Lifecycle and assignment rules remain in the service/domain layers.
 - Historical assignment records are retained.
+
+
+## Kafka configuration
+
+Environment variables:
+
+```text
+KAFKA_ENABLED=true
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+ASSET_KAFKA_CONSUMER_GROUP=asset-service
+KAFKA_STOCK_ISSUE_APPROVED_TOPIC=stock-issue-approved
+KAFKA_RETURN_ACCEPTED_TOPIC=return-accepted
+```
+
+The consumer expects an event envelope containing `eventId` and `eventType`
+(`StockIssueApproved` or `ReturnAccepted`) with a `payload` or `data` object.
+For `StockIssueApproved`, reusable events must contain `outwardId`, `itemId`,
+`userId`, `departmentName`, `issuedBy`, and `reusable=true`.
+For `ReturnAccepted`, asset lifecycle updates require `returnId` and `condition`, plus either
+`assetId` or an `issueReference`/`outwardId` that resolves to the asset.
+
+## Phase 6 verification
+
+```powershell
+Remove-Item -Recurse -Force .\services\asset-service
+.\gradlew :services:asset-service:clean :services:asset-service:test :services:asset-service:build
+docker compose build --no-cache asset-service
+docker compose up -d asset-service
+docker compose ps asset-service
+docker compose logs --tail=100 asset-service
+curl.exe http://localhost:8089/actuator/health
+```

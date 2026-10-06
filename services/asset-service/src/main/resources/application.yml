@@ -1,4 +1,12 @@
 spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      enable-auto-commit: false
+      properties:
+        isolation.level: read_committed
+    listener:
+      ack-mode: manual
   application:
     name: ${APP_SERVICE_NAME:asset-service}
   data:
@@ -26,6 +34,12 @@ management:
       enabled: true
 
 app:
+  kafka:
+    enabled: ${KAFKA_ENABLED:true}
+    consumer-group: ${ASSET_KAFKA_CONSUMER_GROUP:asset-service}
+    topics:
+      stock-issue-approved: ${KAFKA_STOCK_ISSUE_APPROVED_TOPIC:stock-issue-approved}
+      return-accepted: ${KAFKA_RETURN_ACCEPTED_TOPIC:return-accepted}
   service-name: ${APP_SERVICE_NAME:asset-service}
   description: ${APP_SERVICE_DESCRIPTION:Reusable asset lifecycle and employee assignment}
   database-name: ${MONGODB_DATABASE:assetdb}

@@ -1,12 +1,13 @@
 package com.recnaile.asset;
 
 import com.recnaile.asset.config.AssetServiceProperties;
+import com.recnaile.asset.config.KafkaEventProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 @SpringBootApplication
-@EnableConfigurationProperties(AssetServiceProperties.class)
+@EnableConfigurationProperties({AssetServiceProperties.class, KafkaEventProperties.class})
 public class AssetServiceApplication {
 
     public static void main(String[] args) {
