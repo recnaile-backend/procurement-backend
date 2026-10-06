@@ -1,4 +1,4 @@
-# Asset Service — Phase 9
+# Asset Service — Phase 10
 
 Phase 9 adds JWT authentication and entity-level RBAC on top of the completed Phase 1–8 reusable-asset lifecycle. It preserves optimistic concurrency, duplicate-active-assignment protection, Kafka event idempotency, and Good/Damaged return behavior.
 
@@ -158,33 +158,43 @@ curl.exe http://localhost:8089/actuator/health
 ### Idempotency-Key
 State-changing Asset Service POST endpoints accept an optional `Idempotency-Key` request header. The header is not required; requests without it remain valid.
 
-## Phase 9 — Security & RBAC
+## Phase 10 — Idempotency & Concurrency
 
-Phase 9 adds JWT resource-server validation and entity-level authorization while preserving the Phase 1–8 asset lifecycle behavior.
+Phase 10 makes retry-safe Asset Service mutations explicit while preserving the Phase 1–9 lifecycle and security behavior.
 
-### Security behavior
+### Idempotency behavior
 
-- Every Asset Service API except actuator health/info endpoints requires an authenticated JWT when `ASSET_SECURITY_ENABLED=true` (the default).
-- JWTs are validated as an OAuth2 Resource Server using the configured JWK Set URI. The expected production signing model is RS256.
-- JWT roles are read from `roles` and `role` claims and normalized to Spring `ROLE_*` authorities.
-- The service never trusts raw identity headers as the authorization authority.
-- `EMPLOYEE` can read only assets currently assigned to the authenticated employee and their own employee history.
-- `TL` can read assets/history belonging to the department in the JWT `departmentName`/`department`/`dept` claim.
-- `PROCUREMENT`, `MD`, and `ADMIN` can read and manage all asset records.
-- Asset mutations (create, assign, return, repair completion, retirement) are restricted to `PROCUREMENT`, `MD`, and `ADMIN`.
-- Unauthorized authenticated requests return HTTP 403; unauthenticated API requests are rejected by the security filter.
-- The `Idempotency-Key` header remains optional on state-changing POST endpoints.
+- `Idempotency-Key` is optional on state-changing Asset Service POST endpoints.
+- Requests without the header behave exactly as before.
+- When supplied, the key is scoped to the operation and stored in MongoDB.
+- Repeating the same key with the same request fingerprint replays the original resource instead of applying the mutation twice.
+- Reusing the same key with a different request is rejected with HTTP 409.
+- Concurrent requests using the same key are protected by a unique MongoDB constraint; a request already in progress is rejected with HTTP 409 and can be retried.
+- Idempotency records contain no credentials or secrets.
 
-### Security configuration
+### Concurrency behavior
 
-```text
-ASSET_SECURITY_ENABLED=true
-JWT_JWK_SET_URI=http://auth-service:8081/oauth2/jwks
-```
+- `Asset` and `AssetAssignment` continue to use Spring Data MongoDB `@Version` optimistic locking.
+- Active assignment uniqueness remains protected by the unique `(assetId, returnedAt)` index.
+- Concurrent state changes are mapped to HTTP 409 by the global exception handler.
+- Historical assignments are never deleted.
+- Event-consumer duplicate protection from earlier phases remains enabled.
 
-The JWK Set URI is configurable because the Asset Service must validate tokens using the Auth Service's published signing keys in each environment. Do not hard-code private keys or credentials into this service.
+### Protected operations
 
-### Phase 9 verification
+| Endpoint | Operation | Replay resource |
+|---|---|---|
+| POST `/api/v1/assets` | Create asset | Asset |
+| POST `/api/v1/assets/assign` | Assign asset | Assignment |
+| POST `/api/v1/assets/return` | Return asset | Assignment |
+| POST `/api/v1/assets/repair/complete` | Complete repair | Asset |
+| POST `/api/v1/assets/retire` | Retire asset | Asset |
+
+### Request fingerprinting
+
+The service hashes the operation's business inputs with SHA-256. The idempotency key alone is never enough to replay a different request. This prevents accidental reuse of one key for different payloads.
+
+### Phase 10 verification
 
 From the procurement-backend repository root:
 
@@ -198,4 +208,24 @@ docker compose logs --tail=100 asset-service
 curl.exe http://localhost:8089/actuator/health
 ```
 
-For authenticated API calls, send a valid JWT issued by the platform Auth Service. Do not use a user/employee ID header as a substitute for the JWT identity.
+Expected health response:
+
+```json
+{"status":"UP"}
+```
+
+### Git
+
+```powershell
+git add services/asset-service
+git commit -m "feat(asset): add idempotency and concurrency"
+git status
+```
+
+### Delivery verification
+
+- Exactly one `README.md` is included.
+- No application secrets, passwords, private keys, credentials or generated build output are included.
+- Asset IDs remain server-generated in the literal `ASSET%2FYY-YY%2FNNN` format.
+- The Idempotency-Key remains optional.
+- Existing JWT/RBAC, Kafka event handling, lifecycle rules, optimistic locking and assignment-history behavior are preserved.

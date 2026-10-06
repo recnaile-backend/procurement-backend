@@ -11,6 +11,8 @@ public interface AssetAssignmentRepository extends MongoRepository<AssetAssignme
 
     boolean existsByAssetIdAndReturnedAtIsNull(String assetId);
 
+    Optional<AssetAssignment> findById(String assignmentId);
+
     Optional<AssetAssignment> findFirstByAssetIdAndReturnedAtIsNullOrderByAssignedAtDesc(String assetId);
 
     List<AssetAssignment> findByAssetIdOrderByAssignedAtDesc(String assetId);

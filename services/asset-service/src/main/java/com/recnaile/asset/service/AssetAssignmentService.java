@@ -82,6 +82,12 @@ public class AssetAssignmentService {
         return assignmentRepository.save(assignment);
     }
 
+    public AssetAssignment getById(String assignmentId) {
+        requireText(assignmentId, "Assignment ID");
+        return assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment not found: " + assignmentId));
+    }
+
     public List<AssetAssignment> historyForAsset(String assetId) {
         final String normalizedAssetId = AssetId.normalize(assetId);
         return assignmentRepository.findByAssetIdOrderByAssignedAtDesc(normalizedAssetId);

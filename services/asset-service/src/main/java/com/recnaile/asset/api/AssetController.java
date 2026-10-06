@@ -3,8 +3,10 @@ package com.recnaile.asset.api;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.function.Supplier;
 
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -17,6 +19,8 @@ import com.recnaile.asset.service.AssetAssignmentService;
 import com.recnaile.asset.service.AssetLifecycleService;
 import com.recnaile.asset.service.AssetReturnService;
 import com.recnaile.asset.service.AssetService;
+import com.recnaile.asset.idempotency.IdempotencyRecord;
+import com.recnaile.asset.idempotency.IdempotencyService;
 
 @RestController
 @RequestMapping("/api/v1/assets")
@@ -28,20 +32,31 @@ public class AssetController {
     private final AssetReturnService returnService;
     private final AssetAuthorizationService authorizationService;
     private final Clock clock;
+    private final IdempotencyService idempotencyService;
 
+    @Autowired
     public AssetController(
             AssetService assetService,
             AssetAssignmentService assignmentService,
             AssetLifecycleService lifecycleService,
             AssetReturnService returnService,
             AssetAuthorizationService authorizationService,
-            Clock clock) {
+            Clock clock,
+            IdempotencyService idempotencyService) {
         this.assetService = assetService;
         this.assignmentService = assignmentService;
         this.lifecycleService = lifecycleService;
         this.returnService = returnService;
         this.authorizationService = authorizationService;
         this.clock = clock;
+        this.idempotencyService = idempotencyService;
+    }
+
+    /** Test-friendly constructor retained for controller unit tests that do not need persistence-backed idempotency. */
+    AssetController(
+            AssetService assetService, AssetAssignmentService assignmentService, AssetLifecycleService lifecycleService,
+            AssetReturnService returnService, AssetAuthorizationService authorizationService, Clock clock) {
+        this(assetService, assignmentService, lifecycleService, returnService, authorizationService, clock, null);
     }
 
     @PostMapping
@@ -50,8 +65,13 @@ public class AssetController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreateAssetRequest request) {
         authorizationService.requireAnyRole(authentication, "ADMIN", "MD", "PROCUREMENT");
-        Asset asset = assetService.create(request.itemId(), request.issueReference(), request.name(), request.brand(),
+        Supplier<Asset> action = () -> assetService.create(request.itemId(), request.issueReference(), request.name(), request.brand(),
                 request.model(), request.issuedBy(), request.condition(), request.remarks(), Instant.now(clock));
+        Asset asset = idempotencyService == null ? action.get() : idempotencyService.execute(
+                idempotencyKey, "CREATE_ASSET",
+                com.recnaile.asset.idempotency.IdempotencyService.fingerprint(
+                        request.itemId(), request.issueReference(), request.name(), request.brand(), request.model(),
+                        request.issuedBy(), request.condition(), request.remarks()), action, record -> assetService.get(record.getResourceId()));
         return ResponseEntity.status(HttpStatus.CREATED).body(AssetResponse.from(asset));
     }
 
@@ -83,9 +103,15 @@ public class AssetController {
             @Valid @RequestBody AssignAssetRequest request) {
         Asset asset = assetService.get(assetId);
         authorizationService.requireAssetMutation(authentication, asset);
-        return ResponseEntity.status(HttpStatus.CREATED).body(AssignmentResponse.from(assignmentService.startAssignment(
+        Supplier<com.recnaile.asset.model.AssetAssignment> action = () -> assignmentService.startAssignment(
                 assetId, request.employeeId(), request.departmentName(), request.issuedBy(), request.outwardId(),
-                Instant.now(clock), request.remarks())));
+                Instant.now(clock), request.remarks());
+        var assignment = idempotencyService == null ? action.get() : idempotencyService.execute(
+                idempotencyKey, "ASSIGN_ASSET",
+                com.recnaile.asset.idempotency.IdempotencyService.fingerprint(assetId, request.employeeId(),
+                        request.departmentName(), request.issuedBy(), request.outwardId(), request.remarks()),
+                action, record -> assignmentService.getById(record.getResourceId()));
+        return ResponseEntity.status(HttpStatus.CREATED).body(AssignmentResponse.from(assignment));
     }
 
     @PostMapping("/return")
@@ -96,8 +122,13 @@ public class AssetController {
             @Valid @RequestBody ReturnAssetRequest request) {
         Asset asset = assetService.get(assetId);
         authorizationService.requireAssetMutation(authentication, asset);
-        return AssignmentResponse.from(returnService.processReturn(
-                assetId, request.returnId(), request.condition(), Instant.now(clock)));
+        Supplier<com.recnaile.asset.model.AssetAssignment> action = () -> returnService.processReturn(
+                assetId, request.returnId(), request.condition(), Instant.now(clock));
+        var assignment = idempotencyService == null ? action.get() : idempotencyService.execute(
+                idempotencyKey, "RETURN_ASSET",
+                com.recnaile.asset.idempotency.IdempotencyService.fingerprint(assetId, request.returnId(), request.condition()),
+                action, record -> assignmentService.getById(record.getResourceId()));
+        return AssignmentResponse.from(assignment);
     }
 
     @PostMapping("/repair/complete")
@@ -107,7 +138,12 @@ public class AssetController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         Asset asset = assetService.get(assetId);
         authorizationService.requireAssetMutation(authentication, asset);
-        return AssetResponse.from(lifecycleService.completeRepair(assetId, Instant.now(clock)));
+        Supplier<Asset> action = () -> lifecycleService.completeRepair(assetId, Instant.now(clock));
+        var assetResult = idempotencyService == null ? action.get() : idempotencyService.execute(
+                idempotencyKey, "COMPLETE_REPAIR",
+                com.recnaile.asset.idempotency.IdempotencyService.fingerprint(assetId), action,
+                record -> assetService.get(record.getResourceId()));
+        return AssetResponse.from(assetResult);
     }
 
     @PostMapping("/retire")
@@ -117,7 +153,12 @@ public class AssetController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         Asset asset = assetService.get(assetId);
         authorizationService.requireAssetMutation(authentication, asset);
-        return AssetResponse.from(lifecycleService.retire(assetId, Instant.now(clock)));
+        Supplier<Asset> action = () -> lifecycleService.retire(assetId, Instant.now(clock));
+        var assetResult = idempotencyService == null ? action.get() : idempotencyService.execute(
+                idempotencyKey, "RETIRE_ASSET",
+                com.recnaile.asset.idempotency.IdempotencyService.fingerprint(assetId), action,
+                record -> assetService.get(record.getResourceId()));
+        return AssetResponse.from(assetResult);
     }
 
     @GetMapping("/history")
