@@ -92,7 +92,6 @@ public record PurchaseOrderResponse(
 
     public record ApprovedIndentResponse(
             String requesterId,
-            String departmentId,
             String departmentName,
             String projectId,
             String reason,
@@ -120,7 +119,6 @@ public record PurchaseOrderResponse(
 
             return new ApprovedIndentResponse(
                     snapshot.getRequesterId(),
-                    snapshot.getDepartmentId(),
                     snapshot.getDepartmentName(),
                     snapshot.getProjectId(),
                     snapshot.getReason(),
@@ -138,7 +136,6 @@ public record PurchaseOrderResponse(
     }
 
     public record ApprovedIndentItemResponse(
-            String serialNumber,
             String itemName,
             BigDecimal quantity,
             BigDecimal estimatedUnitPrice,
@@ -147,7 +144,6 @@ public record PurchaseOrderResponse(
 
         static ApprovedIndentItemResponse from(ApprovedIndentSnapshot.Item item) {
             return new ApprovedIndentItemResponse(
-                    item.getItemId(),
                     item.getItemName(),
                     item.getQuantity(),
                     item.getEstimatedUnitPrice(),
@@ -157,7 +153,6 @@ public record PurchaseOrderResponse(
     }
 
     public record PurchaseOrderItemResponse(
-            String itemId,
             String itemName,
             BigDecimal quantity,
             BigDecimal unitPrice,
@@ -165,7 +160,6 @@ public record PurchaseOrderResponse(
 
         static PurchaseOrderItemResponse from(PurchaseOrderLine line) {
             return new PurchaseOrderItemResponse(
-                    line.getItemId(),
                     line.getItemName(),
                     line.getOrderedQuantity(),
                     line.getUnitPrice(),

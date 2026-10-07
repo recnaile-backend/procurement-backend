@@ -61,13 +61,13 @@ public class IndentRestClient implements IndentClient {
 
             return new IndentDetails(
                     text(data, "indentNumber", indentNumber),
-                    text(data, "requesterId", null),
+                    firstText(data, "requesterId", "requestBy", "requestId"),
                     text(data, "departmentId", null),
                     text(data, "departmentName", null),
                     text(data, "projectId", null),
                     text(data, "reason", null),
                     items(data.path("items")),
-                    decimal(data, "estimatedTotalAmount", null),
+                    decimal(data, "estimatedTotalAmount", data.path("totalAmount")),
                     text(data, "status", null),
                     text(data, "approvalLevel", null),
                     text(data, "verifierId", null),
@@ -94,7 +94,6 @@ public class IndentRestClient implements IndentClient {
         List<IndentDetails.Item> result = new ArrayList<>();
         for (JsonNode item : node) {
             result.add(new IndentDetails.Item(
-                    firstText(item, "itemId", "serialNumber"),
                     text(item, "itemName", null),
                     decimal(item, "quantity", item.path("requestedQuantity")),
                     decimal(item, "unitPrice", item.path("estimatedUnitPrice")),
@@ -127,9 +126,18 @@ public class IndentRestClient implements IndentClient {
         return value == null ? null : Instant.parse(value);
     }
 
-    private String firstText(JsonNode node, String primary, String fallback) {
+    private String firstText(JsonNode node, String primary, String... fallbacks) {
         String value = text(node, primary, null);
-        return value != null ? value : text(node, fallback, null);
+        if (value != null) {
+            return value;
+        }
+        for (String fallback : fallbacks) {
+            value = text(node, fallback, null);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private String text(JsonNode node, String field, String defaultValue) {

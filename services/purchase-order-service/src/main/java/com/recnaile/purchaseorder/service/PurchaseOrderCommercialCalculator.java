@@ -48,9 +48,9 @@ public class PurchaseOrderCommercialCalculator {
             throw new BusinessRuleException("PO_LINE_REQUIRED", "Purchase order line is required");
         }
 
-        BigDecimal quantity = requirePositive(line.getOrderedQuantity(), "quantity", line.getItemId());
-        BigDecimal unitPrice = requireNonNegative(line.getUnitPrice(), "unitPrice", line.getItemId());
-        BigDecimal gstRate = requireNonNegative(line.getGstRate(), "gstRate", line.getItemId());
+        BigDecimal quantity = requirePositive(line.getOrderedQuantity(), "quantity", line.getItemName());
+        BigDecimal unitPrice = requireNonNegative(line.getUnitPrice(), "unitPrice", line.getItemName());
+        BigDecimal gstRate = requireNonNegative(line.getGstRate(), "gstRate", line.getItemName());
 
         BigDecimal lineSubtotal = money(quantity.multiply(unitPrice));
         BigDecimal lineGst = money(lineSubtotal.multiply(gstRate)
@@ -63,25 +63,25 @@ public class PurchaseOrderCommercialCalculator {
         line.setRemainingQuantity(quantity.subtract(line.getReceivedQuantity()));
         if (line.getRemainingQuantity().signum() < 0) {
             throw new BusinessRuleException("RECEIVED_QUANTITY_EXCEEDS_ORDERED",
-                    "Received quantity cannot exceed ordered quantity for item: " + line.getItemId());
+                    "Received quantity cannot exceed ordered quantity for item: " + line.getItemName());
         }
         line.setLineSubtotal(lineSubtotal);
         line.setGstAmount(lineGst);
         line.setLineTotal(lineTotal);
     }
 
-    private BigDecimal requirePositive(BigDecimal value, String field, String itemId) {
+    private BigDecimal requirePositive(BigDecimal value, String field, String itemName) {
         if (value == null || value.signum() <= 0) {
             throw new BusinessRuleException("INVALID_" + field.toUpperCase(),
-                    field + " must be greater than zero for item: " + itemId);
+                    field + " must be greater than zero for item: " + itemName);
         }
         return value;
     }
 
-    private BigDecimal requireNonNegative(BigDecimal value, String field, String itemId) {
+    private BigDecimal requireNonNegative(BigDecimal value, String field, String itemName) {
         if (value == null || value.signum() < 0) {
             throw new BusinessRuleException("INVALID_" + field.toUpperCase(),
-                    field + " cannot be negative for item: " + itemId);
+                    field + " cannot be negative for item: " + itemName);
         }
         return value;
     }

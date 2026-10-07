@@ -9,11 +9,33 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PurchaseOrderResponseTest {
 
     @Test
-    void approvedIndentItemResponseUsesSerialNumberInApiContract() {
+    void approvedIndentItemResponseUsesItemNameInApiContract() {
         assertThat(java.util.Arrays.stream(PurchaseOrderResponse.ApprovedIndentItemResponse.class.getRecordComponents())
                 .map(java.lang.reflect.RecordComponent::getName)
                 .toList())
-                .containsExactly("serialNumber", "itemName", "quantity", "estimatedUnitPrice", "estimatedLineAmount", "remarks");
+                .containsExactly("itemName", "quantity", "estimatedUnitPrice", "estimatedLineAmount", "remarks");
+    }
+
+    @Test
+    void approvedIndentResponseDoesNotExposeDepartmentId() {
+        assertThat(java.util.Arrays.stream(PurchaseOrderResponse.ApprovedIndentResponse.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName)
+                .toList())
+                .containsExactly(
+                        "requesterId",
+                        "departmentName",
+                        "projectId",
+                        "reason",
+                        "items",
+                        "estimatedTotalAmount",
+                        "status",
+                        "approvalLevel",
+                        "verifierId",
+                        "verifiedAt",
+                        "verificationRemarks",
+                        "approverId",
+                        "approvedAt",
+                        "approvalRemarks");
     }
 
     @Test

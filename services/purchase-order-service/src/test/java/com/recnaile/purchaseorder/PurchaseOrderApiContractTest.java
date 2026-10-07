@@ -101,5 +101,20 @@ class PurchaseOrderApiContractTest {
                 .toList())
                 .contains("indentNumber", "indentStatus", "indentDetails", "vendorName", "departmentName", "items")
                 .doesNotContain("sourceIndentIds", "vendorId", "departmentId", "remarks", "lines", "poNumber");
+
+        assertThat(Arrays.stream(com.recnaile.purchaseorder.application.command.CreatePurchaseOrderRequest.Item.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName).toList())
+                .containsExactly("itemName", "quantity", "unitPrice", "gstRate")
+                .doesNotContain("itemId");
+
+        assertThat(Arrays.stream(PurchaseOrderResponse.PurchaseOrderItemResponse.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName).toList())
+                .containsExactly("itemName", "quantity", "unitPrice", "gstRate")
+                .doesNotContain("itemId");
+
+        assertThat(Arrays.stream(PurchaseOrderResponse.ApprovedIndentItemResponse.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName).toList())
+                .containsExactly("itemName", "quantity", "estimatedUnitPrice", "estimatedLineAmount", "remarks")
+                .doesNotContain("itemId", "serialNumber");
     }
 }

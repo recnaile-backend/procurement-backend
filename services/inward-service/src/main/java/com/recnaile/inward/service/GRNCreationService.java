@@ -77,7 +77,6 @@ public class GRNCreationService {
     public GRNResponse create(CreateGRNRequest request) {
         GRNResponse response = createInternal(request);
         if (outboxService != null) {
-            outboxService.enqueueGoodsReceived(response);
             outboxService.enqueueGRNCreateAuditEvent(response);
         }
         return response;
@@ -88,7 +87,6 @@ public class GRNCreationService {
         if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyService == null) {
             GRNResponse response = createInternal(request);
             if (outboxService != null) {
-                outboxService.enqueueGoodsReceived(response);
                 outboxService.enqueueGRNCreateAuditEvent(response);
             }
             return response;
@@ -105,7 +103,6 @@ public class GRNCreationService {
         try {
             GRNResponse response = createInternal(request);
             if (outboxService != null) {
-                outboxService.enqueueGoodsReceived(response);
                 outboxService.enqueueGRNCreateAuditEvent(response);
             }
             idempotencyService.complete(record, response.grnId());
@@ -165,8 +162,6 @@ public class GRNCreationService {
         receiptProgressService.validateRequestedQuantities(
                 request.poId(), purchaseOrder, grnLines);
 
-        Instant receivedAt = Instant.now(clock);
-
         GRNDocument grn = new GRNDocument(
                 null,
                 grnNumberGenerator.next(),
@@ -174,7 +169,7 @@ public class GRNCreationService {
                 purchaseOrder.vendorName(),
                 request.deliveryNoteNumber(),
                 request.deliveryDate(),
-                receivedAt,
+                null,
                 request.receivedBy(),
                 GRNStatus.DRAFT,
                 grnLines

@@ -1,10 +1,7 @@
 package com.recnaile.purchaseorder.client.indent;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
-
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 
 public record IndentDetails(
@@ -25,11 +22,14 @@ public record IndentDetails(
         Instant approvedAt,
         String approvalRemarks) {
 
+    /**
+     * Approved indent item data used to create the PO. Legacy serial/item identifiers
+     * supplied by older indent payloads are intentionally not promoted into the PO.
+     */
     public record Item(
-            @JsonAlias({"serialNumber", "itemId"}) String itemId,
             String itemName,
             BigDecimal quantity,
-            @JsonAlias({"estimatedUnitPrice", "unitPrice"}) BigDecimal unitPrice,
+            BigDecimal unitPrice,
             BigDecimal gstRate,
             BigDecimal estimatedLineAmount,
             String remarks) {

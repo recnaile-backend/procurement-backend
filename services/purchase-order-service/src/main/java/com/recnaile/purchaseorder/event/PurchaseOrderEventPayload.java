@@ -51,7 +51,6 @@ public record PurchaseOrderEventPayload(
     }
 
     public record Line(
-            String itemId,
             String itemName,
             BigDecimal orderedQuantity,
             BigDecimal receivedQuantity,
@@ -64,7 +63,6 @@ public record PurchaseOrderEventPayload(
 
         static Line from(PurchaseOrderLine line) {
             return new Line(
-                    line.getItemId(),
                     line.getItemName(),
                     line.getOrderedQuantity(),
                     line.getReceivedQuantity(),

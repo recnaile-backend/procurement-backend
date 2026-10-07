@@ -31,6 +31,7 @@ public class OutboxPublisher {
     private final Clock clock;
     private final int batchSize;
     private final long retryDelaySeconds;
+    private final long publishingTimeoutSeconds;
     private final InwardMetrics metrics;
 
     @Autowired
@@ -40,8 +41,9 @@ public class OutboxPublisher {
             KafkaTemplate<String, String> kafkaTemplate,
             Clock clock,
             @Value("${app.outbox.publisher.batch-size:100}") int batchSize,
-            @Value("${app.outbox.publisher.retry-delay-seconds:30}") long retryDelaySeconds) {
-        this(repository, mongoTemplate, kafkaTemplate, clock, batchSize, retryDelaySeconds, null);
+            @Value("${app.outbox.publisher.retry-delay-seconds:30}") long retryDelaySeconds,
+            @Value("${app.outbox.publisher.publishing-timeout-seconds:300}") long publishingTimeoutSeconds) {
+        this(repository, mongoTemplate, kafkaTemplate, clock, batchSize, retryDelaySeconds, publishingTimeoutSeconds, null);
     }
 
     public OutboxPublisher(
@@ -52,18 +54,32 @@ public class OutboxPublisher {
             int batchSize,
             long retryDelaySeconds,
             InwardMetrics metrics) {
+        this(repository, mongoTemplate, kafkaTemplate, clock, batchSize, retryDelaySeconds, 300L, metrics);
+    }
+
+    public OutboxPublisher(
+            OutboxEventRepository repository,
+            MongoTemplate mongoTemplate,
+            KafkaTemplate<String, String> kafkaTemplate,
+            Clock clock,
+            int batchSize,
+            long retryDelaySeconds,
+            long publishingTimeoutSeconds,
+            InwardMetrics metrics) {
         this.repository = repository;
         this.mongoTemplate = mongoTemplate;
         this.kafkaTemplate = kafkaTemplate;
         this.clock = clock;
         this.batchSize = batchSize;
         this.retryDelaySeconds = retryDelaySeconds;
+        this.publishingTimeoutSeconds = publishingTimeoutSeconds;
         this.metrics = metrics;
     }
 
     @Scheduled(fixedDelayString = "${app.outbox.publisher.fixed-delay-ms:5000}")
     public void publishPending() {
         Instant now = Instant.now(clock);
+        recoverStalePublishing(now);
         List<OutboxEvent> candidates = repository.findTop100ByStatusInAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
                 List.of(OutboxEvent.Status.PENDING, OutboxEvent.Status.FAILED), now);
 
@@ -74,6 +90,23 @@ public class OutboxPublisher {
             }
             publish(claimed);
         });
+    }
+
+    private void recoverStalePublishing(Instant now) {
+        Instant cutoff = now.minus(Duration.ofSeconds(publishingTimeoutSeconds));
+        Query query = Query.query(new Criteria().andOperator(
+                Criteria.where("status").is(OutboxEvent.Status.PUBLISHING),
+                new Criteria().orOperator(
+                        Criteria.where("updatedAt").lte(cutoff),
+                        new Criteria().andOperator(
+                                Criteria.where("updatedAt").exists(false),
+                                Criteria.where("createdAt").lte(cutoff)))));
+        Update update = new Update()
+                .set("status", OutboxEvent.Status.PENDING)
+                .set("nextAttemptAt", now)
+                .set("lastError", "Recovered stale PUBLISHING outbox event")
+                .currentDate("updatedAt");
+        mongoTemplate.updateMulti(query, update, OutboxEvent.class);
     }
 
     private OutboxEvent claim(String id, Instant now) {

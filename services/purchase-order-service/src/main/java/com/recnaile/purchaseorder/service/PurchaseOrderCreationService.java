@@ -146,7 +146,6 @@ public class PurchaseOrderCreationService {
         try {
             VendorResponse vendor = masterDataVendorClient.requireActiveVendorByName(command.vendorName().trim());
             var department = masterDataReferenceClient.requireActiveDepartmentByName(command.departmentName().trim());
-            validateItemsAgainstMasterData(command.items());
             PurchaseOrder po = new PurchaseOrder();
             populateCommonFields(po, vendor, department.id(), command.projectId(), command.departmentName(),
                     command.purchaseType(), command.expectedDeliveryDate(), actorId);
@@ -213,7 +212,6 @@ public class PurchaseOrderCreationService {
         if (indent.items() != null) {
             for (IndentDetails.Item source : indent.items()) {
                 ApprovedIndentSnapshot.Item item = new ApprovedIndentSnapshot.Item();
-                item.setItemId(source.itemId());
                 item.setItemName(source.itemName());
                 item.setQuantity(source.quantity());
                 item.setEstimatedUnitPrice(source.unitPrice());
@@ -249,20 +247,17 @@ public class PurchaseOrderCreationService {
     private List<PurchaseOrderLine> toLines(List<?> sourceItems) {
         List<PurchaseOrderLine> lines = new ArrayList<>();
         for (Object source : sourceItems) {
-            String itemId;
             String itemName;
             BigDecimal quantity;
             BigDecimal unitPrice;
             BigDecimal gstRate;
 
             if (source instanceof CreatePurchaseOrderRequest.Item item) {
-                itemId = item.itemId();
                 itemName = item.itemName();
                 quantity = item.quantity();
                 unitPrice = item.unitPrice();
                 gstRate = item.gstRate();
             } else if (source instanceof IndentDetails.Item item) {
-                itemId = item.itemId();
                 itemName = item.itemName();
                 quantity = item.quantity();
                 unitPrice = item.unitPrice();
@@ -271,13 +266,12 @@ public class PurchaseOrderCreationService {
                 throw new BusinessRuleException("PO_ITEMS_INVALID", "Unsupported PO item data");
             }
 
-            if (isBlank(itemId) || isBlank(itemName) || quantity == null || quantity.signum() <= 0
+            if (isBlank(itemName) || quantity == null || quantity.signum() <= 0
                     || unitPrice == null || unitPrice.signum() < 0 || gstRate == null || gstRate.signum() < 0) {
                 throw new BusinessRuleException("PO_ITEMS_INVALID", "PO item data is incomplete or invalid");
             }
 
             PurchaseOrderLine line = new PurchaseOrderLine();
-            line.setItemId(itemId.trim());
             line.setItemName(itemName.trim());
             line.setOrderedQuantity(quantity);
             line.setReceivedQuantity(BigDecimal.ZERO);
@@ -286,23 +280,6 @@ public class PurchaseOrderCreationService {
             lines.add(line);
         }
         return lines;
-    }
-
-    private void validateItemsAgainstMasterData(List<?> sourceItems) {
-        for (Object source : sourceItems) {
-            String itemId;
-            String itemName;
-            if (source instanceof CreatePurchaseOrderRequest.Item item) {
-                itemId = item.itemId();
-                itemName = item.itemName();
-            } else if (source instanceof IndentDetails.Item item) {
-                itemId = item.itemId();
-                itemName = item.itemName();
-            } else {
-                throw new BusinessRuleException("PO_ITEMS_INVALID", "Unsupported PO item data");
-            }
-            masterDataReferenceClient.requireActiveItem(itemId.trim(), itemName.trim());
-        }
     }
 
     private void validateApprovedIndent(IndentDetails indent, String requestedIndentNumber) {

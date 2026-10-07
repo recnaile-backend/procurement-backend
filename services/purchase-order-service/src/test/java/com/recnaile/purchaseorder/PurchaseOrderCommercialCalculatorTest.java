@@ -68,9 +68,9 @@ class PurchaseOrderCommercialCalculatorTest {
                 .hasMessageContaining("Received quantity cannot exceed ordered quantity");
     }
 
-    private PurchaseOrderLine line(String itemId, String quantity, String price, String gst) {
+    private PurchaseOrderLine line(String itemName, String quantity, String price, String gst) {
         PurchaseOrderLine line = new PurchaseOrderLine();
-        line.setItemId(itemId);
+        line.setItemName(itemName);
         line.setOrderedQuantity(new BigDecimal(quantity));
         line.setUnitPrice(new BigDecimal(price));
         line.setGstRate(new BigDecimal(gst));

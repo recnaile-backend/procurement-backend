@@ -82,15 +82,11 @@ public class ApprovedIndentSnapshot {
     }
 
     public static class Item {
-        private String itemId;
         private String itemName;
         private BigDecimal quantity;
         private BigDecimal estimatedUnitPrice;
         private BigDecimal estimatedLineAmount;
         private String remarks;
-
-        public String getItemId() { return itemId; }
-        public void setItemId(String itemId) { this.itemId = itemId; }
 
         public String getItemName() { return itemName; }
         public void setItemName(String itemName) { this.itemName = itemName; }

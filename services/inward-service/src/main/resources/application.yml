@@ -68,6 +68,7 @@ app:
       fixed-delay-ms: ${INWARD_OUTBOX_PUBLISHER_FIXED_DELAY_MS:5000}
       batch-size: ${INWARD_OUTBOX_PUBLISHER_BATCH_SIZE:100}
       retry-delay-seconds: ${INWARD_OUTBOX_RETRY_DELAY_SECONDS:30}
+      publishing-timeout-seconds: ${INWARD_OUTBOX_PUBLISHING_TIMEOUT_SECONDS:300}
 
 clients:
   purchase-order:

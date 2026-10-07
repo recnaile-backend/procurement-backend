@@ -119,6 +119,14 @@ public class GRNDocument {
         return version;
     }
 
+    public void setGrnStatus(GRNStatus grnStatus) {
+        this.grnStatus = grnStatus;
+    }
+
+    public void setReceivedAt(Instant receivedAt) {
+        this.receivedAt = receivedAt;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
     }

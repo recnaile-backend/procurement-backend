@@ -195,9 +195,19 @@ Each created Goods Receipt Note receives a backend-generated business number suc
 
 All `/api/v1/goods-receipts/**` business APIs require a valid JWT.
 
-- GET goods-receipt APIs: `EMPLOYEE`, `PROCUREMENT`, `TL`, `MD`, `ADMIN`
-- POST goods-receipt API: `PROCUREMENT`, `ADMIN`
+- GET goods-receipt APIs: `EMPLOYEE`, `PROCUREMENT`, `TL`, `MD`
+- POST goods-receipt API: `PROCUREMENT`, `MD`
 - Missing/invalid JWT: HTTP 401 with `UNAUTHORIZED`
 - Authenticated user without required role: HTTP 403 with `FORBIDDEN`
 - Swagger/OpenAPI and health/info/prometheus endpoints remain public.
 - Roles are read from the JWT `roles` claim and converted to Spring `ROLE_*` authorities.
+
+## GRN Confirmation
+
+`POST /api/v1/goods-receipts/{grnId}/receive` confirms a DRAFT GRN. Creating a GRN does not publish `GOODS_RECEIVED` and does not affect downstream Inventory. Confirmation changes the GRN to `PARTIALLY_RECEIVED` when the PO still has outstanding quantity, or `COMPLETED` when all PO quantities are received. The confirmation is idempotent when an `Idempotency-Key` is supplied. The `GOODS_RECEIVED` event and receipt audit event are written to the transactional outbox in the same transaction as the GRN state change.
+
+- Roles: `PROCUREMENT`, `MD`
+- Header: optional `Idempotency-Key`
+- HTTP 200: confirmation succeeded
+- HTTP 404: GRN not found
+- HTTP 409: invalid state, idempotency conflict, or optimistic concurrency conflict

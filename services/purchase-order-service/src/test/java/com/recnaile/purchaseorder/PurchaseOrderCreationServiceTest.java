@@ -1,7 +1,6 @@
 package com.recnaile.purchaseorder;
 
 import com.recnaile.purchaseorder.application.command.CreatePurchaseOrderFromApprovedIndentCommand;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recnaile.purchaseorder.application.command.CreatePurchaseOrderRequest;
 import com.recnaile.purchaseorder.client.indent.IndentClient;
 import com.recnaile.purchaseorder.client.indent.IndentDetails;
@@ -9,7 +8,6 @@ import com.recnaile.purchaseorder.client.masterdata.MasterDataReferenceClient;
 import com.recnaile.purchaseorder.client.masterdata.MasterDataVendorClient;
 import com.recnaile.purchaseorder.client.masterdata.VendorResponse;
 import com.recnaile.purchaseorder.client.masterdata.DepartmentResponse;
-import com.recnaile.purchaseorder.client.masterdata.ItemResponse;
 import com.recnaile.purchaseorder.domain.model.PurchaseOrder;
 import com.recnaile.purchaseorder.exception.BusinessRuleException;
 import com.recnaile.purchaseorder.observability.PurchaseOrderMetrics;
@@ -34,7 +32,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -65,7 +62,7 @@ class PurchaseOrderCreationServiceTest {
                 "PRJ-001",
                 "Laptop purchase",
                 List.of(new IndentDetails.Item(
-                        "ITEM-001", "Laptop", new BigDecimal("2"), new BigDecimal("10000"),
+                        "Laptop", new BigDecimal("2"), new BigDecimal("10000"),
                         new BigDecimal("18"), new BigDecimal("20000"), "Approved item")),
                 new BigDecimal("20000"),
                 "READY_FOR_PO",
@@ -79,14 +76,16 @@ class PurchaseOrderCreationServiceTest {
     }
 
     @Test
-    void approvedIndentItemAcceptsCurrentIndentSerialNumberField() throws Exception {
-        var item = new ObjectMapper().readValue(
-                "{\"serialNumber\":\"SN007\",\"itemName\":\"Bolt\",\"quantity\":1,\"estimatedUnitPrice\":10000,\"estimatedLineAmount\":10000,\"remarks\":\"M16 Bolts\"}",
-                IndentDetails.Item.class);
+    void approvedIndentItemCarriesOnlyItemNameAsThePoBusinessIdentity() {
+        var item = new IndentDetails.Item(
+                "Bolt", BigDecimal.ONE, new BigDecimal("10000"), BigDecimal.ZERO,
+                new BigDecimal("10000"), "M16 Bolts");
 
-        assertThat(item.itemId()).isEqualTo("SN007");
         assertThat(item.itemName()).isEqualTo("Bolt");
         assertThat(item.unitPrice()).isEqualByComparingTo("10000.00");
+        assertThat(java.util.Arrays.stream(IndentDetails.Item.class.getRecordComponents())
+                .map(java.lang.reflect.RecordComponent::getName).toList())
+                .doesNotContain("itemId", "serialNumber");
     }
 
     @Test
@@ -122,7 +121,6 @@ class PurchaseOrderCreationServiceTest {
         assertThat(result.getSubtotal()).isEqualByComparingTo("20000.00");
         assertThat(result.getGstAmount()).isEqualByComparingTo("3600.00");
         assertThat(result.getTotalAmount()).isEqualByComparingTo("23600.00");
-        verify(masterDataReferenceClient, never()).requireActiveItem(any(), any());
     }
 
 
@@ -173,8 +171,6 @@ class PurchaseOrderCreationServiceTest {
         doReturn(vendor()).when(masterDataVendorClient).requireActiveVendorByName("Vendor One");
         when(masterDataReferenceClient.requireActiveDepartmentByName("Procurement"))
                 .thenReturn(new DepartmentResponse("DEPT-001", "Procurement", "ACTIVE", null, null, 1L));
-        when(masterDataReferenceClient.requireActiveItem("ITEM-001", "Laptop"))
-                .thenReturn(new ItemResponse("ITEM-001", "Laptop", "ACTIVE", null, null, 1L));
         when(idempotencyService.requestHash(any(), any(), any())).thenReturn("hash-3");
         when(idempotencyService.reserve(any(), any(), any(), any())).thenReturn(
                 new PurchaseOrderIdempotencyService.Reservation(new com.recnaile.purchaseorder.domain.model.IdempotencyRecord(), true));
@@ -183,7 +179,7 @@ class PurchaseOrderCreationServiceTest {
 
         PurchaseOrder result = service.createManual(
                 new CreatePurchaseOrderRequest("Vendor One", "PRJ-001", "Procurement", com.recnaile.purchaseorder.domain.enums.PurchaseType.STANDARD, null,
-                        List.of(new CreatePurchaseOrderRequest.Item("ITEM-001", "Laptop", BigDecimal.ONE, new BigDecimal("100"), BigDecimal.ZERO))),
+                        List.of(new CreatePurchaseOrderRequest.Item("Laptop", BigDecimal.ONE, new BigDecimal("100"), BigDecimal.ZERO))),
                 "user-1", "key-3");
 
         assertThat(result.getPoId()).isEqualTo("PO-001");
@@ -197,8 +193,6 @@ class PurchaseOrderCreationServiceTest {
         doReturn(vendor()).when(masterDataVendorClient).requireActiveVendorByName("Vendor One");
         when(masterDataReferenceClient.requireActiveDepartmentByName("Procurement"))
                 .thenReturn(new DepartmentResponse("DEPT-001", "Procurement", "ACTIVE", null, null, 1L));
-        when(masterDataReferenceClient.requireActiveItem("ITEM-001", "Laptop"))
-                .thenReturn(new ItemResponse("ITEM-001", "Laptop", "ACTIVE", null, null, 1L));
         when(numberGenerator.nextNumber()).thenReturn("PO-002");
         when(repository.save(any(PurchaseOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -210,7 +204,6 @@ class PurchaseOrderCreationServiceTest {
                         com.recnaile.purchaseorder.domain.enums.PurchaseType.STANDARD,
                         null,
                         List.of(new CreatePurchaseOrderRequest.Item(
-                                "ITEM-001",
                                 "Laptop",
                                 BigDecimal.ONE,
                                 new BigDecimal("100"),

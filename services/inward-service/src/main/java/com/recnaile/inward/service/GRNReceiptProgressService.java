@@ -62,14 +62,18 @@ public class GRNReceiptProgressService {
     }
 
     /**
-     * Returns cumulative received quantity per item across all GRNs for the PO.
-     * A GRN is counted as a receipt once it has been persisted because the current
-     * creation API records the physical accepted/rejected quantities at creation time.
+     * Returns cumulative confirmed receipt quantity per item across all GRNs for the PO.
+     * DRAFT GRNs are intentionally excluded because creation and receipt confirmation
+     * are separate business actions.
      */
     public Map<String, BigDecimal> cumulativeReceivedByItem(String poId) {
         Map<String, BigDecimal> totals = new HashMap<>();
 
         for (GRNDocument grn : grnRepository.findByPoId(poId, org.springframework.data.domain.Sort.unsorted())) {
+            // DRAFT GRNs are not confirmed receipts and must not consume PO quantity.
+            if (grn.getGrnStatus() == null || grn.getGrnStatus() == com.recnaile.inward.model.GRNStatus.DRAFT) {
+                continue;
+            }
             if (grn.getLines() == null) {
                 continue;
             }

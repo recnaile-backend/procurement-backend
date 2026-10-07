@@ -80,7 +80,7 @@ The `Idempotency-Key` header remains optional. When supplied, the idempotency re
 
 ## Phase 12 — GOODS_RECEIVED Event
 
-After a GRN is persisted, one `GOODS_RECEIVED` event is created for each GRN receipt line. The event uses version `1` and is published through the transactional outbox to the shared `procurement.events` Kafka topic.
+After a GRN is persisted as `DRAFT`, no `GOODS_RECEIVED` event is created. The event is created for each GRN receipt line only when the GRN is explicitly confirmed through `POST /api/v1/goods-receipts/{grnId}/receive`. The event uses version `1` and is published through the transactional outbox to the shared `procurement.events` Kafka topic.
 
 
 

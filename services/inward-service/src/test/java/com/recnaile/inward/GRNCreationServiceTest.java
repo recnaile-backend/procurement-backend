@@ -83,7 +83,7 @@ class GRNCreationServiceTest {
         assertEquals("DN-100", response.deliveryNoteNumber());
         assertEquals("user-1", response.receivedBy());
         assertEquals("DRAFT", response.grnStatus().name());
-        assertEquals(Instant.parse("2026-09-23T10:00:00Z"), response.receivedAt());
+        assertNull(response.receivedAt());
         assertEquals("ITEM-1", response.items().get(0).itemId());
         assertEquals(new BigDecimal("10"), response.items().get(0).orderedQuantity());
         assertEquals(new BigDecimal("6"), response.items().get(0).acceptedQuantity());
@@ -216,7 +216,7 @@ class GRNCreationServiceTest {
 
         GRNDocument previous = new GRNDocument(null, "GRN%2F26-27%2F001", "PO-1", "3D", "DN-OLD",
                 Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-21T01:00:00Z"),
-                "user-1", com.recnaile.inward.model.GRNStatus.DRAFT,
+                "user-1", com.recnaile.inward.model.GRNStatus.PARTIALLY_RECEIVED,
                 List.of(new com.recnaile.inward.model.GRNLine("ITEM-1", new BigDecimal("10"),
                         new BigDecimal("7"), new BigDecimal("1"), "EA", "Damaged")));
 
@@ -239,7 +239,7 @@ class GRNCreationServiceTest {
         when(repository.findByPoId(eq("PO-1"), any())).thenReturn(List.of(
                 new GRNDocument(null, "GRN%2F26-27%2F001", "PO-1", "3D", "DN-OLD",
                         Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-21T01:00:00Z"),
-                        "user-1", com.recnaile.inward.model.GRNStatus.DRAFT,
+                        "user-1", com.recnaile.inward.model.GRNStatus.PARTIALLY_RECEIVED,
                         List.of(new com.recnaile.inward.model.GRNLine("ITEM-1", new BigDecimal("10"),
                                 new BigDecimal("6"), BigDecimal.ZERO, "EA", null)))
         ));
@@ -269,7 +269,7 @@ class GRNCreationServiceTest {
         when(repository.findByPoId(eq("PO-1"), any())).thenReturn(List.of(
                 new GRNDocument(null, "GRN%2F26-27%2F001", "PO-1", "3D", "DN-1",
                         Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-21T01:00:00Z"),
-                        "user-1", com.recnaile.inward.model.GRNStatus.DRAFT,
+                        "user-1", com.recnaile.inward.model.GRNStatus.PARTIALLY_RECEIVED,
                         List.of(new com.recnaile.inward.model.GRNLine("ITEM-1", new BigDecimal("10"),
                                 new BigDecimal("6"), BigDecimal.ZERO, "EA", null)))
         ));
