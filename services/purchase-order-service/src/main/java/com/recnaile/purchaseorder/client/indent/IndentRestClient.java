@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,12 +61,21 @@ public class IndentRestClient implements IndentClient {
 
             return new IndentDetails(
                     text(data, "indentNumber", indentNumber),
-                    text(data, "status", null),
-                    text(data, "vendorName", null),
-                    text(data, "projectId", null),
+                    text(data, "requesterId", null),
+                    text(data, "departmentId", null),
                     text(data, "departmentName", null),
-                    localDate(data, "expectedDeliveryDate"),
-                    items(data.path("items")));
+                    text(data, "projectId", null),
+                    text(data, "reason", null),
+                    items(data.path("items")),
+                    decimal(data, "estimatedTotalAmount", null),
+                    text(data, "status", null),
+                    text(data, "approvalLevel", null),
+                    text(data, "verifierId", null),
+                    instant(data, "verifiedAt"),
+                    text(data, "verificationRemarks", null),
+                    text(data, "approverId", null),
+                    instant(data, "approvedAt"),
+                    text(data, "approvalRemarks", null));
         } catch (ResourceNotFoundException | MasterDataIntegrationException ex) {
             throw ex;
         } catch (RestClientException ex) {
@@ -80,21 +90,24 @@ public class IndentRestClient implements IndentClient {
         if (node == null || !node.isArray()) {
             return List.of();
         }
+
         List<IndentDetails.Item> result = new ArrayList<>();
         for (JsonNode item : node) {
             result.add(new IndentDetails.Item(
-                    text(item, "itemId", null),
+                    firstText(item, "itemId", "serialNumber"),
                     text(item, "itemName", null),
                     decimal(item, "quantity", item.path("requestedQuantity")),
                     decimal(item, "unitPrice", item.path("estimatedUnitPrice")),
-                    decimal(item, "gstRate", item.path("gstRate"))));
+                    decimal(item, "gstRate", null),
+                    decimal(item, "estimatedLineAmount", null),
+                    text(item, "remarks", null)));
         }
         return List.copyOf(result);
     }
 
     private BigDecimal decimal(JsonNode node, String preferred, JsonNode fallback) {
-        JsonNode value = node.path(preferred);
-        if (value.isMissingNode() || value.isNull()) {
+        JsonNode value = node == null ? null : node.path(preferred);
+        if (value == null || value.isMissingNode() || value.isNull()) {
             value = fallback;
         }
         if (value == null || value.isMissingNode() || value.isNull()) {
@@ -105,13 +118,18 @@ public class IndentRestClient implements IndentClient {
         } catch (NumberFormatException ex) {
             throw new MasterDataIntegrationException(
                     "INDENT_SERVICE_INVALID_RESPONSE",
-                    "Indent-service returned a non-numeric item value");
+                    "Indent-service returned a non-numeric value for " + preferred);
         }
     }
 
-    private LocalDate localDate(JsonNode node, String field) {
+    private Instant instant(JsonNode node, String field) {
         String value = text(node, field, null);
-        return value == null ? null : LocalDate.parse(value);
+        return value == null ? null : Instant.parse(value);
+    }
+
+    private String firstText(JsonNode node, String primary, String fallback) {
+        String value = text(node, primary, null);
+        return value != null ? value : text(node, fallback, null);
     }
 
     private String text(JsonNode node, String field, String defaultValue) {

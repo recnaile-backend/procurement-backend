@@ -35,6 +35,7 @@ public class PurchaseOrder {
     private String indentNumber;
     // Snapshot of the authoritative Indent Service status at PO creation time.
     private String indentStatus;
+    private ApprovedIndentSnapshot indentDetails;
     private String vendorId;
     private String vendorName;
     private String projectId;
@@ -94,6 +95,9 @@ public class PurchaseOrder {
 
     public String getIndentStatus() { return indentStatus; }
     public void setIndentStatus(String indentStatus) { this.indentStatus = indentStatus; }
+
+    public ApprovedIndentSnapshot getIndentDetails() { return indentDetails; }
+    public void setIndentDetails(ApprovedIndentSnapshot indentDetails) { this.indentDetails = indentDetails; }
 
     public String getVendorId() { return vendorId; }
     public void setVendorId(String vendorId) { this.vendorId = vendorId; }

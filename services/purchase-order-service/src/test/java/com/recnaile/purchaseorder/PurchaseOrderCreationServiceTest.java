@@ -1,6 +1,7 @@
 package com.recnaile.purchaseorder;
 
 import com.recnaile.purchaseorder.application.command.CreatePurchaseOrderFromApprovedIndentCommand;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recnaile.purchaseorder.application.command.CreatePurchaseOrderRequest;
 import com.recnaile.purchaseorder.client.indent.IndentClient;
 import com.recnaile.purchaseorder.client.indent.IndentDetails;
@@ -33,6 +34,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -55,8 +58,35 @@ class PurchaseOrderCreationServiceTest {
 
     private IndentDetails readyIndent() {
         return new IndentDetails(
-                "IND-001", "READY_FOR_PO", "Vendor One", "PRJ-001", "Procurement", null,
-                List.of(new IndentDetails.Item("ITEM-001", "Laptop", new BigDecimal("2"), new BigDecimal("10000"), new BigDecimal("18"))));
+                "IND-001",
+                "EMP-001",
+                "DEPT-001",
+                "Procurement",
+                "PRJ-001",
+                "Laptop purchase",
+                List.of(new IndentDetails.Item(
+                        "ITEM-001", "Laptop", new BigDecimal("2"), new BigDecimal("10000"),
+                        new BigDecimal("18"), new BigDecimal("20000"), "Approved item")),
+                new BigDecimal("20000"),
+                "READY_FOR_PO",
+                "TL",
+                "PROC-001",
+                java.time.Instant.parse("2026-09-21T10:10:34Z"),
+                "ok",
+                "TL-001",
+                java.time.Instant.parse("2026-09-21T10:13:25Z"),
+                "OK");
+    }
+
+    @Test
+    void approvedIndentItemAcceptsCurrentIndentSerialNumberField() throws Exception {
+        var item = new ObjectMapper().readValue(
+                "{\"serialNumber\":\"SN007\",\"itemName\":\"Bolt\",\"quantity\":1,\"estimatedUnitPrice\":10000,\"estimatedLineAmount\":10000,\"remarks\":\"M16 Bolts\"}",
+                IndentDetails.Item.class);
+
+        assertThat(item.itemId()).isEqualTo("SN007");
+        assertThat(item.itemName()).isEqualTo("Bolt");
+        assertThat(item.unitPrice()).isEqualByComparingTo("10000.00");
     }
 
     @Test
@@ -65,8 +95,6 @@ class PurchaseOrderCreationServiceTest {
         doReturn(List.of(vendor())).when(masterDataVendorClient).getAllVendors();
         when(masterDataReferenceClient.requireActiveDepartmentByName("Procurement"))
                 .thenReturn(new DepartmentResponse("DEPT-001", "Procurement", "ACTIVE", null, null, 1L));
-        when(masterDataReferenceClient.requireActiveItem("ITEM-001", "Laptop"))
-                .thenReturn(new ItemResponse("ITEM-001", "Laptop", "ACTIVE", null, null, 1L));
         when(idempotencyService.requestHash(any(), any(), any())).thenReturn("hash-1");
         when(idempotencyService.reserve(any(), any(), any(), any())).thenReturn(
                 new PurchaseOrderIdempotencyService.Reservation(new com.recnaile.purchaseorder.domain.model.IdempotencyRecord(), true));
@@ -75,9 +103,10 @@ class PurchaseOrderCreationServiceTest {
 
         PurchaseOrder result = service.createFromApprovedIndent(
                 new CreatePurchaseOrderFromApprovedIndentCommand(
-                        "IND-001", "Vendor One", "PRJ-001", "Procurement", com.recnaile.purchaseorder.domain.enums.PurchaseType.STANDARD, null,
-                        List.of(new CreatePurchaseOrderFromApprovedIndentCommand.ApprovedIndentLine(
-                                "ITEM-001", "Laptop", new BigDecimal("2"), new BigDecimal("10000"), new BigDecimal("18")))),
+                        "IND-001",
+                        com.recnaile.purchaseorder.domain.enums.PurchaseType.STANDARD,
+                        "Vendor One",
+                        null),
                 "user-1", "create-key-1");
 
         assertThat(result.getPoId()).isEqualTo("PO-001");
@@ -86,9 +115,14 @@ class PurchaseOrderCreationServiceTest {
         assertThat(result.getPurchaseType()).isEqualTo(com.recnaile.purchaseorder.domain.enums.PurchaseType.STANDARD);
         assertThat(result.getVendorName()).isEqualTo("Vendor One");
         assertThat(result.getSourceIndentIds()).containsExactly("IND-001");
+        assertThat(result.getIndentDetails()).isNotNull();
+        assertThat(result.getIndentDetails().getRequesterId()).isEqualTo("EMP-001");
+        assertThat(result.getIndentDetails().getVerifierId()).isEqualTo("PROC-001");
+        assertThat(result.getIndentDetails().getApproverId()).isEqualTo("TL-001");
         assertThat(result.getSubtotal()).isEqualByComparingTo("20000.00");
         assertThat(result.getGstAmount()).isEqualByComparingTo("3600.00");
         assertThat(result.getTotalAmount()).isEqualByComparingTo("23600.00");
+        verify(masterDataReferenceClient, never()).requireActiveItem(any(), any());
     }
 
 
@@ -103,7 +137,10 @@ class PurchaseOrderCreationServiceTest {
 
         assertThatThrownBy(() -> service.createFromApprovedIndent(
                 new CreatePurchaseOrderFromApprovedIndentCommand(
-                        "IND-001", "Vendor One", "PRJ-001", "Procurement", com.recnaile.purchaseorder.domain.enums.PurchaseType.STANDARD, null, List.of()),
+                        "IND-001",
+                        com.recnaile.purchaseorder.domain.enums.PurchaseType.STANDARD,
+                        "Vendor One",
+                        null),
                 "user-1", "duplicate-key"))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("already been converted");
@@ -112,14 +149,20 @@ class PurchaseOrderCreationServiceTest {
     @Test
     void rejectsIndentThatIsNotReadyForPo() {
         when(indentClient.getIndent("IND-001"))
-                .thenReturn(new IndentDetails("IND-001", "APPROVED", "Vendor One", "PRJ-001", "Procurement", null, List.of()));
+                .thenReturn(new IndentDetails(
+                        "IND-001", "EMP-001", "DEPT-001", "Procurement", "PRJ-001", "Laptop purchase",
+                        List.of(), BigDecimal.ZERO, "APPROVED", "TL", "PROC-001",
+                        null, "ok", "TL-001", null, "OK"));
         when(idempotencyService.requestHash(any(), any(), any())).thenReturn("hash-2");
         when(idempotencyService.reserve(any(), any(), any(), any())).thenReturn(
                 new PurchaseOrderIdempotencyService.Reservation(new com.recnaile.purchaseorder.domain.model.IdempotencyRecord(), true));
 
         assertThatThrownBy(() -> service.createFromApprovedIndent(
                 new CreatePurchaseOrderFromApprovedIndentCommand(
-                        "IND-001", "Vendor One", "PRJ-001", "Procurement", com.recnaile.purchaseorder.domain.enums.PurchaseType.STANDARD, null, List.of()),
+                        "IND-001",
+                        com.recnaile.purchaseorder.domain.enums.PurchaseType.STANDARD,
+                        "Vendor One",
+                        null),
                 "user-1", "key-2"))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("READY_FOR_PO");

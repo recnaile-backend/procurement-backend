@@ -83,12 +83,11 @@ public class PurchaseOrderController {
             summary = "Create PO from an approved indent",
             description = """
                     Use this API in the normal procurement workflow after an indent has completed approval
-                    and reached READY_FOR_PO. Idempotency-Key is optional; when supplied it makes retries safe and replayable. The client sends the indentNumber plus the PO business fields
-                    (vendorName, departmentName, projectId and items). Purchase Order Service calls Indent Service
-                    and automatically reads the authoritative current indent status. The user must not submit
-                    indentStatus manually. The remaining PO fields are validated,
-                    vendorName is resolved against active Master Data, and the backend rejects the request
-                    unless the current indent status is READY_FOR_PO.
+                    and reached READY_FOR_PO. Idempotency-Key is optional; when supplied it makes retries safe and replayable. The client sends indentNumber, purchaseType, vendorName and expectedDeliveryDate.
+                    Purchase Order Service calls Indent Service and reads the authoritative approved
+                    department, project, items and approval history. The client cannot override those
+                    indent-owned fields. vendorName is resolved against active Master Data, and the backend
+                    rejects the request unless the current indent status is READY_FOR_PO.
                     """)
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Purchase Order created from approved indent"),
@@ -118,7 +117,7 @@ public class PurchaseOrderController {
         return ApiResponse.success(PurchaseOrderResponse.from(queryService.getById(poId)));
     }
 
-    @Operation(summary = "Get all Purchase Orders", description = "Returns Purchase Orders visible to Procurement, TL and MD. Optional vendorName, projectId and departmentName filters may be supplied. If departmentName is provided, only Purchase Orders for that department are returned.")
+    @Operation(summary = "Get all Purchase Orders", description = "Returns Purchase Orders visible to Procurement, TL and MD. Optional vendorName, projectId and departmentName filters may be supplied. Each PO created from an approved indent includes an indentDetails snapshot containing requester, department, project, items, verification and approval information. The snapshot is stored in the PO database so GET requests do not call Indent Service for every PO.")
     @GetMapping
     public ApiResponse<List<PurchaseOrderResponse>> getAll(
             @RequestParam(required = false) String vendorName,

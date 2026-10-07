@@ -87,10 +87,9 @@ class PurchaseOrderApiContractTest {
                 .doesNotContain("poNumber", "indentStatus");
 
         assertThat(Arrays.stream(CreatePurchaseOrderFromApprovedIndentCommand.class.getRecordComponents())
-                .map(java.lang.reflect.RecordComponent::getName)
-                .toList())
-                .contains("indentNumber", "vendorName", "departmentName", "purchaseType", "projectId", "expectedDeliveryDate", "items")
-                .doesNotContain("indentId", "vendorId", "departmentId", "indentStatus", "remarks");
+                .map(java.lang.reflect.RecordComponent::getName).toList())
+                .containsExactly("indentNumber", "purchaseType", "vendorName", "expectedDeliveryDate")
+                .doesNotContain("indentId", "vendorId", "departmentId", "departmentName", "projectId", "items", "indentStatus", "remarks");
 
         assertThat(Arrays.stream(PurchaseOrderReasonRequest.class.getRecordComponents())
                 .map(java.lang.reflect.RecordComponent::getName)
@@ -100,7 +99,7 @@ class PurchaseOrderApiContractTest {
         assertThat(Arrays.stream(PurchaseOrderResponse.class.getRecordComponents())
                 .map(java.lang.reflect.RecordComponent::getName)
                 .toList())
-                .contains("indentNumber", "indentStatus", "vendorName", "departmentName", "items")
+                .contains("indentNumber", "indentStatus", "indentDetails", "vendorName", "departmentName", "items")
                 .doesNotContain("sourceIndentIds", "vendorId", "departmentId", "remarks", "lines", "poNumber");
     }
 }
