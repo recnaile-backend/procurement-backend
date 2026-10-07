@@ -50,7 +50,7 @@ class GRNCreationServiceTest {
                 "3D",
                 List.of(new PurchaseOrderLineSummary(
                         "PO-LINE-1",
-                        "ITEM-1",
+                        "Bolt",
                         new BigDecimal("10")
                 ))
         );
@@ -66,7 +66,7 @@ class GRNCreationServiceTest {
                 Instant.parse("2026-09-22T00:00:00Z"),
                 "user-1",
                 List.of(new CreateGRNLineRequest(
-                        "ITEM-1",
+                        "Bolt",
                         "EA",
                         new BigDecimal("6"),
                         BigDecimal.ZERO,
@@ -84,7 +84,7 @@ class GRNCreationServiceTest {
         assertEquals("user-1", response.receivedBy());
         assertEquals("DRAFT", response.grnStatus().name());
         assertNull(response.receivedAt());
-        assertEquals("ITEM-1", response.items().get(0).itemId());
+        assertEquals("Bolt", response.items().get(0).itemName());
         assertEquals(new BigDecimal("10"), response.items().get(0).orderedQuantity());
         assertEquals(new BigDecimal("6"), response.items().get(0).acceptedQuantity());
         verify(client).getPurchaseOrder("PO-1");
@@ -100,7 +100,7 @@ class GRNCreationServiceTest {
                         "3D",
                         List.of(new PurchaseOrderLineSummary(
                                 "PO-LINE-1",
-                                "ITEM-1",
+                                "Bolt",
                                 new BigDecimal("10")
                         ))
                 )
@@ -112,7 +112,7 @@ class GRNCreationServiceTest {
                 Instant.parse("2026-09-22T00:00:00Z"),
                 "user-1",
                 List.of(new CreateGRNLineRequest(
-                        "OTHER-ITEM",
+                        "Nut",
                         "EA",
                         new BigDecimal("1"),
                         BigDecimal.ZERO,
@@ -125,15 +125,15 @@ class GRNCreationServiceTest {
     }
 
     @Test
-    void rejectsPurchaseOrderWithDuplicateItemIds() {
+    void rejectsPurchaseOrderWithDuplicateItemNames() {
         when(client.getPurchaseOrder("PO-1")).thenReturn(
                 new PurchaseOrderSummary(
                         "PO-1",
                         "ISSUED",
                         "3D",
                         List.of(
-                                new PurchaseOrderLineSummary("PO-LINE-1", "ITEM-1", new BigDecimal("10")),
-                                new PurchaseOrderLineSummary("PO-LINE-2", "ITEM-1", new BigDecimal("5"))
+                                new PurchaseOrderLineSummary("PO-LINE-1", "Bolt", new BigDecimal("10")),
+                                new PurchaseOrderLineSummary("PO-LINE-2", "Bolt", new BigDecimal("5"))
                         )
                 )
         );
@@ -144,7 +144,7 @@ class GRNCreationServiceTest {
                 Instant.parse("2026-09-22T00:00:00Z"),
                 "user-1",
                 List.of(new CreateGRNLineRequest(
-                        "ITEM-1",
+                        "Bolt",
                         "EA",
                         new BigDecimal("1"),
                         BigDecimal.ZERO,
@@ -157,7 +157,7 @@ class GRNCreationServiceTest {
                 () -> service.create(request)
         );
 
-        assertTrue(exception.getMessage().contains("duplicate itemId"));
+        assertTrue(exception.getMessage().contains("duplicate itemName"));
         verify(repository, never()).save(any());
     }
 
@@ -170,7 +170,7 @@ class GRNCreationServiceTest {
                         "3D",
                         List.of(new PurchaseOrderLineSummary(
                                 "PO-LINE-1",
-                                "ITEM-1",
+                                "Bolt",
                                 new BigDecimal("10")
                         ))
                 )
@@ -182,7 +182,7 @@ class GRNCreationServiceTest {
                 Instant.parse("2026-09-22T00:00:00Z"),
                 "user-1",
                 List.of(new CreateGRNLineRequest(
-                        "ITEM-1",
+                        "Bolt",
                         "EA",
                         BigDecimal.ZERO,
                         new BigDecimal("1"),
@@ -197,11 +197,11 @@ class GRNCreationServiceTest {
     void rejectsReceiptWhenCurrentLineExceedsOrderedQuantity() {
         when(client.getPurchaseOrder("PO-1")).thenReturn(
                 new PurchaseOrderSummary("PO-1", "ISSUED", "3D",
-                        List.of(new PurchaseOrderLineSummary("PO-LINE-1", "ITEM-1", new BigDecimal("10")))));
+                        List.of(new PurchaseOrderLineSummary("PO-LINE-1", "Bolt", new BigDecimal("10")))));
 
         CreateGRNRequest request = new CreateGRNRequest(
                 "PO-1", "DN-OVER", Instant.parse("2026-09-22T00:00:00Z"), "user-1",
-                List.of(new CreateGRNLineRequest("ITEM-1", "EA", new BigDecimal("9"), new BigDecimal("2"), "Damaged")));
+                List.of(new CreateGRNLineRequest("Bolt", "EA", new BigDecimal("9"), new BigDecimal("2"), "Damaged")));
 
         assertThrows(com.recnaile.inward.exception.ReceivedQuantityExceedsOrderedException.class,
                 () -> service.create(request));
@@ -212,19 +212,19 @@ class GRNCreationServiceTest {
     void rejectsReceiptWhenCumulativeQuantityExceedsOrderedQuantity() {
         when(client.getPurchaseOrder("PO-1")).thenReturn(
                 new PurchaseOrderSummary("PO-1", "ISSUED", "3D",
-                        List.of(new PurchaseOrderLineSummary("PO-LINE-1", "ITEM-1", new BigDecimal("10")))));
+                        List.of(new PurchaseOrderLineSummary("PO-LINE-1", "Bolt", new BigDecimal("10")))));
 
         GRNDocument previous = new GRNDocument(null, "GRN%2F26-27%2F001", "PO-1", "3D", "DN-OLD",
                 Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-21T01:00:00Z"),
                 "user-1", com.recnaile.inward.model.GRNStatus.PARTIALLY_RECEIVED,
-                List.of(new com.recnaile.inward.model.GRNLine("ITEM-1", new BigDecimal("10"),
+                List.of(new com.recnaile.inward.model.GRNLine("Bolt", new BigDecimal("10"),
                         new BigDecimal("7"), new BigDecimal("1"), "EA", "Damaged")));
 
         when(repository.findByPoId(eq("PO-1"), any())).thenReturn(List.of(previous));
 
         CreateGRNRequest request = new CreateGRNRequest(
                 "PO-1", "DN-NEW", Instant.parse("2026-09-22T00:00:00Z"), "user-1",
-                List.of(new CreateGRNLineRequest("ITEM-1", "EA", new BigDecimal("2"), new BigDecimal("1"), "Damaged")));
+                List.of(new CreateGRNLineRequest("Bolt", "EA", new BigDecimal("2"), new BigDecimal("1"), "Damaged")));
 
         assertThrows(com.recnaile.inward.exception.ReceivedQuantityExceedsOrderedException.class,
                 () -> service.create(request));
@@ -235,12 +235,12 @@ class GRNCreationServiceTest {
     void allowsPartialReceiptAcrossMultipleGRNs() {
         when(client.getPurchaseOrder("PO-1")).thenReturn(
                 new PurchaseOrderSummary("PO-1", "ISSUED", "3D",
-                        List.of(new PurchaseOrderLineSummary("PO-LINE-1", "ITEM-1", new BigDecimal("10")))));
+                        List.of(new PurchaseOrderLineSummary("PO-LINE-1", "Bolt", new BigDecimal("10")))));
         when(repository.findByPoId(eq("PO-1"), any())).thenReturn(List.of(
                 new GRNDocument(null, "GRN%2F26-27%2F001", "PO-1", "3D", "DN-OLD",
                         Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-21T01:00:00Z"),
                         "user-1", com.recnaile.inward.model.GRNStatus.PARTIALLY_RECEIVED,
-                        List.of(new com.recnaile.inward.model.GRNLine("ITEM-1", new BigDecimal("10"),
+                        List.of(new com.recnaile.inward.model.GRNLine("Bolt", new BigDecimal("10"),
                                 new BigDecimal("6"), BigDecimal.ZERO, "EA", null)))
         ));
         when(grnNumberGenerator.next()).thenReturn("GRN%2F26-27%2F002");
@@ -248,7 +248,7 @@ class GRNCreationServiceTest {
 
         CreateGRNRequest request = new CreateGRNRequest(
                 "PO-1", "DN-NEW", Instant.parse("2026-09-22T00:00:00Z"), "user-1",
-                List.of(new CreateGRNLineRequest("ITEM-1", "EA", new BigDecimal("3"), new BigDecimal("1"), "Damaged")));
+                List.of(new CreateGRNLineRequest("Bolt", "EA", new BigDecimal("3"), new BigDecimal("1"), "Damaged")));
 
         GRNResponse response = service.create(request);
 
@@ -264,21 +264,21 @@ class GRNCreationServiceTest {
     void tracksRemainingQuantityAndFullReceiptAcrossGrns() {
         PurchaseOrderSummary po = new PurchaseOrderSummary(
                 "PO-1", "ISSUED", "3D",
-                List.of(new PurchaseOrderLineSummary("PO-LINE-1", "ITEM-1", new BigDecimal("10"))));
+                List.of(new PurchaseOrderLineSummary("PO-LINE-1", "Bolt", new BigDecimal("10"))));
 
         when(repository.findByPoId(eq("PO-1"), any())).thenReturn(List.of(
                 new GRNDocument(null, "GRN%2F26-27%2F001", "PO-1", "3D", "DN-1",
                         Instant.parse("2026-09-21T00:00:00Z"), Instant.parse("2026-09-21T01:00:00Z"),
                         "user-1", com.recnaile.inward.model.GRNStatus.PARTIALLY_RECEIVED,
-                        List.of(new com.recnaile.inward.model.GRNLine("ITEM-1", new BigDecimal("10"),
+                        List.of(new com.recnaile.inward.model.GRNLine("Bolt", new BigDecimal("10"),
                                 new BigDecimal("6"), BigDecimal.ZERO, "EA", null)))
         ));
 
         GRNReceiptProgressService.GRNReceiptProgress progress =
                 receiptProgressService.calculateProgress("PO-1", po);
 
-        assertEquals(new BigDecimal("6"), progress.receivedQuantities().get("ITEM-1"));
-        assertEquals(new BigDecimal("4"), progress.remainingQuantities().get("ITEM-1"));
+        assertEquals(new BigDecimal("6"), progress.receivedQuantities().get("Bolt"));
+        assertEquals(new BigDecimal("4"), progress.remainingQuantities().get("Bolt"));
         assertFalse(progress.fullyReceived());
     }
 

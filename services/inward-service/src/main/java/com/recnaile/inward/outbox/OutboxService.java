@@ -215,7 +215,7 @@ public class OutboxService {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("grnId", grn.grnId());
         payload.put("poId", grn.poId());
-        payload.put("itemId", line.itemId());
+        payload.put("itemName", line.itemName());
         payload.put("orderedQuantity", line.orderedQuantity());
         payload.put("acceptedQuantity", line.acceptedQuantity());
         payload.put("rejectedQuantity", line.rejectedQuantity());

@@ -95,13 +95,13 @@ public class GRNReceiptService {
                 receiptProgressService.cumulativeReceivedByItem(grn.getPoId());
         boolean fullyReceived = true;
         for (var line : grn.getLines() == null ? java.util.List.<com.recnaile.inward.model.GRNLine>of() : grn.getLines()) {
-            BigDecimal before = receivedBeforeThisGrn.getOrDefault(line.itemId(), BigDecimal.ZERO);
+            BigDecimal before = receivedBeforeThisGrn.getOrDefault(line.itemName(), BigDecimal.ZERO);
             BigDecimal current = safe(line.acceptedQuantity()).add(safe(line.rejectedQuantity()));
-            receivedBeforeThisGrn.put(line.itemId(), before.add(current));
+            receivedBeforeThisGrn.put(line.itemName(), before.add(current));
         }
         for (var poItem : purchaseOrder.items() == null ? java.util.List.<com.recnaile.inward.po.PurchaseOrderLineSummary>of() : purchaseOrder.items()) {
-            if (poItem == null || poItem.itemId() == null || poItem.quantity() == null) continue;
-            if (receivedBeforeThisGrn.getOrDefault(poItem.itemId(), BigDecimal.ZERO)
+            if (poItem == null || poItem.itemName() == null || poItem.quantity() == null) continue;
+            if (receivedBeforeThisGrn.getOrDefault(poItem.itemName(), BigDecimal.ZERO)
                     .compareTo(poItem.quantity()) < 0) {
                 fullyReceived = false;
                 break;

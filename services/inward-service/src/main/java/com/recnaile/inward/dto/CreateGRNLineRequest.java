@@ -7,8 +7,18 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
 public record CreateGRNLineRequest(
-        @NotBlank String itemId,
-        @NotBlank String unitOfMeasure,
+        @NotBlank
+        @io.swagger.v3.oas.annotations.media.Schema(
+                description = "Item name exactly as carried by the issued Purchase Order. Item IDs are not used in the PO-to-GRN workflow.",
+                example = "Bolt"
+        )
+        String itemName,
+        @NotBlank
+        @io.swagger.v3.oas.annotations.media.Schema(
+                description = "Unit of measure for the received quantity.",
+                example = "PCS"
+        )
+        String unitOfMeasure,
         @NotNull @DecimalMin(value = "0.0", inclusive = true) BigDecimal acceptedQuantity,
         @NotNull @DecimalMin(value = "0.0", inclusive = true) BigDecimal rejectedQuantity,
         @io.swagger.v3.oas.annotations.media.Schema(

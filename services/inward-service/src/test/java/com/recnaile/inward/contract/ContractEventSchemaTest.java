@@ -53,8 +53,10 @@ class ContractEventSchemaTest {
         assertEquals("inward-service", actual.path("producer").asText());
         assertEquals("GRN%2F26-27%2F001", actual.path("payload").path("grnId").asText());
         assertEquals("PO-009", actual.path("payload").path("poId").asText());
-        assertEquals("ITEM-1", actual.path("payload").path("itemId").asText());
+        assertEquals("Bolt", actual.path("payload").path("itemName").asText());
         assertTrue(actual.path("payload").has("acceptedQuantity"));
+        assertFalse(actual.path("payload").has("itemId"),
+                "itemId must not be introduced into the GOODS_RECEIVED contract");
         assertFalse(actual.path("payload").has("poLineId"),
                 "poLineId must not be introduced into the GOODS_RECEIVED contract");
     }
@@ -115,7 +117,7 @@ class ContractEventSchemaTest {
                 Instant.parse("2026-09-24T09:00:00Z"),
                 Instant.parse("2026-09-24T10:00:00Z"), "Rajesh", GRNStatus.DRAFT,
                 List.of(new GRNLine(
-                        "ITEM-1", new BigDecimal("10"), new BigDecimal("9"),
+                        "Bolt", new BigDecimal("10"), new BigDecimal("9"),
                         BigDecimal.ONE, "PCS", "Damaged")),
                 0L, null, null);
     }

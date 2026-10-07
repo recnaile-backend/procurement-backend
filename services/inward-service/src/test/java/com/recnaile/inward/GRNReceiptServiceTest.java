@@ -48,12 +48,12 @@ class GRNReceiptServiceTest {
     void partialReceiptConfirmsDraftAndPublishesOnlyAfterConfirmation() {
         PurchaseOrderSummary po = new PurchaseOrderSummary(
                 "PO-1", "ISSUED", "3D",
-                List.of(new PurchaseOrderLineSummary("PO-LINE-1", "ITEM-1", new BigDecimal("10"))));
+                List.of(new PurchaseOrderLineSummary("PO-LINE-1", "Bolt", new BigDecimal("10"))));
         GRNDocument draft = new GRNDocument(
                 "mongo-1", "GRN%2F26-27%2F001", "PO-1", "3D", "DN-1",
                 Instant.parse("2026-10-06T00:00:00Z"), Instant.parse("2026-10-06T01:00:00Z"),
                 "EMP001", GRNStatus.DRAFT,
-                List.of(new GRNLine("ITEM-1", new BigDecimal("10"), new BigDecimal("6"), BigDecimal.ZERO, "PCS", null)));
+                List.of(new GRNLine("Bolt", new BigDecimal("10"), new BigDecimal("6"), BigDecimal.ZERO, "PCS", null)));
         when(repository.findByGrnId("GRN%2F26-27%2F001")).thenReturn(java.util.Optional.of(draft));
         when(repository.findByPoId(eq("PO-1"), any())).thenReturn(List.of(draft));
         when(client.getPurchaseOrder("PO-1")).thenReturn(po);
@@ -71,12 +71,12 @@ class GRNReceiptServiceTest {
     void fullReceiptConfirmsDraftAsCompleted() {
         PurchaseOrderSummary po = new PurchaseOrderSummary(
                 "PO-1", "ISSUED", "3D",
-                List.of(new PurchaseOrderLineSummary("PO-LINE-1", "ITEM-1", new BigDecimal("10"))));
+                List.of(new PurchaseOrderLineSummary("PO-LINE-1", "Bolt", new BigDecimal("10"))));
         GRNDocument draft = new GRNDocument(
                 "mongo-1", "GRN%2F26-27%2F002", "PO-1", "3D", "DN-2",
                 Instant.parse("2026-10-07T00:00:00Z"), Instant.parse("2026-10-07T01:00:00Z"),
                 "EMP001", GRNStatus.DRAFT,
-                List.of(new GRNLine("ITEM-1", new BigDecimal("10"), new BigDecimal("10"), BigDecimal.ZERO, "PCS", null)));
+                List.of(new GRNLine("Bolt", new BigDecimal("10"), new BigDecimal("10"), BigDecimal.ZERO, "PCS", null)));
         when(repository.findByGrnId("GRN%2F26-27%2F002")).thenReturn(java.util.Optional.of(draft));
         when(repository.findByPoId(eq("PO-1"), any())).thenReturn(List.of(draft));
         when(client.getPurchaseOrder("PO-1")).thenReturn(po);
@@ -94,7 +94,7 @@ class GRNReceiptServiceTest {
                 "mongo-1", "GRN%2F26-27%2F003", "PO-1", "3D", "DN-3",
                 Instant.parse("2026-10-07T00:00:00Z"), Instant.parse("2026-10-07T01:00:00Z"),
                 "EMP001", GRNStatus.COMPLETED,
-                List.of(new GRNLine("ITEM-1", new BigDecimal("10"), new BigDecimal("10"), BigDecimal.ZERO, "PCS", null)));
+                List.of(new GRNLine("Bolt", new BigDecimal("10"), new BigDecimal("10"), BigDecimal.ZERO, "PCS", null)));
         when(repository.findByGrnId("GRN%2F26-27%2F003")).thenReturn(java.util.Optional.of(confirmed));
 
         assertThrows(com.recnaile.inward.exception.InvalidGRNStateTransitionException.class,

@@ -28,3 +28,14 @@ docker compose ps inward-service
 ## Phase 14 — Observability
 
 The service exposes Actuator/Prometheus metrics, OpenTelemetry traces, correlation-aware JSON logs, and liveness/readiness health endpoints. See `docs/observability.md` for the complete operational contract.
+
+
+## Finalized Procurement → PO → Inward/GRN Workflow
+
+- The issued Purchase Order is the authoritative source for `itemName` and ordered quantity.
+- GRN creation accepts `itemName`, `unitOfMeasure`, accepted quantity, rejected quantity and rejection reason.
+- `itemId` is not used in the procurement → PO → Inward/GRN flow.
+- GRN creation validates the referenced PO is `ISSUED` and that every requested `itemName` exists exactly once on that PO.
+- A created GRN starts as `DRAFT`; it does not publish `GOODS_RECEIVED`.
+- `POST /api/v1/goods-receipts/{grnId}/receive` confirms the receipt, calculates `PARTIALLY_RECEIVED` or `COMPLETED`, and then writes the `GOODS_RECEIVED` event to the transactional outbox.
+- Accepted + rejected quantity is validated against the PO ordered quantity cumulatively across confirmed GRNs.

@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record PurchaseOrderLineSummary(
         String id,
-        String itemId,
+        String itemName,
         BigDecimal quantity
 ) {
 }

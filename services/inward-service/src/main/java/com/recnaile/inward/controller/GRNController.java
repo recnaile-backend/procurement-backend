@@ -141,7 +141,7 @@ public class GRNController {
             summary = "Create GRN",
             description = "Creates a DRAFT GRN against an ISSUED Purchase Order. "
                     + "The Purchase Order Service is revalidated before the GRN is persisted. "
-                    + "Each requested item must belong to the PO. Rejected quantity requires a rejection reason. "
+                    + "Each requested itemName must match an itemName carried by the issued PO. Rejected quantity requires a rejection reason. "
                     + "Cumulative outstanding-quantity validation is handled in Phase 06."
     )
     @ApiResponses({
@@ -157,7 +157,7 @@ public class GRNController {
                             examples = {
                                     @ExampleObject(
                                             name = "ItemNotInPurchaseOrder",
-                                            value = "{\"success\":false,\"data\":null,\"error\":{\"code\":\"ITEM_NOT_IN_PURCHASE_ORDER\",\"message\":\"Item Item-999 does not belong to PO PO-008\",\"traceId\":\"corr-123\"}}"
+                                            value = "{\"success\":false,\"data\":null,\"error\":{\"code\":\"ITEM_NOT_IN_PURCHASE_ORDER\",\"message\":\"Item Bolt-999 does not belong to PO PO-008\",\"traceId\":\"corr-123\"}}"
                                     ),
                                     @ExampleObject(
                                             name = "ValidationError",

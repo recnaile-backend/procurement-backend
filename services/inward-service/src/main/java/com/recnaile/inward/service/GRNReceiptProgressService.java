@@ -36,11 +36,11 @@ public class GRNReceiptProgressService {
         List<PurchaseOrderLineSummary> poItems = purchaseOrder.items() == null ? List.of() : purchaseOrder.items();
         for (GRNLine line : requestedLines) {
             BigDecimal requested = safe(line.acceptedQuantity()).add(safe(line.rejectedQuantity()));
-            BigDecimal prior = previouslyReceived.getOrDefault(line.itemId(), BigDecimal.ZERO);
+            BigDecimal prior = previouslyReceived.getOrDefault(line.itemName(), BigDecimal.ZERO);
             BigDecimal cumulative = prior.add(requested);
 
             PurchaseOrderLineSummary poLine = poItems.stream()
-                    .filter(item -> item != null && line.itemId().equals(item.itemId()))
+                    .filter(item -> item != null && line.itemName().equals(item.itemName()))
                     .findFirst()
                     .orElse(null);
 
@@ -51,7 +51,7 @@ public class GRNReceiptProgressService {
             if (cumulative.compareTo(poLine.quantity()) > 0) {
                 throw new ReceivedQuantityExceedsOrderedException(
                         poId,
-                        line.itemId(),
+                        line.itemName(),
                         poLine.quantity(),
                         prior,
                         requested
@@ -79,7 +79,7 @@ public class GRNReceiptProgressService {
             }
             for (GRNLine line : grn.getLines()) {
                 BigDecimal quantity = safe(line.acceptedQuantity()).add(safe(line.rejectedQuantity()));
-                totals.merge(line.itemId(), quantity, BigDecimal::add);
+                totals.merge(line.itemName(), quantity, BigDecimal::add);
             }
         }
 
@@ -95,13 +95,13 @@ public class GRNReceiptProgressService {
         boolean fullyReceived = true;
 
         for (PurchaseOrderLineSummary item : purchaseOrder.items() == null ? List.<PurchaseOrderLineSummary>of() : purchaseOrder.items()) {
-            if (item == null || item.itemId() == null || item.quantity() == null) {
+            if (item == null || item.itemName() == null || item.quantity() == null) {
                 continue;
             }
 
-            BigDecimal receivedQuantity = safe(received.get(item.itemId()));
+            BigDecimal receivedQuantity = safe(received.get(item.itemName()));
             BigDecimal remainingQuantity = item.quantity().subtract(receivedQuantity).max(BigDecimal.ZERO);
-            remaining.put(item.itemId(), remainingQuantity);
+            remaining.put(item.itemName(), remainingQuantity);
 
             if (remainingQuantity.signum() > 0) {
                 fullyReceived = false;
