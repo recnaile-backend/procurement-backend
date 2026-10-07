@@ -328,3 +328,18 @@ The reconciliation API compares the current projected balance with the sum of im
 ### Update available stock
 
 `PUT /api/v1/inventory/stock/{itemId}/available-quantity` is restricted to Procurement and MD and records the difference as an immutable manual adjustment movement.
+
+## Master Data Item Identity
+
+`itemId` is the canonical inventory identity and is owned by the Master Data Service.
+Procurement creates/maintains item masters there; Inventory does not create independent item identities.
+All Inventory REST APIs use the Master Data `itemId` in their path.
+
+For event-driven stock changes, the producer must provide the canonical `itemId` in the event payload. Inventory must never invent an item ID from `itemName`. If a producer currently has only `itemName`, that producer must resolve the item through Master Data before publishing the Inventory-consumed event.
+
+## Audit and Alert Guarantees
+
+- Available-stock adjustments create an immutable movement and an audit record.
+- Threshold changes create an audit record with before/after threshold and status values.
+- A transition into low-stock state creates a `LOW_STOCK_ALERT` outbox record whether the transition was caused by a stock movement, manual adjustment, or threshold change.
+- Processed event IDs are protected by a unique MongoDB index to prevent concurrent duplicate event processing.

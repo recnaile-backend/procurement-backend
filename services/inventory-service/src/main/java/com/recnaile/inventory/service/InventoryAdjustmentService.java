@@ -7,6 +7,7 @@ import com.recnaile.inventory.domain.StockStatus;
 import com.recnaile.inventory.domain.StockType;
 import com.recnaile.inventory.exception.InsufficientStockException;
 import com.recnaile.inventory.repository.InventoryAuditRepository;
+import com.recnaile.inventory.repository.OutboxRepository;
 import com.recnaile.inventory.repository.StockBalanceRepository;
 import com.recnaile.inventory.repository.StockMovementRepository;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -23,16 +24,19 @@ public class InventoryAdjustmentService {
     private final StockMovementRepository movements;
     private final InventoryAuditRepository auditRepository;
     private final MeterRegistry meterRegistry;
+    private final OutboxRepository outboxRepository;
 
     public InventoryAdjustmentService(
             StockBalanceRepository balances,
             StockMovementRepository movements,
             InventoryAuditRepository auditRepository,
-            MeterRegistry meterRegistry) {
+            MeterRegistry meterRegistry,
+            OutboxRepository outboxRepository) {
         this.balances = balances;
         this.movements = movements;
         this.auditRepository = auditRepository;
         this.meterRegistry = meterRegistry;
+        this.outboxRepository = outboxRepository;
     }
 
     @Transactional
@@ -45,6 +49,9 @@ public class InventoryAdjustmentService {
             String reason,
             String actorId) {
 
+        if (itemId == null || itemId.isBlank()) {
+            throw new IllegalArgumentException("itemId is required");
+        }
         if (targetAvailable < 0) {
             throw new IllegalArgumentException("availableQuantity must be >= 0");
         }
@@ -68,9 +75,6 @@ public class InventoryAdjustmentService {
 
         // An adjustment is still represented in the immutable ledger. This keeps
         // the current balance auditable instead of silently overwriting it.
-        if (targetAvailable < 0) {
-            throw new InsufficientStockException(itemId, Math.abs(delta), before);
-        }
 
         boolean wasLow = balance.isLowStock();
         balance.setAvailableQuantity(targetAvailable);
@@ -134,6 +138,19 @@ public class InventoryAdjustmentService {
         meterRegistry.counter("inventory.stock.manual_adjustments").increment();
 
         if (!wasLow && balance.isLowStock()) {
+            Map<String, Object> payload = Map.of(
+                    "itemId", itemId,
+                    "availableQuantity", balance.getAvailableQuantity(),
+                    "reorderThreshold", balance.getMinimumStock());
+            outboxRepository.save(new com.recnaile.inventory.domain.OutboxEventDocument(
+                    UUID.randomUUID().toString(),
+                    "LOW_STOCK_ALERT",
+                    1,
+                    Instant.now(),
+                    "inventory-service",
+                    null,
+                    null,
+                    payload));
             meterRegistry.counter("inventory.low_stock.alerts").increment();
         }
 

@@ -41,7 +41,7 @@ class ReconciliationServiceTest {
                 movement("ITEM-1", StockType.DEFECT, 2);
 
         when(balances.findByItemId("ITEM-1")).thenReturn(List.of(balance));
-        when(movements.findAll()).thenReturn(List.of(received, issued, rejected));
+        when(movements.findByItemId("ITEM-1")).thenReturn(List.of(received, issued, rejected));
 
         InventoryReconciliationResponse result = service.reconcile("ITEM-1");
 
@@ -64,7 +64,7 @@ class ReconciliationServiceTest {
         balance.setDefectQuantity(0);
 
         when(balances.findByItemId("ITEM-1")).thenReturn(List.of(balance));
-        when(movements.findAll()).thenReturn(List.of(
+        when(movements.findByItemId("ITEM-1")).thenReturn(List.of(
                 movement("ITEM-1", StockType.AVAILABLE, 10)));
 
         InventoryReconciliationResponse result = service.reconcile("ITEM-1");

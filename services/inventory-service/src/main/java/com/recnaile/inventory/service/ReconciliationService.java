@@ -22,7 +22,7 @@ public class ReconciliationService {
         int available=0, defect=0;
         for(StockBalanceDocument b:bs){available+=b.getAvailableQuantity();defect+=b.getDefectQuantity();}
         int movementAvailable=0,movementDefect=0;
-        for(StockMovementDocument m:movements.findAll()){
+        for(StockMovementDocument m:movements.findByItemId(itemId)){
             if(!itemId.equals(m.getItemId())) continue;
             if(m.getStockType().name().equals("AVAILABLE")) movementAvailable+=m.getDelta();
             else movementDefect+=m.getDelta();

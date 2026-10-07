@@ -9,4 +9,5 @@ public interface StockMovementRepository extends MongoRepository<StockMovementDo
     Optional<StockMovementDocument> findByEventId(String eventId);
 
     List<StockMovementDocument> findByItemIdOrderByOccurredAtDesc(String itemId);
+    List<StockMovementDocument> findByItemId(String itemId);
 }

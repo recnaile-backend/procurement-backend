@@ -24,8 +24,14 @@ public class MongoIndexConfig {
             mongoTemplate.indexOps(StockMovementDocument.class)
                     .ensureIndex(new Index().on("itemId", Sort.Direction.ASC)
                             .on("occurredAt", Sort.Direction.DESC));
+            var idempotencyIndexes = mongoTemplate.indexOps(IdempotencyDocument.class).getIndexInfo();
+            idempotencyIndexes.stream()
+                    .filter(index -> index.getIndexFields().size() == 1
+                            && index.getIndexFields().get(0).getKey().equals("eventId")
+                            && !index.isUnique())
+                    .forEach(index -> mongoTemplate.indexOps(IdempotencyDocument.class).dropIndex(index.getName()));
             mongoTemplate.indexOps(IdempotencyDocument.class)
-                    .ensureIndex(new Index().on("eventId", Sort.Direction.ASC));
+                    .ensureIndex(new Index().on("eventId", Sort.Direction.ASC).unique());
             mongoTemplate.indexOps(OutboxEventDocument.class)
                     .ensureIndex(new Index().on("published", Sort.Direction.ASC)
                             .on("createdAt", Sort.Direction.ASC));

@@ -142,9 +142,11 @@ public class InventoryController {
     public ResponseEntity<StockBalanceDocument> updateThresholds(
             @Parameter(description = "Inventory item identifier", required = true, example = "ITEM-1001")
             @PathVariable String itemId,
-            @Valid @RequestBody ThresholdRequest request) {
+            @Valid @RequestBody ThresholdRequest request,
+            Authentication authentication) {
+        String actorId = authentication == null ? "inventory-api" : authentication.getName();
         return ResponseEntity.ok(threshold.update(itemId, request.departmentName(), request.projectId(), request.location(),
-                request.minimumStock(), request.maximumStock()));
+                request.minimumStock(), request.maximumStock(), actorId));
     }
 
     @Operation(summary = "Reconcile inventory", description = "Compares the projected stock balance with the immutable movement ledger for an item.")

@@ -218,7 +218,8 @@ class InventoryControllerTest {
                 "PROJ-1",
                 "RACK-A",
                 10,
-                50))
+                50,
+                "test-user"))
                 .thenReturn(balance);
 
         mvc.perform(
@@ -232,7 +233,8 @@ class InventoryControllerTest {
                                   "minimumStock": 10,
                                   "maximumStock": 50
                                 }
-                                """))
+                                """)
+                        .principal(new TestingAuthenticationToken("test-user", null)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.itemId", is("ITEM-1")))
                 .andExpect(jsonPath("$.minimumStock", is(10)))
