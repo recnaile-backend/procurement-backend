@@ -71,7 +71,7 @@ public class OutwardRequestController {
 
     @Operation(
             summary = "Create an outward request",
-            description = "Creates and immediately submits an outward request for approval. Item, department, project and stock validation is performed against Master Data before persistence.")
+            description = "Creates and immediately submits an outward request for approval. Master Data validates item identity and master-data attributes before persistence; Inventory stock is checked only at the actual issue step.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Outward request created", content = @Content(schema = @Schema(implementation = OutwardResponse.class))),
             @ApiResponse(responseCode = "400", description = "Validation or Master Data business validation failure", content = @Content(schema = @Schema(implementation = ApiError.class))),

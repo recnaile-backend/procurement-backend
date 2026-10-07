@@ -24,6 +24,7 @@ public class OutboxEventPublisher {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final Clock clock;
     private final String outwardIssuedTopic;
+    private final String stockIssueApprovedTopic;
     private final String auditTopic;
     private final String notificationTopic;
     private final long sendTimeoutMs;
@@ -33,11 +34,12 @@ public class OutboxEventPublisher {
     public OutboxEventPublisher(OutboxEventRepository repository,
                                 KafkaTemplate<String, String> kafkaTemplate,
                                 @Value("${app.kafka.topics.outward-issued:outward.events}") String outwardIssuedTopic,
+                                @Value("${app.kafka.topics.stock-issue-approved:inventory.events}") String stockIssueApprovedTopic,
                                 @Value("${app.kafka.topics.audit:audit.events}") String auditTopic,
                                 @Value("${app.kafka.topics.notification:notification.events}") String notificationTopic,
                                 @Value("${app.kafka.publisher.send-timeout-ms:5000}") long sendTimeoutMs,
                                 @Value("${app.kafka.publisher.max-attempts:10}") int maxAttempts) {
-        this(repository, kafkaTemplate, outwardIssuedTopic, auditTopic, notificationTopic, sendTimeoutMs, maxAttempts, Clock.systemUTC());
+        this(repository, kafkaTemplate, outwardIssuedTopic, stockIssueApprovedTopic, auditTopic, notificationTopic, sendTimeoutMs, maxAttempts, Clock.systemUTC());
     }
 
     OutboxEventPublisher(OutboxEventRepository repository,
@@ -48,9 +50,23 @@ public class OutboxEventPublisher {
                          long sendTimeoutMs,
                          int maxAttempts,
                          Clock clock) {
+        this(repository, kafkaTemplate, outwardIssuedTopic, "inventory.events", auditTopic,
+                notificationTopic, sendTimeoutMs, maxAttempts, clock);
+    }
+
+    OutboxEventPublisher(OutboxEventRepository repository,
+                         KafkaTemplate<String, String> kafkaTemplate,
+                         String outwardIssuedTopic,
+                         String stockIssueApprovedTopic,
+                         String auditTopic,
+                         String notificationTopic,
+                         long sendTimeoutMs,
+                         int maxAttempts,
+                         Clock clock) {
         this.repository = repository;
         this.kafkaTemplate = kafkaTemplate;
         this.outwardIssuedTopic = outwardIssuedTopic;
+        this.stockIssueApprovedTopic = stockIssueApprovedTopic;
         this.auditTopic = auditTopic;
         this.notificationTopic = notificationTopic;
         this.sendTimeoutMs = sendTimeoutMs;
@@ -98,6 +114,9 @@ public class OutboxEventPublisher {
     }
 
     private String topicFor(String eventType) {
+        if (TransactionalOutboxService.STOCK_ISSUE_APPROVED.equals(eventType)) {
+            return stockIssueApprovedTopic;
+        }
         if (AuditEventService.AUDIT_EVENT.equals(eventType)) {
             return auditTopic;
         }

@@ -69,7 +69,8 @@ public class OutwardRequestService {
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
         entity.setItems(request.getItems().stream()
-                .map(item -> new OutwardItem(item.getItemId().trim(), item.getQuantity()))
+                .map(item -> new OutwardItem(item.getItemId().trim(), item.getQuantity(),
+                        validation.assetTrackedByItem().getOrDefault(item.getItemId().trim(), false)))
                 .collect(Collectors.toList()));
         entity.setProjectId(trimToNull(request.getProjectId()));
         entity.setRequestedBy(requestedBy);

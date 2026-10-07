@@ -21,7 +21,7 @@ public class OutwardExceptionHandler {
         HttpStatus status = switch (ex.getCode()) {
             case "OUTWARD_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "OUTWARD_APPROVAL_ROLE_NOT_ALLOWED", "OUTWARD_APPROVAL_DEPARTMENT_REQUIRED",
-                    "OUTWARD_APPROVAL_DEPARTMENT_MISMATCH" -> HttpStatus.FORBIDDEN;
+                    "OUTWARD_APPROVAL_DEPARTMENT_MISMATCH", "OUTWARD_ISSUE_ROLE_NOT_ALLOWED" -> HttpStatus.FORBIDDEN;
             case "AUTHENTICATION_REQUIRED" -> HttpStatus.UNAUTHORIZED;
             case "AUTH_EMPLOYEE_LOOKUP_FORBIDDEN" -> HttpStatus.FORBIDDEN;
             case "OUTWARD_CONCURRENT_MODIFICATION", "OUTWARD_NOT_APPROVED", "OUTWARD_ALREADY_ISSUED",

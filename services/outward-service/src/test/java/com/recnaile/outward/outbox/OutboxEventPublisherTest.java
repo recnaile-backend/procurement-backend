@@ -51,6 +51,23 @@ class OutboxEventPublisherTest {
     }
 
     @Test
+    void publishUsesInventoryTopicForStockIssueApprovedEvents() {
+        OutboxEventRepository repository = mock(OutboxEventRepository.class);
+        KafkaTemplate<String, String> kafka = mock(KafkaTemplate.class);
+        OutboxEventPublisher publisher = new OutboxEventPublisher(repository, kafka,
+                "outward.events", "inventory.events", "audit.events", "notification.events", 1000, 3, Clock.systemUTC());
+        OutboxEvent event = event(TransactionalOutboxService.STOCK_ISSUE_APPROVED, "OUT%2F26-27%2F001");
+        when(kafka.send("inventory.events", event.getAggregateId(), event.getPayload()))
+                .thenReturn(CompletableFuture.completedFuture(new SendResult<>(null,
+                        new RecordMetadata(new TopicPartition("inventory.events", 0), 1, 1, 0L, 0, 0))));
+
+        publisher.publish(event);
+
+        verify(kafka).send("inventory.events", event.getAggregateId(), event.getPayload());
+        assertEquals(OutboxEventStatus.PUBLISHED, event.getStatus());
+    }
+
+    @Test
     void publishUsesNotificationTopicForNotificationEvents() {
         OutboxEventRepository repository = mock(OutboxEventRepository.class);
         KafkaTemplate<String, String> kafka = mock(KafkaTemplate.class);

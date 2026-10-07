@@ -3,6 +3,8 @@ package com.recnaile.outward.outbox;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recnaile.outward.domain.model.OutwardIssueTransaction;
+import com.recnaile.outward.domain.model.OutwardItem;
+import com.recnaile.outward.domain.model.OutwardRequest;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 public class TransactionalOutboxService {
 
     public static final String OUTWARD_ISSUED = "OUTWARD_ISSUED";
+    public static final String STOCK_ISSUE_APPROVED = "StockIssueApproved";
     public static final int EVENT_VERSION = 1;
     public static final String OUTWARD_APPROVED = "OUTWARD_APPROVED";
     public static final String OUTWARD_REJECTED = "OUTWARD_REJECTED";
@@ -21,6 +24,39 @@ public class TransactionalOutboxService {
     public TransactionalOutboxService(OutboxEventRepository repository, ObjectMapper objectMapper) {
         this.repository = repository;
         this.objectMapper = objectMapper;
+    }
+
+    /**
+     * Creates the Inventory stock-issue command for an outward that has reached
+     * the actual ISSUE operation. The event name is retained for the existing
+     * Inventory contract; the approvedBy field identifies the original approver.
+     */
+    public OutboxEvent enqueueStockIssueApproved(OutwardRequest request, OutwardItem item,
+                                                  String approvedBy, Instant occurredAt) {
+        String eventId = UUID.randomUUID().toString();
+        StockIssueApprovedEventPayload payload = new StockIssueApprovedEventPayload(
+                eventId,
+                STOCK_ISSUE_APPROVED,
+                EVENT_VERSION,
+                occurredAt,
+                request.getOutwardNumber(),
+                item.getItemId(),
+                item.getQuantity(),
+                request.getRequestedBy(),
+                approvedBy,
+                item.isAssetTracked());
+
+        OutboxEvent event = new OutboxEvent();
+        event.setEventId(eventId);
+        event.setEventType(STOCK_ISSUE_APPROVED);
+        event.setAggregateType("OUTWARD_REQUEST");
+        event.setAggregateId(request.getOutwardNumber());
+        event.setPayload(toJson(payload));
+        event.setStatus(OutboxEventStatus.PENDING);
+        event.setOccurredAt(occurredAt);
+        event.setCreatedAt(Instant.now());
+        event.setAttemptCount(0);
+        return repository.save(event);
     }
 
     public OutboxEvent enqueueOutwardIssued(OutwardIssueTransaction transaction) {
@@ -97,6 +133,14 @@ public class TransactionalOutboxService {
             return objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("Unable to serialize notification outbox payload", ex);
+        }
+    }
+
+    private String toJson(StockIssueApprovedEventPayload payload) {
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Unable to serialize StockIssueApproved outbox payload", ex);
         }
     }
 

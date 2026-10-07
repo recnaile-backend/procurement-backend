@@ -11,9 +11,9 @@ import com.recnaile.outward.dto.CreateOutwardRequest;
 import com.recnaile.outward.exception.MasterDataValidationException;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -37,6 +37,7 @@ public class MasterDataValidationService {
 
         boolean assetTracked = false;
         Set<String> itemIds = new HashSet<>();
+        Map<String, Boolean> assetTrackedByItem = new HashMap<>();
 
         for (var requestedItem : request.getItems()) {
             String itemId = requestedItem.getItemId().trim();
@@ -57,22 +58,12 @@ public class MasterDataValidationService {
                         "OUTWARD_ITEM_INACTIVE",
                         "Item is inactive in master data: " + itemId);
             }
-            if (item.availableStock() == null) {
-                throw new MasterDataValidationException(
-                        "OUTWARD_ITEM_STOCK_UNAVAILABLE",
-                        "Available stock is not configured for item: " + itemId);
-            }
-            if (requestedItem.getQuantity().compareTo(item.availableStock()) > 0) {
-                throw new MasterDataValidationException(
-                        "OUTWARD_INSUFFICIENT_STOCK",
-                        "Requested quantity exceeds available stock for item: " + itemId);
-            }
-
             assetTracked = assetTracked || item.assetTracked();
+            assetTrackedByItem.put(itemId, item.assetTracked());
         }
 
         validateRecipient(request);
-        return new ValidationResult(assetTracked);
+        return new ValidationResult(assetTracked, Map.copyOf(assetTrackedByItem));
     }
 
     private void validateDepartment(String departmentName) {
@@ -170,6 +161,9 @@ public class MasterDataValidationService {
         return status != null && "ACTIVE".equalsIgnoreCase(status.trim());
     }
 
-    public record ValidationResult(boolean assetTracked) {
+    public record ValidationResult(boolean assetTracked, Map<String, Boolean> assetTrackedByItem) {
+        public ValidationResult(boolean assetTracked) {
+            this(assetTracked, Map.of());
+        }
     }
 }
