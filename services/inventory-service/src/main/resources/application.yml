@@ -13,6 +13,9 @@ spring:
     producer:
       acks: all
       retries: 5
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
 server:
   port: ${SERVICE_PORT:8086}
 management:
@@ -33,14 +36,17 @@ otel:
       endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
 app:
   service-name: inventory-service
-  description: "Stock ledger, availability, min/max stock and low-stock state"
+  description: "Authoritative stock ledger backed by Master Data item identity and metadata"
+  master-data:
+    url: ${MASTER_DATA_SERVICE_URL:http://master-data-service:8082}
   kafka:
-    events-topic: ${INVENTORY_EVENTS_TOPIC:procurement.events}
+    events-topic-pattern: ${INVENTORY_EVENTS_TOPIC_PATTERN:inward\.events|outward\.events|return\.recorded}
     outbox-topic: ${INVENTORY_OUTBOX_TOPIC:procurement.events}
     outbox-publish-delay-ms: ${INVENTORY_OUTBOX_PUBLISH_DELAY_MS:1000}
   security:
     jwt:
-      issuer-uri: ${APP_SECURITY_JWT_ISSUER_URI:${JWT_ISSUER:auth-service}}
+      issuer-uri: ${JWT_ISSUER:auth-service}
+      secret-key: ${JWT_SECRET_KEY:}
 
 
 springdoc:

@@ -65,18 +65,10 @@ class InventoryControllerTest {
 
     @Test
     void getAllStocksReturnsAllBalances() throws Exception {
-        StockBalanceDocument first = new StockBalanceDocument();
-        first.setItemId("ITEM-1");
-        first.setAvailableQuantity(10);
-        first.setDefectQuantity(1);
-
-        StockBalanceDocument second = new StockBalanceDocument();
-        second.setItemId("ITEM-2");
-        second.setAvailableQuantity(25);
-        second.setDefectQuantity(0);
-
         when(query.allStocks())
-                .thenReturn(List.of(first, second));
+                .thenReturn(List.of(
+                        stock("ITEM-1", 10, 1),
+                        stock("ITEM-2", 25, 0)));
 
         mvc.perform(get("/api/v1/inventory/stock"))
                 .andExpect(status().isOk())
@@ -89,14 +81,8 @@ class InventoryControllerTest {
 
     @Test
     void getStockReturnsBalances() throws Exception {
-        StockBalanceDocument balance = new StockBalanceDocument();
-        balance.setItemId("ITEM-1");
-        balance.setAvailableQuantity(10);
-        balance.setDefectQuantity(1);
-        balance.setStatus(StockStatus.IN_STOCK);
-
         when(query.byItem("ITEM-1"))
-                .thenReturn(List.of(balance));
+                .thenReturn(List.of(stock("ITEM-1", 10, 1)));
 
         mvc.perform(
                 get("/api/v1/inventory/stock/ITEM-1"))
@@ -178,52 +164,27 @@ class InventoryControllerTest {
     }
 
     @Test
-    void updateAvailableStockReturnsUpdatedBalance() throws Exception {
+    void updateThresholdsReturnsProjectedBalance() throws Exception {
         StockBalanceDocument balance = new StockBalanceDocument();
         balance.setItemId("ITEM-1");
-        balance.setAvailableQuantity(50);
-
-        when(adjustment.updateAvailableStock(
-                "ITEM-1", "IT", "PROJ-1", "RACK-A", 50, "Physical stock count", "test-user"))
-                .thenReturn(balance);
-
-        mvc.perform(
-                put("/api/v1/inventory/stock/ITEM-1/available-quantity")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .principal(new TestingAuthenticationToken("test-user", null))
-                        .content("""
-                                {
-                                  "availableQuantity": 50,
-                                  "departmentName": "IT",
-                                  "projectId": "PROJ-1",
-                                  "location": "RACK-A",
-                                  "reason": "Physical stock count"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.itemId", is("ITEM-1")))
-                .andExpect(jsonPath("$.availableQuantity", is(50)));
-    }
-
-    @Test
-    void updateThresholdsReturnsUpdatedBalance() throws Exception {
-        StockBalanceDocument balance = new StockBalanceDocument();
-        balance.setItemId("ITEM-1");
+        balance.setBalanceKey("ITEM-1|IT|PROJ-1|RACK-A");
+        balance.setDepartmentName("IT");
+        balance.setProjectId("PROJ-1");
+        balance.setLocation("RACK-A");
         balance.setMinimumStock(10);
         balance.setMaximumStock(50);
+        balance.setThresholdsOverridden(true);
 
-        when(threshold.update(
-                "ITEM-1",
-                "IT",
-                "PROJ-1",
-                "RACK-A",
-                10,
-                50,
-                "test-user"))
+        when(threshold.update("ITEM-1", "IT", "PROJ-1", "RACK-A", 10, 50, "test-user"))
                 .thenReturn(balance);
 
-        mvc.perform(
-                put("/api/v1/inventory/stock/ITEM-1/thresholds")
+        when(query.byItem("ITEM-1")).thenReturn(List.of(
+                new com.recnaile.inventory.dto.InventoryStockResponse(
+                        "ITEM-1|IT|PROJ-1|RACK-A", "ITEM-1", "Test item", "Category", "PCS",
+                        "CONSUMABLE", false, null, null, null, "IT", "PROJ-1", "RACK-A", "RACK-A", null,
+                        20, 0, 10, 50, false, StockStatus.IN_STOCK, "ACTIVE", 1L, java.time.Instant.now())));
+
+        mvc.perform(put("/api/v1/inventory/stock/ITEM-1/thresholds")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -234,10 +195,49 @@ class InventoryControllerTest {
                                   "maximumStock": 50
                                 }
                                 """)
-                        .principal(new TestingAuthenticationToken("test-user", null)))
+                        .principal(new TestingAuthenticationToken("test-user", "credentials")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.itemId", is("ITEM-1")))
                 .andExpect(jsonPath("$.minimumStock", is(10)))
-                .andExpect(jsonPath("$.maximumStock", is(50)));
+                .andExpect(jsonPath("$.maximumStock", is(50)))
+                .andExpect(jsonPath("$.departmentName", is("IT")));
+    }
+
+    @Test
+    void adjustmentEndpointReturnsProjectedBalance() throws Exception {
+        StockBalanceDocument balance = new StockBalanceDocument();
+        balance.setItemId("ITEM-1");
+        balance.setBalanceKey("ITEM-1|IT||RACK-A");
+        when(adjustment.applyAdjustment("ITEM-1", "IT", null, "RACK-A",
+                com.recnaile.inventory.domain.StockType.AVAILABLE, 5, "Physical count", "test-user", "adj-1"))
+                .thenReturn(balance);
+        when(query.byItem("ITEM-1")).thenReturn(List.of(
+                new com.recnaile.inventory.dto.InventoryStockResponse(
+                        "ITEM-1|IT||RACK-A", "ITEM-1", "Test item", "Category", "PCS",
+                        "CONSUMABLE", false, null, null, null, "IT", null, "RACK-A", "RACK-A", null,
+                        5, 0, 0, 0, false, StockStatus.IN_STOCK, "ACTIVE", 1L, java.time.Instant.now())));
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/inventory/stock/ITEM-1/adjustments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Idempotency-Key", "adj-1")
+                        .principal(new TestingAuthenticationToken("test-user", "credentials"))
+                        .content("""
+                                {
+                                  "departmentName": "IT",
+                                  "location": "RACK-A",
+                                  "stockType": "AVAILABLE",
+                                  "delta": 5,
+                                  "reason": "Physical count"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.itemId", is("ITEM-1")))
+                .andExpect(jsonPath("$.availableQuantity", is(5)));
+    }
+    private com.recnaile.inventory.dto.InventoryStockResponse stock(String itemId, int available, int defect) {
+        return new com.recnaile.inventory.dto.InventoryStockResponse(
+                itemId + "||||", itemId, "Test item", "Category", "PCS", "CONSUMABLE", false,
+                null, null, null, "IT", null, "RACK-A", "RACK-A", null, available, defect, 0, 50,
+                false, StockStatus.IN_STOCK, "ACTIVE", 0L, java.time.Instant.now());
     }
 }

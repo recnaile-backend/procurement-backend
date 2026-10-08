@@ -7,10 +7,12 @@ import com.recnaile.inventory.domain.StockStatus;
 import com.recnaile.inventory.repository.InventoryAuditRepository;
 import com.recnaile.inventory.repository.OutboxRepository;
 import com.recnaile.inventory.repository.StockBalanceRepository;
+import com.recnaile.inventory.masterdata.MasterDataItemClient;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,13 +22,21 @@ public class ThresholdService {
     private final InventoryAuditRepository auditRepository;
     private final OutboxRepository outboxRepository;
     private final MeterRegistry meterRegistry;
+    private final MasterDataItemClient masterDataItemClient;
 
+    @Autowired
     public ThresholdService(StockBalanceRepository balances, InventoryAuditRepository auditRepository,
-            OutboxRepository outboxRepository, MeterRegistry meterRegistry) {
+            OutboxRepository outboxRepository, MeterRegistry meterRegistry, MasterDataItemClient masterDataItemClient) {
         this.balances = balances;
         this.auditRepository = auditRepository;
         this.outboxRepository = outboxRepository;
         this.meterRegistry = meterRegistry;
+        this.masterDataItemClient = masterDataItemClient;
+    }
+
+    public ThresholdService(StockBalanceRepository balances, InventoryAuditRepository auditRepository,
+            OutboxRepository outboxRepository, MeterRegistry meterRegistry) {
+        this(balances, auditRepository, outboxRepository, meterRegistry, null);
     }
 
     @Transactional
@@ -35,17 +45,26 @@ public class ThresholdService {
         if (itemId == null || itemId.isBlank()) {
             throw new IllegalArgumentException("itemId is required");
         }
+        var masterItem = masterDataItemClient == null ? null : masterDataItemClient.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Item not found in Master Data: " + itemId));
+        if (masterItem != null && masterItem.status() != null && !"ACTIVE".equalsIgnoreCase(masterItem.status())) {
+            throw new IllegalStateException("Inactive Master Data item cannot be changed in Inventory: " + itemId);
+        }
         if (minimum < 0 || maximum < 0 || maximum < minimum) {
             throw new IllegalArgumentException("Invalid min/max stock thresholds");
         }
 
-        String key = InventoryEventService.key(itemId, departmentName, projectId, location);
+        String effectiveDepartment = departmentName == null || departmentName.isBlank()
+                ? masterItem == null ? departmentName : masterItem.department() : departmentName;
+        String effectiveLocation = location == null || location.isBlank()
+                ? masterItem == null ? location : masterItem.rack() : location;
+        String key = InventoryEventService.key(itemId, effectiveDepartment, projectId, effectiveLocation);
         StockBalanceDocument b = balances.findByBalanceKey(key).orElseGet(StockBalanceDocument::new);
         b.setBalanceKey(key);
         b.setItemId(itemId);
-        b.setDepartmentName(departmentName);
+        b.setDepartmentName(effectiveDepartment);
         b.setProjectId(projectId);
-        b.setLocation(location);
+        b.setLocation(effectiveLocation);
 
         int beforeAvailable = b.getAvailableQuantity();
         int beforeMinimum = b.getMinimumStock();
@@ -55,7 +74,8 @@ public class ThresholdService {
 
         b.setMinimumStock(minimum);
         b.setMaximumStock(maximum);
-        b.setLowStock(b.getAvailableQuantity() > 0 && b.getAvailableQuantity() <= minimum);
+        b.setThresholdsOverridden(true);
+        b.setLowStock(b.getAvailableQuantity() <= minimum);
         b.setStatus(b.getAvailableQuantity() <= 0 ? StockStatus.OUT_OF_STOCK
                 : b.isLowStock() ? StockStatus.LOW_STOCK : StockStatus.IN_STOCK);
         b.setUpdatedAt(Instant.now());

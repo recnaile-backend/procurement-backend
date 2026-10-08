@@ -20,6 +20,7 @@ class InventoryEventServiceTest {
     IdempotencyRepository idempotency;
     OutboxRepository outbox;
     InventoryAuditRepository audit;
+    StockAllocationRepository allocations;
     InventoryEventService service;
 
     @BeforeEach
@@ -29,14 +30,15 @@ class InventoryEventServiceTest {
         idempotency=mock(IdempotencyRepository.class);
         outbox=mock(OutboxRepository.class);
         audit=mock(InventoryAuditRepository.class);
-        MongoTemplate mongo=mock(MongoTemplate.class);
-        service=new InventoryEventService(balances,movements,idempotency,outbox,audit,mongo,
+        allocations=mock(StockAllocationRepository.class);
+        service=new InventoryEventService(balances,movements,idempotency,outbox,audit,allocations,
             new ObjectMapper(),new SimpleMeterRegistry());
         when(idempotency.existsByEventId(anyString())).thenReturn(false);
         when(balances.save(any())).thenAnswer(i->i.getArgument(0));
         when(movements.save(any())).thenAnswer(i->i.getArgument(0));
         when(audit.save(any())).thenAnswer(i->i.getArgument(0));
         when(outbox.save(any())).thenAnswer(i->i.getArgument(0));
+        when(allocations.save(any())).thenAnswer(i->i.getArgument(0));
     }
 
     @Test

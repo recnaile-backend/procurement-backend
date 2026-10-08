@@ -3,7 +3,8 @@ package com.recnaile.inventory.controller;
 import com.recnaile.inventory.domain.StockBalanceDocument;
 import com.recnaile.inventory.domain.StockMovementDocument;
 import com.recnaile.inventory.dto.ApiErrorResponse;
-import com.recnaile.inventory.dto.AvailableStockUpdateRequest;
+import com.recnaile.inventory.dto.InventoryAdjustmentRequest;
+import com.recnaile.inventory.dto.InventoryStockResponse;
 import com.recnaile.inventory.dto.InventorySummaryResponse;
 import com.recnaile.inventory.dto.InventoryReconciliationResponse;
 import com.recnaile.inventory.service.InventoryQueryService;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -57,7 +59,7 @@ public class InventoryController {
         @ApiResponse(responseCode = "500", description = "Unexpected server error", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     @GetMapping("/stock")
-    public ResponseEntity<List<StockBalanceDocument>> getAllStocks() {
+    public ResponseEntity<List<InventoryStockResponse>> getAllStocks() {
         return ResponseEntity.ok(query.allStocks());
     }
 
@@ -69,7 +71,7 @@ public class InventoryController {
         @ApiResponse(responseCode = "500", description = "Unexpected server error", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     @GetMapping("/stock/{itemId}")
-    public ResponseEntity<List<StockBalanceDocument>> getStock(
+    public ResponseEntity<List<InventoryStockResponse>> getStock(
             @Parameter(description = "Inventory item identifier", required = true, example = "ITEM-1001")
             @PathVariable String itemId) {
         return ResponseEntity.ok(query.byItem(itemId));
@@ -106,26 +108,31 @@ public class InventoryController {
     }
 
     @Operation(
-        summary = "Update available stock",
-        description = "Controlled Procurement/MD stock adjustment. The target quantity is recorded as an immutable AVAILABLE movement using the difference from the current balance; clients cannot modify the historical ledger directly.")
+        summary = "Apply administrative stock adjustment",
+        description = "Controlled Procurement/MD correction. The normal stock path is event-driven Inward, Outward and Return processing. This endpoint records an explicit signed movement and requires Idempotency-Key.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Available stock updated"),
-        @ApiResponse(responseCode = "400", description = "Invalid available quantity", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "200", description = "Stock adjustment applied"),
+        @ApiResponse(responseCode = "400", description = "Invalid adjustment or missing Idempotency-Key", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
         @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content),
         @ApiResponse(responseCode = "403", description = "Procurement or master-data role required", content = @Content),
-        @ApiResponse(responseCode = "409", description = "Concurrent stock update conflict", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "409", description = "Concurrent or insufficient-stock conflict", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
         @ApiResponse(responseCode = "500", description = "Unexpected server error", content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
-    @PutMapping("/stock/{itemId}/available-quantity")
-    public ResponseEntity<StockBalanceDocument> updateAvailableStock(
+    @org.springframework.web.bind.annotation.PostMapping("/stock/{itemId}/adjustments")
+    public ResponseEntity<InventoryStockResponse> applyAdjustment(
             @Parameter(description = "Inventory item identifier", required = true, example = "ITEM-1001")
             @PathVariable String itemId,
-            @Valid @RequestBody AvailableStockUpdateRequest request,
-            Authentication authentication) {
+            @Valid @RequestBody InventoryAdjustmentRequest request,
+            Authentication authentication,
+            @RequestHeader(name = "Idempotency-Key", required = true) String idempotencyKey) {
         String actorId = authentication == null ? "inventory-api" : authentication.getName();
-        return ResponseEntity.ok(adjustment.updateAvailableStock(
+        StockBalanceDocument balance = adjustment.applyAdjustment(
                 itemId, request.departmentName(), request.projectId(), request.location(),
-                request.availableQuantity(), request.reason(), actorId));
+                request.stockType(), request.delta(), request.reason(), actorId, idempotencyKey);
+        return ResponseEntity.ok(query.byItem(itemId).stream()
+                .filter(r -> r.balanceKey().equals(balance.getBalanceKey()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Updated inventory balance could not be projected")));
     }
 
     @Operation(summary = "Update stock thresholds", description = "Updates minimum and maximum stock thresholds for an item balance.")
@@ -139,14 +146,18 @@ public class InventoryController {
             content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     @PutMapping("/stock/{itemId}/thresholds")
-    public ResponseEntity<StockBalanceDocument> updateThresholds(
+    public ResponseEntity<InventoryStockResponse> updateThresholds(
             @Parameter(description = "Inventory item identifier", required = true, example = "ITEM-1001")
             @PathVariable String itemId,
             @Valid @RequestBody ThresholdRequest request,
             Authentication authentication) {
         String actorId = authentication == null ? "inventory-api" : authentication.getName();
-        return ResponseEntity.ok(threshold.update(itemId, request.departmentName(), request.projectId(), request.location(),
-                request.minimumStock(), request.maximumStock(), actorId));
+        StockBalanceDocument updated = threshold.update(itemId, request.departmentName(), request.projectId(), request.location(),
+                request.minimumStock(), request.maximumStock(), actorId);
+        return ResponseEntity.ok(query.byItem(itemId).stream()
+                .filter(r -> r.balanceKey().equals(updated.getBalanceKey()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Updated inventory balance could not be projected")));
     }
 
     @Operation(summary = "Reconcile inventory", description = "Compares the projected stock balance with the immutable movement ledger for an item.")

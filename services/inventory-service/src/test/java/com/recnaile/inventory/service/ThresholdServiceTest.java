@@ -45,7 +45,7 @@ class ThresholdServiceTest {
         assertEquals(50, result.getMaximumStock());
         assertEquals(0, result.getAvailableQuantity());
         assertEquals(StockStatus.OUT_OF_STOCK, result.getStatus());
-        assertFalse(result.isLowStock());
+        assertTrue(result.isLowStock());
         verify(balances).save(result);
     }
 

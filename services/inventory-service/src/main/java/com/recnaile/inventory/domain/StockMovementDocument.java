@@ -8,6 +8,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 public class StockMovementDocument {
     @Id private String id;
     private String eventId;
+    private String eventMovementKey;
     private String eventType;
     private String sourceTransactionId;
     private String itemId;
@@ -33,6 +34,7 @@ public class StockMovementDocument {
             String correlationId, String traceId, String actorId) {
         this.id = id;
         this.eventId = eventId;
+        this.eventMovementKey = eventId + ":" + itemId + ":" + stockType;
         this.eventType = eventType;
         this.sourceTransactionId = sourceTransactionId;
         this.itemId = itemId;
@@ -54,13 +56,14 @@ public class StockMovementDocument {
             String itemId, String departmentName, String projectId, String location,
             StockType stockType, int quantity, int delta, String reason,
             Instant occurredAt, Instant createdAt, String correlationId, String traceId, String actorId) {
-        this.eventId=eventId; this.eventType=eventType; this.sourceTransactionId=sourceTransactionId;
+        this.eventId=eventId; this.eventMovementKey=eventId + ":" + itemId + ":" + stockType; this.eventType=eventType; this.sourceTransactionId=sourceTransactionId;
         this.itemId=itemId; this.departmentName=departmentName; this.projectId=projectId; this.location=location;
         this.stockType=stockType; this.quantity=quantity; this.delta=delta; this.reason=reason;
         this.occurredAt=occurredAt; this.createdAt=createdAt; this.correlationId=correlationId;
         this.traceId=traceId; this.actorId=actorId;
     }
     public String getId(){return id;} public String getEventId(){return eventId;}
+    public String getEventMovementKey(){return eventMovementKey;}
     public String getEventType(){return eventType;} public String getSourceTransactionId(){return sourceTransactionId;}
     public String getItemId(){return itemId;} public String getDepartmentName(){return departmentName;}
     public String getProjectId(){return projectId;} public String getLocation(){return location;}
