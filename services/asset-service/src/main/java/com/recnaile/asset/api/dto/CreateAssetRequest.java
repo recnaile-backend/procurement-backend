@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 
 public record CreateAssetRequest(
         @NotBlank String itemId,
-        @NotBlank String issueReference,
+        @NotBlank String outwardNumber,
         @NotBlank String name,
         String brand,
         String model,

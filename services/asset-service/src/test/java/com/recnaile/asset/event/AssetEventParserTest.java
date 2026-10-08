@@ -16,13 +16,13 @@ class AssetEventParserTest {
                 {
                   "eventId":"evt-001",
                   "eventType":"StockIssueApproved",
-                  "payload":{"outwardId":"OUT-001","itemId":"ITEM-001"}
+                  "payload":{"outwardNumber":"OUT%2F26-27%2F001","itemId":"ITEM-001"}
                 }
                 """);
 
         assertEquals("evt-001", event.eventId());
         assertEquals("StockIssueApproved", event.eventType());
-        assertEquals("OUT-001", event.payload().get("outwardId").asText());
+        assertEquals("OUT%2F26-27%2F001", event.payload().get("outwardNumber").asText());
     }
 
     @Test

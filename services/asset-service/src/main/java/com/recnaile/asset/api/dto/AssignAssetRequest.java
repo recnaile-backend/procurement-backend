@@ -6,6 +6,6 @@ public record AssignAssetRequest(
         @NotBlank String employeeId,
         @NotBlank String departmentName,
         @NotBlank String issuedBy,
-        @NotBlank String outwardId,
+        @NotBlank String outwardNumber,
         String remarks) {
 }

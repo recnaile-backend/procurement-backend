@@ -17,6 +17,8 @@ public interface AssetAssignmentRepository extends MongoRepository<AssetAssignme
 
     List<AssetAssignment> findByAssetIdOrderByAssignedAtDesc(String assetId);
 
+    List<AssetAssignment> findByOutwardNumberAndReturnedAtIsNullOrderByAssignedAtAsc(String outwardNumber);
+
     List<AssetAssignment> findByEmployeeIdOrderByAssignedAtDesc(String employeeId);
 
     List<AssetAssignment> findByDepartmentNameOrderByAssignedAtDesc(String departmentName);

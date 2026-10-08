@@ -6,11 +6,11 @@ import com.recnaile.asset.model.AssetCondition;
 
 public record AssignmentResponse(
         String assignmentId, String assetId, String employeeId, String departmentName,
-        String issuedBy, String outwardId, Instant assignedAt, Instant returnedAt,
+        String issuedBy, String outwardNumber, Instant assignedAt, Instant returnedAt,
         String returnId, AssetCondition returnCondition, String remarks) {
     public static AssignmentResponse from(AssetAssignment a) {
         return new AssignmentResponse(a.getAssignmentId(), a.getAssetId(), a.getEmployeeId(), a.getDepartmentName(),
-                a.getIssuedBy(), a.getOutwardId(), a.getAssignedAt(), a.getReturnedAt(), a.getReturnId(),
+                a.getIssuedBy(), a.getOutwardNumber(), a.getAssignedAt(), a.getReturnedAt(), a.getReturnId(),
                 a.getReturnCondition(), a.getRemarks());
     }
 }

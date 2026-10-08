@@ -45,7 +45,7 @@ class AssetApiContractTest {
 
         assertTrue(routes.containsKey("POST "), "Create endpoint missing");
         assertTrue(routes.containsKey("GET "), "List endpoint missing");
-        assertTrue(routes.containsKey("GET /by-issue/{issueReference}"));
+        assertTrue(routes.containsKey("GET /by-issue"));
         assertTrue(routes.containsKey("POST /assign"));
         assertTrue(routes.containsKey("POST /return"));
         assertTrue(routes.containsKey("POST /repair/complete"));

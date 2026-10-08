@@ -20,14 +20,11 @@ public class Asset {
     @Id
     private String assetId;
 
-    @Indexed(unique = true)
-    private String assetReference;
-
     @Indexed
     private String itemId;
 
-    @Indexed(unique = true)
-    private String issueReference;
+    @Indexed
+    private String outwardNumber;
 
     private String name;
     private String brand;
@@ -58,9 +55,8 @@ public class Asset {
 
     private Asset(
             String assetId,
-            String assetReference,
             String itemId,
-            String issueReference,
+            String outwardNumber,
             String name,
             String brand,
             String model,
@@ -73,9 +69,8 @@ public class Asset {
             Instant createdAt,
             Instant updatedAt) {
         this.assetId = assetId;
-        this.assetReference = assetReference;
         this.itemId = itemId;
-        this.issueReference = issueReference;
+        this.outwardNumber = outwardNumber;
         this.name = name;
         this.brand = brand;
         this.model = model;
@@ -92,7 +87,7 @@ public class Asset {
     public static Asset create(
             AssetId assetId,
             String itemId,
-            String issueReference,
+            String outwardNumber,
             String name,
             String brand,
             String model,
@@ -105,7 +100,7 @@ public class Asset {
             throw new IllegalArgumentException("Asset ID is required");
         }
         requireText(itemId, "Item ID");
-        requireText(issueReference, "Issue reference");
+        requireText(outwardNumber, "Outward number");
         requireText(name, "Asset name");
         requireText(issuedBy, "Issuer ID");
         if (status == null) {
@@ -120,9 +115,8 @@ public class Asset {
 
         return new Asset(
                 assetId.value(),
-                assetId.value(),
                 itemId,
-                issueReference,
+                outwardNumber,
                 name,
                 brand,
                 model,
@@ -232,9 +226,8 @@ public class Asset {
     }
 
     public String getAssetId() { return assetId; }
-    public String getAssetReference() { return assetReference; }
     public String getItemId() { return itemId; }
-    public String getIssueReference() { return issueReference; }
+    public String getOutwardNumber() { return outwardNumber; }
     public String getName() { return name; }
     public String getBrand() { return brand; }
     public String getModel() { return model; }

@@ -14,6 +14,19 @@ public record KafkaEventProperties(
             String assetAssigned,
             String assetReturned,
             String assetStatusChanged,
-            String auditEvent) {
+            String auditEvent,
+            String outwardIssued,
+            String returnRecorded) {
+
+        public Topics(
+                String stockIssueApproved,
+                String returnAccepted,
+                String assetAssigned,
+                String assetReturned,
+                String assetStatusChanged,
+                String auditEvent) {
+            this(stockIssueApproved, returnAccepted, assetAssigned, assetReturned, assetStatusChanged,
+                    auditEvent, "outward.events", "return.recorded");
+        }
     }
 }

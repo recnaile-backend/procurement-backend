@@ -39,7 +39,7 @@ public class AssetService {
     @Transactional
     public Asset create(
             String itemId,
-            String issueReference,
+            String outwardNumber,
             String name,
             String brand,
             String model,
@@ -48,12 +48,9 @@ public class AssetService {
             String remarks,
             Instant now) {
         requireText(itemId, "Item ID");
-        requireText(issueReference, "Issue reference");
-        if (assetRepository.findByIssueReference(issueReference).isPresent()) {
-            throw new IllegalStateException("Asset already exists for issue reference: " + issueReference);
-        }
+        String normalizedOutwardNumber = ReferenceNumberNormalizer.outwardNumber(outwardNumber);
         Asset saved = assetRepository.save(Asset.create(
-                assetIdGenerator.next(), itemId, issueReference, name, brand, model,
+                assetIdGenerator.next(), itemId, normalizedOutwardNumber, name, brand, model,
                 issuedBy, AssetStatus.RETURNED, condition, remarks, now));
         if (auditEventPublisher != null) {
             auditEventPublisher.publish("ASSET_CREATED", saved.getAssetId(), null, saved, issuedBy);
@@ -74,10 +71,19 @@ public class AssetService {
         return List.of(get(assetId));
     }
 
-    public Asset getByIssueReference(String issueReference) {
-        requireText(issueReference, "Issue reference");
-        return assetRepository.findByIssueReference(issueReference)
-                .orElseThrow(() -> new ResourceNotFoundException("Asset not found for issue reference: " + issueReference));
+    public List<Asset> getByOutwardNumber(String outwardNumber) {
+        String normalizedOutwardNumber = ReferenceNumberNormalizer.outwardNumber(outwardNumber);
+        List<Asset> assets = assetRepository.findByOutwardNumberOrderByAssetIdAsc(normalizedOutwardNumber);
+        if (assets.isEmpty()) {
+            throw new ResourceNotFoundException("Assets not found for outward number: " + normalizedOutwardNumber);
+        }
+        return assets;
+    }
+
+    public List<Asset> getByOutwardNumberAndItem(String outwardNumber, String itemId) {
+        String normalizedOutwardNumber = ReferenceNumberNormalizer.outwardNumber(outwardNumber);
+        requireText(itemId, "Item ID");
+        return assetRepository.findByOutwardNumberAndItemIdOrderByAssetIdAsc(normalizedOutwardNumber, itemId);
     }
 
     private static void requireText(String value, String field) {

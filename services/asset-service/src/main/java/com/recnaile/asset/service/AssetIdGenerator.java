@@ -3,7 +3,7 @@ package com.recnaile.asset.service;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Month;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 
 import org.bson.Document;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
@@ -16,14 +16,17 @@ import org.springframework.stereotype.Component;
 import com.recnaile.asset.model.AssetId;
 
 /**
- * Generates stable asset IDs in the format ASSET%2FYY-YY%2FNNN.
- * The sequence is atomic per financial year and is persisted in MongoDB.
+ * Generates stable asset IDs using the same URL-encoded reference convention
+ * used by the platform's outward and return numbers.
+ *
+ * Example: ASSET%2F26-27%2F001
  */
 @Component
 public class AssetIdGenerator {
 
     private static final String COUNTER_COLLECTION = "asset_id_sequences";
     private static final String SEQUENCE_FIELD = "sequence";
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Kolkata");
 
     private final MongoTemplate mongoTemplate;
     private final Clock clock;
@@ -34,14 +37,14 @@ public class AssetIdGenerator {
     }
 
     public AssetId next() {
-        LocalDate date = LocalDate.now(clock.withZone(ZoneOffset.UTC));
+        LocalDate date = LocalDate.now(clock.withZone(BUSINESS_ZONE));
         int startYear = date.getMonthValue() >= Month.APRIL.getValue()
                 ? date.getYear()
                 : date.getYear() - 1;
         int endYear = startYear + 1;
 
         String financialYear = String.format("%02d-%02d", startYear % 100, endYear % 100);
-        String counterId = "ASSET/" + financialYear;
+        String counterId = "ASSET:" + financialYear;
 
         Document counter = mongoTemplate.findAndModify(
                 Query.query(Criteria.where("_id").is(counterId)),

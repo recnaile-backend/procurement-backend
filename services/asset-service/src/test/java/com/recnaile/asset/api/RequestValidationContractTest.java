@@ -38,7 +38,7 @@ class RequestValidationContractTest {
 
         assertEquals(5, violations.size());
         assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("itemId")));
-        assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("issueReference")));
+        assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("outwardNumber")));
         assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("name")));
         assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("issuedBy")));
         assertTrue(violations.stream().anyMatch(v -> v.getPropertyPath().toString().equals("condition")));
@@ -55,11 +55,11 @@ class RequestValidationContractTest {
 
     @Test
     void returnRequiresReturnIdAndCondition() {
-        ReturnAssetRequest request = new ReturnAssetRequest("", null);
+        ReturnAssetRequest request = new ReturnAssetRequest("", "", null);
 
         Set<ConstraintViolation<ReturnAssetRequest>> violations = validator.validate(request);
 
-        assertEquals(2, violations.size());
+        assertEquals(3, violations.size());
     }
 
     @Test
@@ -68,6 +68,6 @@ class RequestValidationContractTest {
                 "ITEM-1", "OUT-1", "Laptop", "Brand", "Model", "issuer-1", AssetCondition.GOOD, null)).isEmpty());
         assertTrue(validator.validate(new AssignAssetRequest(
                 "EMP-1", "Engineering", "issuer-1", "OUT-1", null)).isEmpty());
-        assertTrue(validator.validate(new ReturnAssetRequest("RET-1", AssetCondition.GOOD)).isEmpty());
+        assertTrue(validator.validate(new ReturnAssetRequest("OUT-1", "RET-1", AssetCondition.GOOD)).isEmpty());
     }
 }

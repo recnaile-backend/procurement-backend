@@ -49,10 +49,11 @@ public class AssetAssignmentService {
             String employeeId,
             String departmentName,
             String issuedBy,
-            String outwardId,
+            String outwardNumber,
             Instant assignedAt,
             String remarks) {
         final String normalizedAssetId = AssetId.normalize(assetId);
+        final String normalizedOutwardNumber = ReferenceNumberNormalizer.outwardNumber(outwardNumber);
         Asset asset = findAsset(normalizedAssetId);
 
         if (assignmentRepository.existsByAssetIdAndReturnedAtIsNull(normalizedAssetId)
@@ -70,7 +71,7 @@ public class AssetAssignmentService {
                 employeeId,
                 departmentName,
                 issuedBy,
-                outwardId,
+                normalizedOutwardNumber,
                 assignedAt,
                 remarks);
 
@@ -97,7 +98,7 @@ public class AssetAssignmentService {
                 .orElseThrow(() -> new IllegalStateException("No active assignment exists for asset: " + normalizedAssetId));
 
         asset.returnFromAssignment(returnCondition, returnedAt);
-        assignment.close(returnedAt, returnId, returnCondition);
+        assignment.close(returnedAt, ReferenceNumberNormalizer.returnId(returnId), returnCondition);
         Asset savedAsset = assetRepository.save(asset);
         AssetAssignment savedAssignment = assignmentRepository.save(assignment);
         if (eventPublisher != null) eventPublisher.publishAssetReturned(savedAsset, savedAssignment);
@@ -107,10 +108,23 @@ public class AssetAssignmentService {
         return savedAssignment;
     }
 
+    public AssetAssignment getActiveAssignment(String assetId) {
+        final String normalizedAssetId = AssetId.normalize(assetId);
+        return assignmentRepository
+                .findFirstByAssetIdAndReturnedAtIsNullOrderByAssignedAtDesc(normalizedAssetId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "No active assignment exists for asset: " + normalizedAssetId));
+    }
+
     public AssetAssignment getById(String assignmentId) {
         requireText(assignmentId, "Assignment ID");
         return assignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found: " + assignmentId));
+    }
+
+    public List<AssetAssignment> activeAssignmentsForOutward(String outwardNumber) {
+        String normalizedOutwardNumber = ReferenceNumberNormalizer.outwardNumber(outwardNumber);
+        return assignmentRepository.findByOutwardNumberAndReturnedAtIsNullOrderByAssignedAtAsc(normalizedOutwardNumber);
     }
 
     public List<AssetAssignment> historyForAsset(String assetId) {

@@ -67,7 +67,7 @@ public class AssetController {
     }
 
     @PostMapping
-    @Operation(summary = "Create an asset", description = "Creates a reusable asset lifecycle record. Supports an optional Idempotency-Key header.")
+    @Operation(summary = "Create an asset", description = "Administrative/recovery asset creation only. Normal production creation is driven by Outward OUTWARD_ISSUED events. outwardNumber is the Outward number.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Asset created"),
             @ApiResponse(responseCode = "400", description = "Invalid request or validation failure"),
@@ -81,19 +81,19 @@ public class AssetController {
             @Parameter(description = "Optional idempotency key for safe retries", example = "asset-create-20261006-001")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreateAssetRequest request) {
-        authorizationService.requireAnyRole(authentication, "ADMIN", "MD", "PROCUREMENT");
-        Supplier<Asset> action = () -> assetService.create(request.itemId(), request.issueReference(), request.name(), request.brand(),
+        authorizationService.requireAnyRole(authentication, "ADMIN");
+        Supplier<Asset> action = () -> assetService.create(request.itemId(), request.outwardNumber(), request.name(), request.brand(),
                 request.model(), request.issuedBy(), request.condition(), request.remarks(), Instant.now(clock));
         Asset asset = idempotencyService == null ? action.get() : idempotencyService.execute(
                 idempotencyKey, "CREATE_ASSET",
                 com.recnaile.asset.idempotency.IdempotencyService.fingerprint(
-                        request.itemId(), request.issueReference(), request.name(), request.brand(), request.model(),
+                        request.itemId(), request.outwardNumber(), request.name(), request.brand(), request.model(),
                         request.issuedBy(), request.condition(), request.remarks()), action, record -> assetService.get(record.getResourceId()));
         return ResponseEntity.status(HttpStatus.CREATED).body(AssetResponse.from(asset));
     }
 
     @GetMapping
-    @Operation(summary = "List assets", description = "Lists assets, optionally filtered by assetId.")
+    @Operation(summary = "List assets", description = "Lists assets, optionally filtered by the generated assetId.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Assets returned"),
             @ApiResponse(responseCode = "401", description = "Authentication required"),
@@ -113,8 +113,8 @@ public class AssetController {
                 .stream().map(AssetResponse::from).toList();
     }
 
-    @GetMapping("/by-issue/{issueReference}")
-    @Operation(summary = "Find asset by issue reference", description = "Returns the reusable asset associated with the supplied outward issue reference.")
+    @GetMapping("/by-issue")
+    @Operation(summary = "Find asset by outward number", description = "Returns all reusable assets issued by the supplied outward number. A single outward can contain multiple reusable units.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Asset returned"),
             @ApiResponse(responseCode = "401", description = "Authentication required"),
@@ -122,16 +122,18 @@ public class AssetController {
             @ApiResponse(responseCode = "404", description = "Asset was not found"),
             @ApiResponse(responseCode = "500", description = "Unexpected server error")
     })
-    public AssetResponse getByIssue(Authentication authentication, @Parameter(description = "Outward issue reference", example = "OUT%2F26-27%2F001")
-            @PathVariable String issueReference) {
-        Asset asset = assetService.getByIssueReference(issueReference);
-        authorizationService.requireAssetRead(authentication, asset);
-        return AssetResponse.from(asset);
+    public List<AssetResponse> getByOutwardNumber(Authentication authentication, @Parameter(description = "Outward number", example = "OUT%2F26-27%2F001")
+            @RequestParam String outwardNumber) {
+        List<Asset> assets = assetService.getByOutwardNumber(outwardNumber);
+        return assets.stream()
+                .peek(asset -> authorizationService.requireAssetRead(authentication, asset))
+                .map(AssetResponse::from)
+                .toList();
     }
 
-    /** Asset IDs contain '/', so asset-specific operations accept the ID as a query parameter. */
+    /** Asset IDs are stored in URL-encoded form, so asset-specific operations accept the ID as a query parameter. */
     @PostMapping("/assign")
-    @Operation(summary = "Assign an asset", description = "Starts an assignment for an asset. Asset ID is a query parameter because the generated ID contains slashes.")
+    @Operation(summary = "Assign an asset", description = "Administrative/recovery assignment only. Normal production assignment is created from Outward OUTWARD_ISSUED events.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Asset assigned"),
             @ApiResponse(responseCode = "400", description = "Invalid request or validation failure"),
@@ -149,20 +151,20 @@ public class AssetController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody AssignAssetRequest request) {
         Asset asset = assetService.get(assetId);
-        authorizationService.requireAssetMutation(authentication, asset);
+        authorizationService.requireAnyRole(authentication, "ADMIN");
         Supplier<com.recnaile.asset.model.AssetAssignment> action = () -> assignmentService.startAssignment(
-                assetId, request.employeeId(), request.departmentName(), request.issuedBy(), request.outwardId(),
+                assetId, request.employeeId(), request.departmentName(), request.issuedBy(), request.outwardNumber(),
                 Instant.now(clock), request.remarks());
         var assignment = idempotencyService == null ? action.get() : idempotencyService.execute(
                 idempotencyKey, "ASSIGN_ASSET",
                 com.recnaile.asset.idempotency.IdempotencyService.fingerprint(assetId, request.employeeId(),
-                        request.departmentName(), request.issuedBy(), request.outwardId(), request.remarks()),
+                        request.departmentName(), request.issuedBy(), request.outwardNumber(), request.remarks()),
                 action, record -> assignmentService.getById(record.getResourceId()));
         return ResponseEntity.status(HttpStatus.CREATED).body(AssignmentResponse.from(assignment));
     }
 
     @PostMapping("/return")
-    @Operation(summary = "Return an asset", description = "Closes the current assignment and applies the return condition.")
+    @Operation(summary = "Return an asset", description = "Administrative/recovery return only. Normal production returns are driven by Return Service RETURN_RECORDED events. outwardNumber must match the asset's active assignment.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Asset return recorded"),
             @ApiResponse(responseCode = "400", description = "Invalid request or validation failure"),
@@ -180,12 +182,12 @@ public class AssetController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody ReturnAssetRequest request) {
         Asset asset = assetService.get(assetId);
-        authorizationService.requireAssetMutation(authentication, asset);
+        authorizationService.requireAnyRole(authentication, "ADMIN");
         Supplier<com.recnaile.asset.model.AssetAssignment> action = () -> returnService.processReturn(
-                assetId, request.returnId(), request.condition(), Instant.now(clock));
+                assetId, request.outwardNumber(), request.returnId(), request.condition(), Instant.now(clock));
         var assignment = idempotencyService == null ? action.get() : idempotencyService.execute(
                 idempotencyKey, "RETURN_ASSET",
-                com.recnaile.asset.idempotency.IdempotencyService.fingerprint(assetId, request.returnId(), request.condition()),
+                com.recnaile.asset.idempotency.IdempotencyService.fingerprint(assetId, request.outwardNumber(), request.returnId(), request.condition()),
                 action, record -> assignmentService.getById(record.getResourceId()));
         return AssignmentResponse.from(assignment);
     }

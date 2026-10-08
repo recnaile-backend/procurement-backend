@@ -21,16 +21,14 @@ class AssetTest {
                 AssetStatus.IN_USE, AssetCondition.GOOD, "Issued for project work", now);
 
         assertEquals("asset-001", asset.getAssetId());
-        assertEquals("asset-001", asset.getAssetReference());
         assertEquals("ITEM-001", asset.getItemId());
-        assertEquals("OUT/26-27/001", asset.getIssueReference());
+        assertEquals("OUT/26-27/001", asset.getOutwardNumber());
         assertEquals(AssetStatus.IN_USE, asset.getStatus());
         assertEquals(AssetCondition.GOOD, asset.getCondition());
         assertNull(asset.getDepartmentName());
         assertNull(asset.getAssignedUserId());
         assertEquals(now, asset.getCreatedAt());
         assertEquals(now, asset.getUpdatedAt());
-        assertNotNull(asset.getAssetReference());
     }
 
     @Test

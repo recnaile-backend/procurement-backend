@@ -18,6 +18,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @CompoundIndex(name = "employee_assignment_timeline_idx", def = "{ 'employeeId': 1, 'assignedAt': -1 }")
 @CompoundIndex(name = "department_assignment_timeline_idx", def = "{ 'departmentName': 1, 'assignedAt': -1 }")
 @CompoundIndex(name = "active_asset_assignment_unique_idx", def = "{ 'assetId': 1, 'returnedAt': 1 }", unique = true)
+@CompoundIndex(name = "active_outward_assignment_idx", def = "{ 'outwardNumber': 1, 'returnedAt': 1, 'assignedAt': 1 }")
 public class AssetAssignment {
 
     @Id
@@ -33,7 +34,7 @@ public class AssetAssignment {
     private String departmentName;
 
     private String issuedBy;
-    private String outwardId;
+    private String outwardNumber;
     private Instant assignedAt;
     private Instant returnedAt;
     private String returnId;
@@ -53,7 +54,7 @@ public class AssetAssignment {
             String employeeId,
             String departmentName,
             String issuedBy,
-            String outwardId,
+            String outwardNumber,
             Instant assignedAt,
             String remarks) {
         this.assignmentId = assignmentId;
@@ -61,7 +62,7 @@ public class AssetAssignment {
         this.employeeId = employeeId;
         this.departmentName = departmentName;
         this.issuedBy = issuedBy;
-        this.outwardId = outwardId;
+        this.outwardNumber = outwardNumber;
         this.assignedAt = assignedAt;
         this.remarks = remarks;
     }
@@ -71,14 +72,14 @@ public class AssetAssignment {
             String employeeId,
             String departmentName,
             String issuedBy,
-            String outwardId,
+            String outwardNumber,
             Instant assignedAt,
             String remarks) {
         requireText(assetId, "Asset ID");
         requireText(employeeId, "Employee ID");
         requireText(departmentName, "Department name");
         requireText(issuedBy, "Issuer ID");
-        requireText(outwardId, "Outward ID");
+        requireText(outwardNumber, "Outward number");
         requireTimestamp(assignedAt);
 
         return new AssetAssignment(
@@ -87,7 +88,7 @@ public class AssetAssignment {
                 employeeId,
                 departmentName,
                 issuedBy,
-                outwardId,
+                outwardNumber,
                 assignedAt,
                 remarks);
     }
@@ -131,7 +132,7 @@ public class AssetAssignment {
     public String getEmployeeId() { return employeeId; }
     public String getDepartmentName() { return departmentName; }
     public String getIssuedBy() { return issuedBy; }
-    public String getOutwardId() { return outwardId; }
+    public String getOutwardNumber() { return outwardNumber; }
     public Instant getAssignedAt() { return assignedAt; }
     public Instant getReturnedAt() { return returnedAt; }
     public String getReturnId() { return returnId; }

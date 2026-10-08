@@ -25,7 +25,7 @@ class AssetIdGeneratorTest {
         when(mongoTemplate.findAndModify(
                 any(Query.class), any(Update.class), any(FindAndModifyOptions.class),
                 eq(Document.class), eq("asset_id_sequences")))
-                .thenReturn(new Document("_id", "ASSET/26-27").append("sequence", 1L));
+                .thenReturn(new Document("_id", "ASSET:26-27").append("sequence", 1L));
 
         AssetIdGenerator generator = new AssetIdGenerator(mongoTemplate, clock);
 

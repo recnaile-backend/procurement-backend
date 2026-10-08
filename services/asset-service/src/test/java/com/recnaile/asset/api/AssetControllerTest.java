@@ -89,8 +89,8 @@ class AssetControllerTest {
                 "issuer-1", AssetStatus.RETURNED, AssetCondition.GOOD, null, Instant.parse("2026-01-01T00:00:00Z"));
         when(assetService.getAll(any(String.class))).thenReturn(List.of(asset));
 
-        mockMvc.perform(get("/api/v1/assets").param("assetId", "ASSET/26-27/001"))
+        mockMvc.perform(get("/api/v1/assets").param("assetId", "ASSET%2F26-27%2F001"))
                 .andExpect(status().isOk());
-        verify(assetService).getAll(eq("ASSET/26-27/001"));
+        verify(assetService).getAll(eq("ASSET%2F26-27%2F001"));
     }
 }

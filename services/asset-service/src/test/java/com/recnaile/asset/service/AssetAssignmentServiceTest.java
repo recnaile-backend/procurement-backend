@@ -105,9 +105,9 @@ class AssetAssignmentServiceTest {
         when(assignmentRepository.save(any(AssetAssignment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         AssetAssignment result = service.closeAssignment(
-                "asset-001", returnedAt, "RET/26-27/001", AssetCondition.GOOD);
+                "asset-001", returnedAt, "RET%2F26-27%2F001", AssetCondition.GOOD);
 
-        assertEquals("RET/26-27/001", result.getReturnId());
+        assertEquals("RET%2F26-27%2F001", result.getReturnId());
         assertEquals(AssetCondition.GOOD, result.getReturnCondition());
         assertEquals(null, asset.getAssignedUserId());
         assertEquals(null, asset.getDepartmentName());
@@ -128,6 +128,6 @@ class AssetAssignmentServiceTest {
 
         assertThrows(IllegalStateException.class, () -> service.closeAssignment(
                 "asset-001", Instant.parse("2026-10-10T09:00:00Z"),
-                "RET/26-27/001", AssetCondition.GOOD));
+                "RET%2F26-27%2F001", AssetCondition.GOOD));
     }
 }

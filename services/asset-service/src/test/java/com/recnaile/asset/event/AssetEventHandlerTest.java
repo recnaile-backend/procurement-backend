@@ -10,7 +10,6 @@ import java.util.Optional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recnaile.asset.model.Asset;
-import com.recnaile.asset.exception.ResourceNotFoundException;
 import com.recnaile.asset.model.AssetCondition;
 import com.recnaile.asset.model.AssetId;
 import com.recnaile.asset.model.AssetStatus;
@@ -51,13 +50,13 @@ class AssetEventHandlerTest {
     void stockIssueApprovedCreatesAndAssignsReusableAsset() throws Exception {
         Asset asset = Asset.create(
                 new AssetId("ASSET%2F26-27%2F001"),
-                "ITEM-001", "OUT-001", "Laptop", "Brand", "Model",
+                "ITEM-001", "OUT%2F26-27%2F001", "Laptop", "Brand", "Model",
                 "PROC-001", AssetStatus.RETURNED, AssetCondition.GOOD, null,
                 Instant.parse("2026-10-06T08:00:00Z"));
 
         when(processedEventRepository.existsById("evt-001")).thenReturn(false);
-        when(assetService.getByIssueReference("OUT-001")).thenThrow(new ResourceNotFoundException("not found"));
-        when(assetService.create(eq("ITEM-001"), eq("OUT-001"), eq("Laptop"), eq("Brand"),
+        when(assetService.getByOutwardNumberAndItem("OUT%2F26-27%2F001", "ITEM-001")).thenReturn(java.util.List.of());
+        when(assetService.create(eq("ITEM-001"), eq("OUT%2F26-27%2F001"), eq("Laptop"), eq("Brand"),
                 eq("Model"), eq("PROC-001"), eq(AssetCondition.GOOD), isNull(), any(Instant.class)))
                 .thenReturn(asset);
 
@@ -66,7 +65,7 @@ class AssetEventHandlerTest {
                 AssetEventHandler.STOCK_ISSUE_APPROVED,
                 mapper.readTree("""
                         {
-                          "outwardId":"OUT-001",
+                          "outwardNumber":"OUT%2F26-27%2F001",
                           "itemId":"ITEM-001",
                           "userId":"EMP-001",
                           "departmentName":"Engineering",
@@ -81,7 +80,76 @@ class AssetEventHandlerTest {
         verify(assetService).create(any(), any(), any(), any(), any(), any(), any(), any(), any());
         verify(assignmentService).startAssignment(
                 eq("ASSET%2F26-27%2F001"), eq("EMP-001"), eq("Engineering"),
-                eq("PROC-001"), eq("OUT-001"), any(Instant.class), isNull());
+                eq("PROC-001"), eq("OUT%2F26-27%2F001"), any(Instant.class), isNull());
+        verify(processedEventRepository).save(any(ProcessedEvent.class));
+    }
+
+
+    @Test
+    void outwardIssuedCreatesAndAssignsReusableUnitsFromFinalOutwardContract() throws Exception {
+        Asset first = Asset.create(
+                new AssetId("ASSET%2F26-27%2F010"),
+                "ITEM-001", "OUT%2F26-27%2F001", "ITEM-001", null, null,
+                "TL-001", AssetStatus.RETURNED, AssetCondition.GOOD, "Laptop issue for project work",
+                Instant.parse("2026-10-06T08:00:00Z"));
+        Asset second = Asset.create(
+                new AssetId("ASSET%2F26-27%2F011"),
+                "ITEM-001", "OUT%2F26-27%2F001", "ITEM-001", null, null,
+                "TL-001", AssetStatus.RETURNED, AssetCondition.GOOD, "Laptop issue for project work",
+                Instant.parse("2026-10-06T08:00:00Z"));
+
+        when(processedEventRepository.existsById("evt-outward-001")).thenReturn(false);
+        when(assetService.getByOutwardNumberAndItem("OUT%2F26-27%2F001", "ITEM-001"))
+                .thenReturn(java.util.List.of());
+        when(assetService.create(eq("ITEM-001"), eq("OUT%2F26-27%2F001"), eq("ITEM-001"),
+                isNull(), isNull(), eq("TL-001"), eq(AssetCondition.GOOD),
+                eq("Laptop issue for project work"), any(Instant.class))).thenReturn(first, second);
+
+        handler.handle(new AssetEvent(
+                "evt-outward-001",
+                AssetEventHandler.OUTWARD_ISSUED,
+                mapper.readTree("""
+                        {
+                          "outwardNumber":"OUT%2F26-27%2F001",
+                          "issuerId":"TL-001",
+                          "departmentName":"Engineering",
+                          "recipientEmployeeId":"EMP-1001",
+                          "purpose":"Laptop issue for project work",
+                          "items":[
+                            {"itemId":"ITEM-001","quantity":2,"assetTracked":true}
+                          ]
+                        }
+                        """)));
+
+        verify(assignmentService).startAssignment(
+                eq("ASSET%2F26-27%2F010"), eq("EMP-1001"), eq("Engineering"),
+                eq("TL-001"), eq("OUT%2F26-27%2F001"), any(Instant.class), eq("Laptop issue for project work"));
+        verify(assignmentService).startAssignment(
+                eq("ASSET%2F26-27%2F011"), eq("EMP-1001"), eq("Engineering"),
+                eq("TL-001"), eq("OUT%2F26-27%2F001"), any(Instant.class), eq("Laptop issue for project work"));
+        verify(processedEventRepository).save(any(ProcessedEvent.class));
+    }
+
+    @Test
+    void outwardIssuedIgnoresNonReusableItems() throws Exception {
+        when(processedEventRepository.existsById("evt-outward-002")).thenReturn(false);
+
+        handler.handle(new AssetEvent(
+                "evt-outward-002",
+                AssetEventHandler.OUTWARD_ISSUED,
+                mapper.readTree("""
+                        {
+                          "outwardNumber":"OUT%2F26-27%2F002",
+                          "issuerId":"TL-001",
+                          "departmentName":"Engineering",
+                          "recipientEmployeeId":"EMP-1002",
+                          "items":[
+                            {"itemId":"ITEM-002","quantity":10,"assetTracked":false}
+                          ]
+                        }
+                        """)));
+
+        verifyNoInteractions(assetService, assignmentService, returnService);
         verify(processedEventRepository).save(any(ProcessedEvent.class));
     }
 
@@ -93,7 +161,7 @@ class AssetEventHandlerTest {
                 "evt-002",
                 AssetEventHandler.STOCK_ISSUE_APPROVED,
                 mapper.readTree("""
-                        {"outwardId":"OUT-002","itemId":"ITEM-002","reusable":false}
+                        {"outwardNumber":"OUT%2F26-27%2F002","itemId":"ITEM-002","reusable":false}
                         """)));
 
         verifyNoInteractions(assetService, assignmentService, returnService);
@@ -108,12 +176,36 @@ class AssetEventHandlerTest {
                 "evt-003",
                 AssetEventHandler.STOCK_ISSUE_APPROVED,
                 mapper.readTree("""
-                        {"outwardId":"OUT-003","itemId":"ITEM-003","userId":"EMP-003",
+                        {"outwardNumber":"OUT%2F26-27%2F003","itemId":"ITEM-003","userId":"EMP-003",
                          "departmentName":"Engineering","issuedBy":"PROC-003","reusable":true}
                         """)));
 
         verify(processedEventRepository, never()).save(any());
         verifyNoInteractions(assetService, assignmentService, returnService);
+    }
+
+
+    @Test
+    void returnRecordedDelegatesOutwardItemQuantityToAssetReturnService() throws Exception {
+        when(processedEventRepository.existsById("evt-return-001")).thenReturn(false);
+
+        handler.handle(new AssetEvent(
+                "evt-return-001",
+                AssetEventHandler.RETURN_RECORDED,
+                mapper.readTree("""
+                        {
+                          "returnId":"RET%2F26-27%2F001",
+                          "outwardNumber":"OUT%2F26-27%2F001",
+                          "itemId":"ITEM-001",
+                          "qty":2,
+                          "condition":"GOOD"
+                        }
+                        """)));
+
+        verify(returnService).processReturnForOutwardItem(
+                eq("OUT%2F26-27%2F001"), eq("ITEM-001"), eq(2), eq("RET%2F26-27%2F001"),
+                eq(AssetCondition.GOOD), any(Instant.class));
+        verify(processedEventRepository).save(any(ProcessedEvent.class));
     }
 
     @Test
@@ -124,11 +216,11 @@ class AssetEventHandlerTest {
                 "evt-004",
                 AssetEventHandler.RETURN_ACCEPTED,
                 mapper.readTree("""
-                        {"assetId":"ASSET%2F26-27%2F001","returnId":"RET-001","condition":"GOOD"}
+                        {"assetId":"ASSET%2F26-27%2F001","outwardNumber":"OUT%2F26-27%2F001","returnId":"RET%2F26-27%2F001","condition":"GOOD"}
                         """)));
 
         verify(returnService).processReturn(
-                eq("ASSET%2F26-27%2F001"), eq("RET-001"), eq(AssetCondition.GOOD), any(Instant.class));
+                eq("ASSET%2F26-27%2F001"), eq("OUT%2F26-27%2F001"), eq("RET%2F26-27%2F001"), eq(AssetCondition.GOOD), any(Instant.class));
         verify(processedEventRepository).save(any(ProcessedEvent.class));
     }
 }
