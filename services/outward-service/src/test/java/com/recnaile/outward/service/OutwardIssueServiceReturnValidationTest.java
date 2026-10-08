@@ -53,6 +53,7 @@ class OutwardIssueServiceReturnValidationTest {
         assertThat(result.itemId()).isEqualTo("Item-2");
         assertThat(result.issuedQuantity()).isEqualTo(2);
         assertThat(result.alreadyReturnedQuantity()).isZero();
+        assertThat(result.assetTracked()).isFalse();
     }
 
     @Test

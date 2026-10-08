@@ -8,13 +8,15 @@ class ReturnNumberPathTest {
 
     @Test
     void normalizesSwaggerDoubleEncodedReturnNumber() {
-        assertEquals("RETURN%2F26-27%2F001",
-                ReturnNumberPath.normalize("RETURN%252F26-27%252F001"));
+        assertEquals(
+                "RETURN%2F26-27%2F001",
+                ReturnNumberPath.normalize("RET%252F26-27%252F001"));
     }
 
     @Test
     void preservesPersistedEncodedReturnNumber() {
-        assertEquals("RETURN%2F26-27%2F001",
+        assertEquals(
+                "RETURN%2F26-27%2F001",
                 ReturnNumberPath.normalize("RETURN%2F26-27%2F001"));
     }
 }

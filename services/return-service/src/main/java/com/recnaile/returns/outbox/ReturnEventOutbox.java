@@ -1,7 +1,6 @@
 package com.recnaile.returns.outbox;
 
 import com.recnaile.returns.model.enums.OutboxStatus;
-import com.recnaile.returns.model.enums.ReturnCondition;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
@@ -26,9 +25,11 @@ public class ReturnEventOutbox {
     private String eventType;
     private String topic;
     private String returnId;
+    private String outwardId;
     private String itemId;
     private Integer qty;
-    private ReturnCondition condition;
+    private String condition;
+    private String payload;
     private Instant occurredAt;
     private OutboxStatus status;
     private int attempts;
@@ -48,9 +49,11 @@ public class ReturnEventOutbox {
             String eventType,
             String topic,
             String returnId,
+            String outwardId,
             String itemId,
             Integer qty,
-            ReturnCondition condition,
+            String condition,
+            String payload,
             Instant occurredAt,
             Instant createdAt) {
         this.eventId = eventId;
@@ -58,9 +61,11 @@ public class ReturnEventOutbox {
         this.eventType = eventType;
         this.topic = topic;
         this.returnId = returnId;
+        this.outwardId = outwardId;
         this.itemId = itemId;
         this.qty = qty;
         this.condition = condition;
+        this.payload = payload;
         this.occurredAt = occurredAt;
         this.createdAt = createdAt;
         this.status = OutboxStatus.PENDING;
@@ -73,9 +78,11 @@ public class ReturnEventOutbox {
     public String getEventType() { return eventType; }
     public String getTopic() { return topic; }
     public String getReturnId() { return returnId; }
+    public String getOutwardId() { return outwardId; }
     public String getItemId() { return itemId; }
     public Integer getQty() { return qty; }
-    public ReturnCondition getCondition() { return condition; }
+    public String getCondition() { return condition; }
+    public String getPayload() { return payload; }
     public Instant getOccurredAt() { return occurredAt; }
     public OutboxStatus getStatus() { return status; }
     public int getAttempts() { return attempts; }

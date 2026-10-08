@@ -1,4 +1,6 @@
 spring:
+  application:
+    name: ${APP_SERVICE_NAME:return-service}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -10,21 +12,14 @@ spring:
         enable.idempotence: true
         compression.type: gzip
         delivery.timeout.ms: 120000
+        request.timeout.ms: 30000
         max.in.flight.requests.per.connection: 5
-    consumer:
-      enable-auto-commit: false
-      properties:
-        isolation.level: read_committed
-    listener:
-      ack-mode: manual
-  application:
-    name: ${APP_SERVICE_NAME:asset-service}
   data:
     mongodb:
-      uri: ${MONGODB_BASE_URI:mongodb://localhost:27017}/${MONGODB_DATABASE:assetdb}?retryWrites=true&w=majority&appName=recnaile
+      uri: ${MONGODB_BASE_URI:mongodb://localhost:27017}/${MONGODB_DATABASE:returndb}?retryWrites=true&w=majority&appName=recnaile
 
 server:
-  port: ${SERVICE_PORT:8089}
+  port: ${SERVICE_PORT:8088}
   shutdown: graceful
 
 management:
@@ -54,22 +49,28 @@ management:
 
 app:
   security:
-    enabled: ${ASSET_SECURITY_ENABLED:true}
     jwt:
+      mode: ${JWT_MODE:hs256}
+      secret: ${JWT_SECRET_KEY:}
+      issuer: ${JWT_ISSUER:auth-service}
       jwk-set-uri: ${JWT_JWK_SET_URI:http://auth-service:8081/oauth2/jwks}
+  integrations:
+    outward-service:
+      base-url: ${OUTWARD_SERVICE_BASE_URL:http://outward-service:8087}
+      connect-timeout-ms: ${OUTWARD_CONNECT_TIMEOUT_MS:3000}
+      read-timeout-ms: ${OUTWARD_READ_TIMEOUT_MS:5000}
   kafka:
-    enabled: ${KAFKA_ENABLED:true}
-    consumer-group: ${ASSET_KAFKA_CONSUMER_GROUP:asset-service}
     topics:
-      stock-issue-approved: ${KAFKA_STOCK_ISSUE_APPROVED_TOPIC:stock-issue-approved}
+      return-recorded: ${KAFKA_RETURN_RECORDED_TOPIC:return.recorded}
       return-accepted: ${KAFKA_RETURN_ACCEPTED_TOPIC:return-accepted}
-      asset-assigned: ${KAFKA_ASSET_ASSIGNED_TOPIC:asset-assigned}
-      asset-returned: ${KAFKA_ASSET_RETURNED_TOPIC:asset-returned}
-      asset-status-changed: ${KAFKA_ASSET_STATUS_CHANGED_TOPIC:asset-status-changed}
-      audit-event: ${KAFKA_AUDIT_EVENT_TOPIC:audit-events}
-  service-name: ${APP_SERVICE_NAME:asset-service}
-  description: ${APP_SERVICE_DESCRIPTION:Reusable asset lifecycle and employee assignment}
-  database-name: ${MONGODB_DATABASE:assetdb}
+      audit: ${KAFKA_AUDIT_TOPIC:audit.events}
+      notification: ${KAFKA_NOTIFICATION_TOPIC:notification.events}
+  outbox:
+    dispatch-enabled: ${RETURN_OUTBOX_DISPATCH_ENABLED:true}
+    dispatch-interval-ms: ${RETURN_OUTBOX_DISPATCH_INTERVAL_MS:5000}
+  integration-outbox:
+    dispatch-enabled: ${RETURN_INTEGRATION_OUTBOX_DISPATCH_ENABLED:true}
+    dispatch-interval-ms: ${RETURN_INTEGRATION_OUTBOX_DISPATCH_INTERVAL_MS:5000}
 
 logging:
   structured:
@@ -81,12 +82,10 @@ logging:
         version: ${PLATFORM_VERSION:1.0.0}
         environment: ${SPRING_PROFILES_ACTIVE:dev}
 
-
-
 springdoc:
   api-docs:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
-  packages-to-scan: com.recnaile.asset.api
+  packages-to-scan: com.recnaile.returns.controller
   paths-to-match: /api/v1/**

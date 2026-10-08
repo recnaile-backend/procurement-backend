@@ -22,8 +22,8 @@ class ReturnIntegrationOutboxServiceTest {
         when(repository.save(any(ReturnIntegrationOutbox.class))).thenAnswer(invocation -> invocation.getArgument(0));
         ReturnIntegrationOutboxService service = objectMapperService(repository);
 
-        service.audit("RET-1", "user-1", "PROCUREMENT", "VERIFY", "PENDING_VERIFICATION", "VERIFIED", "corr-1");
-        service.notify("RET-1", "user-1", "VERIFY", "Return verified", "corr-1");
+        service.audit("RETURN%2F26-27%2F001", "user-1", "PROCUREMENT", "VERIFY", "PENDING_VERIFICATION", "VERIFIED", "corr-1");
+        service.notify("RETURN%2F26-27%2F001", "user-1", "VERIFY", "Return verified", "corr-1");
 
         verify(repository, times(2)).save(any(ReturnIntegrationOutbox.class));
         assertThat(repository).isNotNull();

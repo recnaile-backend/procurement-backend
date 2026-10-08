@@ -19,7 +19,7 @@ class IdempotencyServiceTest {
         IdempotencyRecordRepository repository = mock(IdempotencyRecordRepository.class);
         ReturnRequestRepository returnRepository = mock(ReturnRequestRepository.class);
         IdempotencyService service = new IdempotencyService(repository, returnRepository);
-        IdempotencyRecord record = new IdempotencyRecord("key-1", "CREATE_RETURN", "user-1", "hash-a", "RET-1", Instant.now());
+        IdempotencyRecord record = new IdempotencyRecord("key-1", "CREATE_RETURN", "user-1", "hash-a", "RETURN%2F26-27%2F001", Instant.now());
         when(repository.findById("key-1")).thenReturn(Optional.of(record));
 
         assertThatThrownBy(() -> service.findExisting("key-1", "CREATE_RETURN", "user-1", "hash-b"))
@@ -31,14 +31,14 @@ class IdempotencyServiceTest {
         IdempotencyRecordRepository repository = mock(IdempotencyRecordRepository.class);
         ReturnRequestRepository returnRepository = mock(ReturnRequestRepository.class);
         IdempotencyService service = new IdempotencyService(repository, returnRepository);
-        IdempotencyRecord record = new IdempotencyRecord("key-1", "CREATE_RETURN", "user-1", "hash-a", "RET-1", Instant.now());
+        IdempotencyRecord record = new IdempotencyRecord("key-1", "CREATE_RETURN", "user-1", "hash-a", "RETURN%2F26-27%2F001", Instant.now());
         ReturnRequest request = new ReturnRequest("OUT-1", "ITEM-1", 1,
                 "user-1", ReturnCondition.GOOD, null, Instant.now());
-        request.setReturnId("RET-1");
+        request.setReturnId("RETURN%2F26-27%2F001");
         when(repository.findById("key-1")).thenReturn(Optional.of(record));
-        when(returnRepository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
+        when(returnRepository.findByReturnId("RETURN%2F26-27%2F001")).thenReturn(Optional.of(request));
 
         service.findExisting("key-1", "CREATE_RETURN", "user-1", "hash-a");
-        verify(returnRepository).findByReturnId("RET-1");
+        verify(returnRepository).findByReturnId("RETURN%2F26-27%2F001");
     }
 }

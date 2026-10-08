@@ -17,36 +17,102 @@ import java.util.Optional;
 
 @Service
 public class IdempotencyService {
+
     private final IdempotencyRecordRepository repository;
     private final ReturnRequestRepository returnRepository;
     private final Clock clock;
 
-    public IdempotencyService(IdempotencyRecordRepository repository, ReturnRequestRepository returnRepository) {
+    public IdempotencyService(
+            IdempotencyRecordRepository repository,
+            ReturnRequestRepository returnRepository) {
         this.repository = repository;
         this.returnRepository = returnRepository;
         this.clock = Clock.systemUTC();
     }
 
-    public Optional<ReturnRequest> findExisting(String key, String operation, String actor, String requestHash) {
+    public Optional<ReturnRequest> findExisting(
+            String key,
+            String operation,
+            String actor,
+            String requestHash) {
         String normalized = normalizeKey(key);
         return repository.findById(normalized).map(record -> {
             validate(record, operation, actor, requestHash);
             if (record.getReturnId() == null) {
-                return null;
+                throw new IdempotencyConflictException(
+                        "The same Idempotency-Key is currently being processed");
             }
             return returnRepository.findByReturnId(record.getReturnId())
                     .orElseThrow(() -> new ReturnNotFoundException(record.getReturnId()));
         });
     }
 
-    public void record(String key, String operation, String actor, String requestHash, String returnId) {
+    /**
+     * Atomically claims an idempotency key before the business mutation.
+     * The unique MongoDB _id prevents concurrent requests from both executing
+     * the same state-changing operation.
+     */
+    public void claim(
+            String key,
+            String operation,
+            String actor,
+            String requestHash) {
         String normalized = normalizeKey(key);
         try {
-            repository.save(new IdempotencyRecord(normalized, operation, actor, requestHash, returnId, Instant.now(clock)));
+            repository.save(new IdempotencyRecord(
+                    normalized,
+                    operation,
+                    actor,
+                    requestHash,
+                    null,
+                    Instant.now(clock)));
         } catch (DuplicateKeyException duplicate) {
             IdempotencyRecord existing = repository.findById(normalized)
                     .orElseThrow(() -> duplicate);
             validate(existing, operation, actor, requestHash);
+            if (existing.getReturnId() == null) {
+                throw new IdempotencyConflictException(
+                        "The same Idempotency-Key is currently being processed");
+            }
+        }
+    }
+
+    public void complete(
+            String key,
+            String operation,
+            String actor,
+            String requestHash,
+            String returnId) {
+        String normalized = normalizeKey(key);
+        IdempotencyRecord existing = repository.findById(normalized)
+                .orElseThrow(() ->
+                        new IllegalStateException("Idempotency claim was not found"));
+
+        validate(existing, operation, actor, requestHash);
+        if (existing.getReturnId() != null
+                && !existing.getReturnId().equals(returnId)) {
+            throw new IdempotencyConflictException(
+                    "Idempotency-Key is already associated with another return");
+        }
+
+        existing.setReturnId(returnId);
+        repository.save(existing);
+    }
+
+    /**
+     * Backward-compatible completion operation for service/unit callers.
+     */
+    public void record(
+            String key,
+            String operation,
+            String actor,
+            String requestHash,
+            String returnId) {
+        try {
+            complete(key, operation, actor, requestHash, returnId);
+        } catch (IllegalStateException missingClaim) {
+            claim(key, operation, actor, requestHash);
+            complete(key, operation, actor, requestHash, returnId);
         }
     }
 
@@ -71,11 +137,16 @@ public class IdempotencyService {
         }
     }
 
-    private void validate(IdempotencyRecord record, String operation, String actor, String requestHash) {
-        if (!record.getOperation().equals(operation)
-                || !record.getActor().equals(actor)
-                || !record.getRequestHash().equals(requestHash)) {
-            throw new IdempotencyConflictException("Idempotency-Key was already used with different request data");
+    private void validate(
+            IdempotencyRecord record,
+            String operation,
+            String actor,
+            String requestHash) {
+        if (!operation.equals(record.getOperation())
+                || !actor.equals(record.getActor())
+                || !requestHash.equals(record.getRequestHash())) {
+            throw new IdempotencyConflictException(
+                    "Idempotency-Key was already used with different request data");
         }
     }
 }

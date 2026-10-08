@@ -10,6 +10,12 @@ public record IssuedReturnValidation(
         String itemId,
         @Schema(description = "Quantity issued for this item.", example = "2")
         Integer issuedQuantity,
-        @Schema(description = "Quantity already returned. Return quantities are tracked by Return Service, so this boundary currently reports zero.", example = "0")
-        Integer alreadyReturnedQuantity) {
+        @Schema(description = "Quantity already returned. Return Service remains the authoritative return ledger; this boundary reports the issued quantity and the Outward item snapshot.", example = "0")
+        Integer alreadyReturnedQuantity,
+        @Schema(description = "Whether the issued item is reusable/asset-tracked according to the Outward snapshot derived from Master Data.", example = "true")
+        boolean assetTracked) {
+
+    public IssuedReturnValidation(String outwardId, String itemId, Integer issuedQuantity, Integer alreadyReturnedQuantity) {
+        this(outwardId, itemId, issuedQuantity, alreadyReturnedQuantity, false);
+    }
 }

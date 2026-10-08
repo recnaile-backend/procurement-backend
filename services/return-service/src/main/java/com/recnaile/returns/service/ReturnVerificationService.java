@@ -69,6 +69,7 @@ public class ReturnVerificationService {
             if (existing.isPresent()) {
                 return existing.get();
             }
+            idempotencyService.claim(key, "VERIFY_RETURN", verifier, fingerprint);
             ReturnRequest returnRequest = repository.findByReturnId(normalizedReturnId)
                     .orElseThrow(() -> new ReturnNotFoundException(normalizedReturnId));
             stateMachine.verify(returnRequest);
@@ -78,7 +79,7 @@ public class ReturnVerificationService {
             returnRequest.setUpdatedAt(verifiedAt);
             ReturnRequest saved = repository.save(returnRequest);
             enqueueIntegrations(saved, verifier, "VERIFY", "PENDING_VERIFICATION", saved.getStatus().name(), null);
-            idempotencyService.record(key, "VERIFY_RETURN", verifier, fingerprint, saved.getReturnId());
+            idempotencyService.complete(key, "VERIFY_RETURN", verifier, fingerprint, saved.getReturnId());
             return saved;
         }
 

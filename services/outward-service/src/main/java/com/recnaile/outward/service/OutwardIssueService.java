@@ -174,7 +174,7 @@ public class OutwardIssueService {
         try {
             int quantity = matched.getQuantity().intValueExact();
             return new com.recnaile.outward.dto.IssuedReturnValidation(
-                    issued.getOutwardNumber(), matched.getItemId(), quantity, 0);
+                    issued.getOutwardNumber(), matched.getItemId(), quantity, 0, matched.isAssetTracked());
         } catch (ArithmeticException ex) {
             throw new OutwardException("OUTWARD_NON_INTEGER_ISSUED_QUANTITY",
                     "Issued quantity is not an integer and cannot be returned through the Return Service");

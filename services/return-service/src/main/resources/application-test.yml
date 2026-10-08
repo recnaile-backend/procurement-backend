@@ -1,4 +1,6 @@
 spring:
+  application:
+    name: return-service-test
   data:
     mongodb:
       uri: mongodb://localhost:27017/return-test
@@ -16,7 +18,9 @@ app:
     dispatch-enabled: false
   integrations:
     outward-service:
-      base-url: http://localhost:8087
+      base-url: http://outward-service:8087
+      connect-timeout-ms: 1000
+      read-timeout-ms: 1000
   security:
     jwt:
       secret: test-test-test-test-test-test-test-test

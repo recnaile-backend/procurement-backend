@@ -2,10 +2,6 @@ package com.recnaile.returns.model.entity;
 
 import com.recnaile.returns.model.enums.ReturnCondition;
 import com.recnaile.returns.model.enums.ReturnStatus;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
@@ -24,44 +20,40 @@ public class ReturnRequest {
     @Id
     private String id;
 
-    @NotBlank
     @Indexed(unique = true)
     private String returnId;
 
-    @NotBlank
     @Indexed
     private String outwardId;
 
-    @NotBlank
     @Indexed
     private String itemId;
 
-    @NotNull
-    @Min(1)
     private Integer quantity;
 
-    @NotBlank
     @Indexed
     private String returnByEmpId;
 
-    @NotNull
     private ReturnCondition condition;
 
-    @Size(max = 2000)
     private String remarks;
 
-    @NotNull
     @Indexed
     private ReturnStatus status;
+
+    /**
+     * Snapshot of the Outward/Item reusable flag at creation time.
+     * This prevents Return Service from sending an Asset event for consumable stock.
+     */
+    @Indexed
+    private Boolean assetTracked;
 
     private String verifiedBy;
     private Instant verifiedAt;
 
-    @NotNull
     @Indexed
     private Instant createdAt;
 
-    @NotNull
     private Instant updatedAt;
 
     @Version
@@ -78,6 +70,18 @@ public class ReturnRequest {
             ReturnCondition condition,
             String remarks,
             Instant createdAt) {
+        this(outwardId, itemId, quantity, returnByEmpId, condition, remarks, createdAt, false);
+    }
+
+    public ReturnRequest(
+            String outwardId,
+            String itemId,
+            Integer quantity,
+            String returnByEmpId,
+            ReturnCondition condition,
+            String remarks,
+            Instant createdAt,
+            Boolean assetTracked) {
         this.outwardId = outwardId;
         this.itemId = itemId;
         this.quantity = quantity;
@@ -85,6 +89,7 @@ public class ReturnRequest {
         this.condition = condition;
         this.remarks = remarks;
         this.status = ReturnStatus.PENDING_VERIFICATION;
+        this.assetTracked = Boolean.TRUE.equals(assetTracked);
         this.createdAt = createdAt;
         this.updatedAt = createdAt;
     }
@@ -98,6 +103,7 @@ public class ReturnRequest {
     public ReturnCondition getCondition() { return condition; }
     public String getRemarks() { return remarks; }
     public ReturnStatus getStatus() { return status; }
+    public Boolean getAssetTracked() { return assetTracked; }
     public String getVerifiedBy() { return verifiedBy; }
     public Instant getVerifiedAt() { return verifiedAt; }
     public Instant getCreatedAt() { return createdAt; }
@@ -113,6 +119,7 @@ public class ReturnRequest {
     public void setCondition(ReturnCondition condition) { this.condition = condition; }
     public void setRemarks(String remarks) { this.remarks = remarks; }
     public void setStatus(ReturnStatus status) { this.status = status; }
+    public void setAssetTracked(Boolean assetTracked) { this.assetTracked = assetTracked; }
     public void setVerifiedBy(String verifiedBy) { this.verifiedBy = verifiedBy; }
     public void setVerifiedAt(Instant verifiedAt) { this.verifiedAt = verifiedAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
@@ -127,5 +134,7 @@ public class ReturnRequest {
     }
 
     @Override
-    public int hashCode() { return Objects.hash(id); }
+    public int hashCode() {
+        return Objects.hash(id);
+    }
 }

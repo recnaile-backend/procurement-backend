@@ -13,56 +13,58 @@ import static org.assertj.core.api.Assertions.assertThat;
 class InventoryReturnIntegrationContractTest {
 
     @Test
-    void goodReturnEventRepresentsAvailableStockIncrease() {
-        ReturnRecordedEvent event = event(ReturnCondition.GOOD);
+    void goodReturnEventContainsOutwardIdentityAndGoodCondition() {
+        ReturnRecordedEvent event = event(ReturnCondition.GOOD, 3);
 
-        assertThat(event.getEventType()).isEqualTo("RETURN_RECORDED");
-        assertThat(event.getItemId()).isEqualTo("ITEM-001");
-        assertThat(event.getQty()).isEqualTo(3);
-        assertThat(event.getCondition()).isEqualTo(ReturnCondition.GOOD);
+        assertThat(event.eventType()).isEqualTo("RETURN_RECORDED");
+        assertThat(event.returnId()).isEqualTo("RETURN%2F26-27%2F001");
+        assertThat(event.outwardId()).isEqualTo("OUT%2F26-27%2F001");
+        assertThat(event.itemId()).isEqualTo("ITEM-001");
+        assertThat(event.qty()).isEqualTo(3);
+        assertThat(event.condition()).isEqualTo(ReturnCondition.GOOD);
     }
 
     @Test
-    void damagedReturnEventRepresentsDefectStockIncrease() {
-        ReturnRecordedEvent event = event(ReturnCondition.DAMAGED);
+    void damagedReturnEventContainsOutwardIdentityAndDamagedCondition() {
+        ReturnRecordedEvent event = event(ReturnCondition.DAMAGED, 2);
 
-        assertThat(event.getEventType()).isEqualTo("RETURN_RECORDED");
-        assertThat(event.getItemId()).isEqualTo("ITEM-001");
-        assertThat(event.getQty()).isEqualTo(2);
-        assertThat(event.getCondition()).isEqualTo(ReturnCondition.DAMAGED);
+        assertThat(event.eventType()).isEqualTo("RETURN_RECORDED");
+        assertThat(event.outwardId()).isEqualTo("OUT%2F26-27%2F001");
+        assertThat(event.itemId()).isEqualTo("ITEM-001");
+        assertThat(event.qty()).isEqualTo(2);
+        assertThat(event.condition()).isEqualTo(ReturnCondition.DAMAGED);
     }
 
     @Test
     void eventContainsStableReturnIdentityAndOccurrenceTime() {
         Instant occurredAt = Instant.parse("2026-09-30T05:00:00Z");
         ReturnRequest request = new ReturnRequest(
-                "OUT-001", "ITEM-001",
+                "OUT%2F26-27%2F001", "ITEM-001",
                 1, "USER-001", ReturnCondition.GOOD,
                 "returned", occurredAt);
-        request.setReturnId("RET-001");
+        request.setReturnId("RETURN%2F26-27%2F001");
         request.setStatus(ReturnStatus.ACCEPTED_GOOD);
         request.setUpdatedAt(occurredAt);
-        request.setVersion(0L);
 
         ReturnRecordedEvent event = ReturnRecordedEvent.create(request);
 
-        assertThat(event.getEventId()).isNotBlank();
-        assertThat(event.getReturnId()).isEqualTo("RET-001");
-        assertThat(event.getOccurredAt()).isEqualTo(occurredAt);
+        assertThat(event.eventId()).isNotBlank();
+        assertThat(event.returnId()).isEqualTo("RETURN%2F26-27%2F001");
+        assertThat(event.outwardId()).isEqualTo("OUT%2F26-27%2F001");
+        assertThat(event.occurredAt()).isEqualTo(occurredAt);
     }
 
-    private ReturnRecordedEvent event(ReturnCondition condition) {
+    private ReturnRecordedEvent event(ReturnCondition condition, int quantity) {
         Instant occurredAt = Instant.parse("2026-09-30T05:00:00Z");
         ReturnRequest request = new ReturnRequest(
-                "OUT-001", "ITEM-001",
-                condition == ReturnCondition.GOOD ? 3 : 2,
-                "USER-001", condition, "returned", occurredAt);
-        request.setReturnId("RET-001");
+                "OUT%2F26-27%2F001", "ITEM-001",
+                quantity, "USER-001", condition,
+                "returned", occurredAt);
+        request.setReturnId("RETURN%2F26-27%2F001");
         request.setStatus(condition == ReturnCondition.GOOD
                 ? ReturnStatus.ACCEPTED_GOOD
                 : ReturnStatus.ACCEPTED_DAMAGED);
         request.setUpdatedAt(occurredAt);
-        request.setVersion(0L);
         return ReturnRecordedEvent.create(request);
     }
 }

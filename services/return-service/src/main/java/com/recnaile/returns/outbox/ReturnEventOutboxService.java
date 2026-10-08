@@ -1,5 +1,8 @@
 package com.recnaile.returns.outbox;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.recnaile.returns.event.ReturnAcceptedEvent;
 import com.recnaile.returns.event.ReturnRecordedEvent;
 import com.recnaile.returns.model.entity.ReturnRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,36 +16,99 @@ import java.time.Instant;
 public class ReturnEventOutboxService {
 
     private final ReturnEventOutboxRepository repository;
-    private final String topic;
+    private final ObjectMapper objectMapper;
+    private final Environment environment;
     private final Clock clock;
 
     @Autowired
-    public ReturnEventOutboxService(ReturnEventOutboxRepository repository, Environment environment) {
-        this(repository, environment, Clock.systemUTC());
+    public ReturnEventOutboxService(
+            ReturnEventOutboxRepository repository,
+            ObjectMapper objectMapper,
+            Environment environment) {
+        this(repository, objectMapper, environment, Clock.systemUTC());
     }
 
-    ReturnEventOutboxService(ReturnEventOutboxRepository repository, Environment environment, Clock clock) {
+    ReturnEventOutboxService(
+            ReturnEventOutboxRepository repository,
+            ObjectMapper objectMapper,
+            Environment environment,
+            Clock clock) {
         this.repository = repository;
-        this.topic = environment.getProperty("app.kafka.topics.return-recorded", "return.recorded");
+        this.objectMapper = objectMapper;
+        this.environment = environment;
         this.clock = clock;
     }
 
     public ReturnEventOutbox enqueue(ReturnRequest returnRequest) {
+        return enqueueReturnRecorded(returnRequest);
+    }
+
+    public ReturnEventOutbox enqueueReturnRecorded(ReturnRequest returnRequest) {
+        ReturnRecordedEvent event = ReturnRecordedEvent.create(requireRequest(returnRequest));
+        return save(event.eventId(), event.eventType(), returnRequest, event,
+                environment.getProperty("app.kafka.topics.return-recorded", "return.recorded"));
+    }
+
+    public ReturnEventOutbox enqueueReturnAccepted(ReturnRequest returnRequest) {
+        ReturnRequest request = requireRequest(returnRequest);
+        if (!Boolean.TRUE.equals(request.getAssetTracked())) {
+            return null;
+        }
+        ReturnAcceptedEvent event = ReturnAcceptedEvent.create(request);
+        return save(event.eventId(), event.eventType(), request, event,
+                environment.getProperty("app.kafka.topics.return-accepted", "return-accepted"));
+    }
+
+    private ReturnEventOutbox save(
+            String eventId,
+            String eventType,
+            ReturnRequest returnRequest,
+            Object event,
+            String topic) {
+        try {
+            String payload = objectMapper.writeValueAsString(event);
+            Instant now = Instant.now(clock);
+            ReturnEventOutbox outbox = new ReturnEventOutbox(
+                    eventId,
+                    returnRequest.getReturnId(),
+                    eventType,
+                    topic,
+                    returnRequest.getReturnId(),
+                    returnRequest.getOutwardId(),
+                    returnRequest.getItemId(),
+                    returnRequest.getQuantity(),
+                    returnRequest.getCondition().name(),
+                    payload,
+                    returnRequest.getUpdatedAt(),
+                    now);
+            return repository.save(outbox);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Unable to serialize return integration event", exception);
+        }
+    }
+
+    private ReturnRequest requireRequest(ReturnRequest returnRequest) {
         if (returnRequest == null) {
             throw new IllegalArgumentException("returnRequest must not be null");
         }
-        ReturnRecordedEvent event = ReturnRecordedEvent.create(returnRequest);
-        ReturnEventOutbox outbox = new ReturnEventOutbox(
-                event.getEventId(),
-                returnRequest.getReturnId(),
-                event.getEventType(),
-                topic,
-                event.getReturnId(),
-                event.getItemId(),
-                event.getQty(),
-                event.getCondition(),
-                event.getOccurredAt(),
-                Instant.now(clock));
-        return repository.save(outbox);
+        if (returnRequest.getReturnId() == null || returnRequest.getReturnId().isBlank()) {
+            throw new IllegalArgumentException("returnId must not be blank");
+        }
+        if (returnRequest.getOutwardId() == null || returnRequest.getOutwardId().isBlank()) {
+            throw new IllegalArgumentException("outwardId must not be blank");
+        }
+        if (returnRequest.getItemId() == null || returnRequest.getItemId().isBlank()) {
+            throw new IllegalArgumentException("itemId must not be blank");
+        }
+        if (returnRequest.getQuantity() == null || returnRequest.getQuantity() < 1) {
+            throw new IllegalArgumentException("quantity must be greater than zero");
+        }
+        if (returnRequest.getCondition() == null) {
+            throw new IllegalArgumentException("condition must not be null");
+        }
+        if (returnRequest.getUpdatedAt() == null) {
+            throw new IllegalArgumentException("updatedAt must not be null");
+        }
+        return returnRequest;
     }
 }

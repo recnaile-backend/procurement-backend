@@ -10,8 +10,8 @@ class ReturnIntegrationOutboxDispatcherTest {
     void successfulPublishMarksOutboxSent() throws Exception {
         ReturnIntegrationOutboxRepository repository = mock(ReturnIntegrationOutboxRepository.class);
         KafkaReturnIntegrationPublisher publisher = mock(KafkaReturnIntegrationPublisher.class);
-        ReturnIntegrationOutbox outbox = new ReturnIntegrationOutbox("event-1","RET-1","RETURN_AUDIT","AUDIT","audit.events","{}",Instant.now());
-        when(publisher.publish("audit.events","RET-1","{}")).thenReturn(CompletableFuture.completedFuture(null));
+        ReturnIntegrationOutbox outbox = new ReturnIntegrationOutbox("event-1","RETURN%2F26-27%2F001","RETURN_AUDIT","AUDIT","audit.events","{}",Instant.now());
+        when(publisher.publish("audit.events","RETURN%2F26-27%2F001","{}")).thenReturn(CompletableFuture.completedFuture(null));
 
         ReturnIntegrationOutboxDispatcher dispatcher = new ReturnIntegrationOutboxDispatcher(repository,publisher,java.time.Clock.systemUTC());
         dispatcher.dispatchOne(outbox);

@@ -1,5 +1,7 @@
 package com.recnaile.returns.outbox;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.recnaile.returns.model.entity.ReturnRequest;
 import com.recnaile.returns.model.enums.OutboxStatus;
 import com.recnaile.returns.model.enums.ReturnCondition;
@@ -16,8 +18,7 @@ import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ReturnEventOutboxServiceTest {
@@ -29,31 +30,85 @@ class ReturnEventOutboxServiceTest {
     private Environment environment;
 
     @Test
-    void enqueueStoresPendingReturnRecordedEvent() {
+    void enqueueStoresInventoryReturnRecordedEventWithOutwardIdentity() throws Exception {
         when(environment.getProperty("app.kafka.topics.return-recorded", "return.recorded"))
                 .thenReturn("return.recorded.test");
 
         Instant now = Instant.parse("2026-09-30T06:05:00Z");
-        ReturnRequest request = new ReturnRequest(
-                "OUT-1", "ITEM-1", 2,
-                "USER-1", ReturnCondition.GOOD, "ok",
-                Instant.parse("2026-09-30T05:00:00Z"));
-        request.setReturnId("RET-1");
-        request.setStatus(ReturnStatus.ACCEPTED_GOOD);
-        request.setUpdatedAt(now);
+        ReturnRequest request = returnRequest(false);
 
-        ReturnEventOutboxService service = new ReturnEventOutboxService(
-                repository, environment, Clock.fixed(now, ZoneOffset.UTC));
+        ReturnEventOutboxService service = service(now);
         when(repository.save(any(ReturnEventOutbox.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         ReturnEventOutbox result = service.enqueue(request);
 
         assertThat(result.getStatus()).isEqualTo(OutboxStatus.PENDING);
-        assertThat(result.getAggregateId()).isEqualTo("RET-1");
+        assertThat(result.getAggregateId()).isEqualTo("RETURN%2F26-27%2F001");
         assertThat(result.getEventType()).isEqualTo("RETURN_RECORDED");
         assertThat(result.getTopic()).isEqualTo("return.recorded.test");
-        assertThat(result.getItemId()).isEqualTo("ITEM-1");
+        assertThat(result.getOutwardId()).isEqualTo("OUT%2F26-27%2F001");
+        assertThat(objectMapper().readTree(result.getPayload()).get("outwardId").asText())
+                .isEqualTo("OUT%2F26-27%2F001");
         verify(repository).save(any(ReturnEventOutbox.class));
+    }
+
+    @Test
+    void enqueueReturnAcceptedSkipsConsumableItems() {
+        ReturnRequest request = returnRequest(false);
+        ReturnEventOutboxService service = service(Instant.parse("2026-09-30T06:05:00Z"));
+
+        assertThat(service.enqueueReturnAccepted(request)).isNull();
+        verify(repository, never()).save(any(ReturnEventOutbox.class));
+    }
+
+    @Test
+    void enqueueReturnAcceptedCreatesAssetEventForReusableItems() throws Exception {
+        when(environment.getProperty("app.kafka.topics.return-accepted", "return-accepted"))
+                .thenReturn("return-accepted.test");
+
+        ReturnRequest request = returnRequest(true);
+        ReturnEventOutboxService service = service(Instant.parse("2026-09-30T06:05:00Z"));
+        when(repository.save(any(ReturnEventOutbox.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ReturnEventOutbox result = service.enqueueReturnAccepted(request);
+
+        assertThat(result.getEventType()).isEqualTo("ReturnAccepted");
+        assertThat(result.getTopic()).isEqualTo("return-accepted.test");
+        assertThat(objectMapper().readTree(result.getPayload()).get("returnId").asText())
+                .isEqualTo("RETURN%2F26-27%2F001");
+        assertThat(objectMapper().readTree(result.getPayload()).get("outwardId").asText())
+                .isEqualTo("OUT%2F26-27%2F001");
+    }
+
+    private ObjectMapper objectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        return mapper;
+    }
+
+    private ReturnEventOutboxService service(Instant now) {
+        return new ReturnEventOutboxService(
+                repository,
+                objectMapper(),
+                environment,
+                Clock.fixed(now, ZoneOffset.UTC));
+    }
+
+    private ReturnRequest returnRequest(boolean assetTracked) {
+        ReturnRequest request = new ReturnRequest(
+                "OUT%2F26-27%2F001",
+                "ITEM-1",
+                1,
+                "USER-1",
+                ReturnCondition.GOOD,
+                "ok",
+                Instant.parse("2026-09-30T05:00:00Z"),
+                assetTracked);
+        request.setReturnId("RETURN%2F26-27%2F001");
+        request.setStatus(ReturnStatus.ACCEPTED_GOOD);
+        request.setUpdatedAt(Instant.parse("2026-09-30T06:00:00Z"));
+        return request;
     }
 }

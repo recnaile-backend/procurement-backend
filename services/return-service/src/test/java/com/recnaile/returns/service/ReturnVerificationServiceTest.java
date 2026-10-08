@@ -36,10 +36,10 @@ class ReturnVerificationServiceTest {
         ReturnVerificationService service = new ReturnVerificationService(repository, stateMachine, clock);
         ReturnRequest request = returnRequest();
 
-        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RETURN%2F26-27%2F001")).thenReturn(Optional.of(request));
         when(repository.save(request)).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ReturnRequest result = service.verify(" RET-1 ", new VerifyReturnRequest(" verifier-1 "));
+        ReturnRequest result = service.verify(" RETURN%2F26-27%2F001 ", new VerifyReturnRequest(" verifier-1 "));
 
         assertThat(result.getStatus()).isEqualTo(ReturnStatus.VERIFIED);
         assertThat(result.getVerifiedBy()).isEqualTo("verifier-1");
@@ -52,9 +52,9 @@ class ReturnVerificationServiceTest {
     void verifyRejectsUnknownReturn() {
         ReturnVerificationService service = new ReturnVerificationService(
                 repository, new ReturnStateMachine(), Clock.systemUTC());
-        when(repository.findByReturnId("RET-404")).thenReturn(Optional.empty());
+        when(repository.findByReturnId("RETURN%2F26-27%2F404")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.verify("RET-404", new VerifyReturnRequest("verifier-1")))
+        assertThatThrownBy(() -> service.verify("RETURN%2F26-27%2F404", new VerifyReturnRequest("verifier-1")))
                 .isInstanceOf(ReturnNotFoundException.class);
     }
 
@@ -64,9 +64,9 @@ class ReturnVerificationServiceTest {
                 repository, new ReturnStateMachine(), Clock.systemUTC());
         ReturnRequest request = returnRequest();
         request.setStatus(ReturnStatus.VERIFIED);
-        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RETURN%2F26-27%2F001")).thenReturn(Optional.of(request));
 
-        assertThatThrownBy(() -> service.verify("RET-1", new VerifyReturnRequest("verifier-1")))
+        assertThatThrownBy(() -> service.verify("RETURN%2F26-27%2F001", new VerifyReturnRequest("verifier-1")))
                 .isInstanceOf(InvalidReturnStateTransitionException.class);
     }
 
@@ -75,7 +75,7 @@ class ReturnVerificationServiceTest {
         ReturnVerificationService service = new ReturnVerificationService(
                 repository, new ReturnStateMachine(), Clock.systemUTC());
 
-        assertThatThrownBy(() -> service.verify("RET-1", new VerifyReturnRequest("  ")))
+        assertThatThrownBy(() -> service.verify("RETURN%2F26-27%2F001", new VerifyReturnRequest("  ")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("verifiedBy must not be blank");
     }

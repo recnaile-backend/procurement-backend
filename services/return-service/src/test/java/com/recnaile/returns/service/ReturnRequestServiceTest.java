@@ -41,7 +41,7 @@ class ReturnRequestServiceTest {
         Clock clock = Clock.fixed(now, ZoneOffset.UTC);
         IssuedReturnValidationService validationService = new IssuedReturnValidationService(issuedReturnValidationClient);
         when(issuedReturnValidationClient.validateIssuedItem("OUT-100", "ITEM-10"))
-                .thenReturn(new IssuedReturnValidation("OUT-100", "ITEM-10", 5, 1));
+                .thenReturn(new IssuedReturnValidation("OUT-100", "ITEM-10", 5, 1, false));
         when(returnNumberService.nextNumber()).thenReturn("RETURN%2F26-27%2F001");
         ReturnRequestService service = new ReturnRequestService(repository, validationService, clock, null, null, returnNumberService);
 
@@ -56,9 +56,10 @@ class ReturnRequestServiceTest {
 
         assertThat(result.getReturnId()).isNotBlank();
         assertThat(result.getOutwardId()).isEqualTo("OUT-100");
-                assertThat(result.getItemId()).isEqualTo("ITEM-10");
+        assertThat(result.getItemId()).isEqualTo("ITEM-10");
         assertThat(result.getQuantity()).isEqualTo(2);
-                assertThat(result.getReturnByEmpId()).isEqualTo("user-1");
+        assertThat(result.getAssetTracked()).isFalse();
+        assertThat(result.getReturnByEmpId()).isEqualTo("user-1");
         assertThat(result.getCondition()).isEqualTo(ReturnCondition.GOOD);
         assertThat(result.getRemarks()).isEqualTo("returned");
         assertThat(result.getStatus()).isEqualTo(ReturnStatus.PENDING_VERIFICATION);
