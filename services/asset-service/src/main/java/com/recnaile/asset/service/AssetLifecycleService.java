@@ -46,6 +46,17 @@ public class AssetLifecycleService {
     }
 
     @Transactional
+    public Asset beginRepair(String assetId, Instant now) {
+        Asset asset = findAsset(assetId);
+        String previousStatus = asset.getStatus().name();
+        asset.beginRepair(now);
+        Asset saved = assetRepository.save(asset);
+        if (eventPublisher != null) eventPublisher.publishStatusChanged(saved, previousStatus, saved.getStatus().name());
+        if (auditEventPublisher != null) auditEventPublisher.publish("ASSET_REPAIR_STARTED", saved.getAssetId(), AssetCondition.DAMAGED, saved.getCondition(), null);
+        return saved;
+    }
+
+    @Transactional
     public Asset completeRepair(String assetId, Instant now) {
         Asset asset = findAsset(assetId);
         String previousStatus = asset.getStatus().name();

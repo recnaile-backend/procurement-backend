@@ -72,7 +72,7 @@ app:
       asset-assigned: ${KAFKA_ASSET_ASSIGNED_TOPIC:asset-assigned}
       asset-returned: ${KAFKA_ASSET_RETURNED_TOPIC:asset-returned}
       asset-status-changed: ${KAFKA_ASSET_STATUS_CHANGED_TOPIC:asset-status-changed}
-      audit-event: ${KAFKA_AUDIT_EVENT_TOPIC:audit-events}
+      audit-event: ${KAFKA_AUDIT_EVENT_TOPIC:audit.events}
       outward-issued: ${KAFKA_OUTWARD_ISSUED_TOPIC:outward.events}
       return-recorded: ${KAFKA_RETURN_RECORDED_TOPIC:return.recorded}
   mongodb:

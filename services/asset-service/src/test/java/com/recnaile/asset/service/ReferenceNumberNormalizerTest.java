@@ -15,8 +15,9 @@ class ReferenceNumberNormalizerTest {
 
     @Test
     void normalizesReturnId() {
-        assertEquals("RET%2F26-27%2F001", ReferenceNumberNormalizer.returnId("RET%2F26-27%2F001"));
-        assertEquals("RET%2F26-27%2F001", ReferenceNumberNormalizer.returnId("RET/26-27/001"));
+        assertEquals("RETURN%2F26-27%2F001", ReferenceNumberNormalizer.returnId("RETURN%2F26-27%2F001"));
+        assertEquals("RETURN%2F26-27%2F001", ReferenceNumberNormalizer.returnId("RETURN/26-27/001"));
+        assertEquals("RETURN%2F26-27%2F001", ReferenceNumberNormalizer.returnId("RET%2F26-27%2F001"));
     }
 
     @Test

@@ -20,13 +20,13 @@ class AssetAuditEventPublisherTest {
         AssetOutboxService outbox = mock(AssetOutboxService.class);
         KafkaEventProperties properties = new KafkaEventProperties(true, "asset-service", new KafkaEventProperties.Topics(
                 "stock-issue-approved", "return-accepted", "asset-assigned", "asset-returned",
-                "asset-status-changed", "audit-events"));
+                "asset-status-changed", "audit.events", "outward.events", "return.recorded"));
         AssetAuditEventPublisher publisher = new AssetAuditEventPublisher(outbox, properties,
                 new AssetServiceProperties("asset-service", "test", "assetdb"),
                 Clock.fixed(Instant.parse("2026-10-06T04:30:00Z"), ZoneOffset.UTC));
 
         publisher.publish("ASSET_CREATED", "ASSET%2F26-27%2F001", null, Map.of("status", "RETURNED"), "EMP-1");
 
-        verify(outbox).enqueue(eq("audit-events"), eq("ASSET%2F26-27%2F001"), eq("AuditEvent"), any(Map.class));
+        verify(outbox).enqueue(eq("audit.events"), eq("ASSET%2F26-27%2F001"), eq("AuditEvent"), any(Map.class));
     }
 }

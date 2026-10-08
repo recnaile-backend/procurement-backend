@@ -43,11 +43,11 @@ class AssetAssignmentTest {
                 "asset-001", "EMP-001", "Engineering", "PROC-001",
                 "OUT/26-27/001", assignedAt, null);
 
-        assignment.close(returnedAt, "RET%2F26-27%2F001", AssetCondition.GOOD);
+        assignment.close(returnedAt, "RETURN%2F26-27%2F001", AssetCondition.GOOD);
 
         assertFalse(assignment.isActive());
         assertEquals(returnedAt, assignment.getReturnedAt());
-        assertEquals("RET%2F26-27%2F001", assignment.getReturnId());
+        assertEquals("RETURN%2F26-27%2F001", assignment.getReturnId());
         assertEquals(AssetCondition.GOOD, assignment.getReturnCondition());
     }
 
@@ -58,12 +58,12 @@ class AssetAssignmentTest {
                 "OUT/26-27/001", Instant.parse("2026-10-05T08:00:00Z"), null);
         assignment.close(
                 Instant.parse("2026-10-10T08:00:00Z"),
-                "RET%2F26-27%2F001",
+                "RETURN%2F26-27%2F001",
                 AssetCondition.GOOD);
 
         assertThrows(IllegalStateException.class, () -> assignment.close(
                 Instant.parse("2026-10-11T08:00:00Z"),
-                "RET%2F26-27%2F002",
+                "RETURN%2F26-27%2F002",
                 AssetCondition.GOOD));
     }
 
@@ -75,7 +75,7 @@ class AssetAssignmentTest {
 
         assertThrows(IllegalArgumentException.class, () -> assignment.close(
                 Instant.parse("2026-10-04T08:00:00Z"),
-                "RET%2F26-27%2F001",
+                "RETURN%2F26-27%2F001",
                 AssetCondition.GOOD));
     }
 }

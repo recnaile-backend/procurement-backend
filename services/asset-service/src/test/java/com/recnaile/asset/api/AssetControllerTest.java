@@ -15,6 +15,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recnaile.asset.api.dto.CreateAssetRequest;
+import com.recnaile.asset.api.dto.AssetGroupResponse;
 import com.recnaile.asset.model.Asset;
 import com.recnaile.asset.model.AssetCondition;
 import com.recnaile.asset.model.AssetId;
@@ -81,6 +82,20 @@ class AssetControllerTest {
         when(assetService.getAll(null)).thenReturn(List.of());
         mockMvc.perform(get("/api/v1/assets"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void getGroupsReturns200() throws Exception {
+        Asset asset = Asset.create(new AssetId("ASSET%2F26-27%2F001"), "Item-3", "OUT%2F26-27%2F008",
+                "Item-3", null, null, "issuer-1", AssetStatus.IN_USE, AssetCondition.GOOD, null,
+                Instant.parse("2026-01-01T00:00:00Z"));
+        when(assetService.getAll(null)).thenReturn(List.of(asset));
+        when(assetService.toGroups(any())).thenReturn(List.of(new AssetGroupResponse(
+                "OUT%2F26-27%2F008", "Item-3", 1, 1, 0, 0, 0, List.of("EMP2"))));
+
+        mockMvc.perform(get("/api/v1/assets/groups"))
+                .andExpect(status().isOk());
+        verify(assetService).getAll(null);
     }
 
     @Test

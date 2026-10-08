@@ -113,6 +113,18 @@ public class AssetController {
                 .stream().map(AssetResponse::from).toList();
     }
 
+    @GetMapping("/groups")
+    @Operation(summary = "List asset groups", description = "Returns a compact logical group for each outward number and item combination. Individual physical assets remain separate records; this endpoint groups them for operational quantity/status display.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Asset groups returned"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "500", description = "Unexpected server error")
+    })
+    public List<AssetGroupResponse> getGroups(Authentication authentication) {
+        List<Asset> readableAssets = authorizationService.filterReadableAssets(authentication, assetService.getAll(null));
+        return assetService.toGroups(readableAssets);
+    }
+
     @GetMapping("/by-issue")
     @Operation(summary = "Find asset by outward number", description = "Returns all reusable assets issued by the supplied outward number. A single outward can contain multiple reusable units.")
     @ApiResponses({
@@ -190,6 +202,33 @@ public class AssetController {
                 com.recnaile.asset.idempotency.IdempotencyService.fingerprint(assetId, request.outwardNumber(), request.returnId(), request.condition()),
                 action, record -> assignmentService.getById(record.getResourceId()));
         return AssignmentResponse.from(assignment);
+    }
+
+    @PostMapping("/repair")
+    @Operation(summary = "Start asset repair", description = "Starts a repair workflow for a returned asset whose condition is DAMAGED. The asset moves to UNDER_REPAIR; use the repair completion endpoint after the repair work is finished.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Repair started"),
+            @ApiResponse(responseCode = "400", description = "Asset is not eligible for repair"),
+            @ApiResponse(responseCode = "401", description = "Authentication required"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not allowed to modify this asset"),
+            @ApiResponse(responseCode = "404", description = "Asset was not found"),
+            @ApiResponse(responseCode = "409", description = "Asset state, idempotency or concurrency conflict"),
+            @ApiResponse(responseCode = "500", description = "Unexpected server error")
+    })
+    public AssetResponse startRepair(
+            Authentication authentication,
+            @Parameter(description = "Asset identifier", example = "ASSET%2F26-27%2F001")
+            @RequestParam String assetId,
+            @Parameter(description = "Optional idempotency key for safe retries", example = "asset-action-20261008-001")
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        Asset asset = assetService.get(assetId);
+        authorizationService.requireAssetMutation(authentication, asset);
+        Supplier<Asset> action = () -> lifecycleService.beginRepair(assetId, Instant.now(clock));
+        var assetResult = idempotencyService == null ? action.get() : idempotencyService.execute(
+                idempotencyKey, "START_REPAIR",
+                com.recnaile.asset.idempotency.IdempotencyService.fingerprint(assetId), action,
+                record -> assetService.get(record.getResourceId()));
+        return AssetResponse.from(assetResult);
     }
 
     @PostMapping("/repair/complete")

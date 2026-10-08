@@ -2,6 +2,9 @@ package com.recnaile.asset.service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +15,7 @@ import com.recnaile.asset.exception.ResourceNotFoundException;
 import com.recnaile.asset.model.AssetCondition;
 import com.recnaile.asset.model.AssetId;
 import com.recnaile.asset.model.AssetStatus;
+import com.recnaile.asset.api.dto.AssetGroupResponse;
 import com.recnaile.asset.repository.AssetRepository;
 
 @Service
@@ -84,6 +88,51 @@ public class AssetService {
         String normalizedOutwardNumber = ReferenceNumberNormalizer.outwardNumber(outwardNumber);
         requireText(itemId, "Item ID");
         return assetRepository.findByOutwardNumberAndItemIdOrderByAssetIdAsc(normalizedOutwardNumber, itemId);
+    }
+
+    /**
+     * Builds a compact read-only group view from the individual asset records.
+     * A group is uniquely identified by outward number + item ID. No separate
+     * AssetGroup collection is persisted, so the physical asset records remain
+     * the single source of truth.
+     */
+    public List<AssetGroupResponse> getGroups() {
+        return toGroups(assetRepository.findAll());
+    }
+
+    public List<AssetGroupResponse> toGroups(List<Asset> assets) {
+        if (assets == null || assets.isEmpty()) {
+            return List.of();
+        }
+        Map<String, List<Asset>> groups = assets.stream()
+                .collect(Collectors.groupingBy(
+                        asset -> asset.getOutwardNumber() + "\u0000" + asset.getItemId(),
+                        LinkedHashMap::new,
+                        Collectors.toList()));
+
+        return groups.values().stream()
+                .map(groupAssets -> {
+                    Asset first = groupAssets.get(0);
+                    return new AssetGroupResponse(
+                            first.getOutwardNumber(),
+                            first.getItemId(),
+                            groupAssets.size(),
+                            count(groupAssets, AssetStatus.IN_USE),
+                            count(groupAssets, AssetStatus.RETURNED),
+                            count(groupAssets, AssetStatus.UNDER_REPAIR),
+                            count(groupAssets, AssetStatus.RETIRED),
+                            groupAssets.stream()
+                                    .map(Asset::getAssignedUserId)
+                                    .filter(value -> value != null && !value.isBlank())
+                                    .distinct()
+                                    .sorted()
+                                    .toList());
+                })
+                .toList();
+    }
+
+    private static int count(List<Asset> assets, AssetStatus status) {
+        return (int) assets.stream().filter(asset -> asset.getStatus() == status).count();
     }
 
     private static void requireText(String value, String field) {

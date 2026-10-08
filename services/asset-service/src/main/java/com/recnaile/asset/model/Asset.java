@@ -178,6 +178,19 @@ public class Asset {
         assignTo(employeeId, departmentName, now);
     }
 
+    /** Starts the actual repair work for an asset already routed to repair. */
+    public void beginRepair(Instant now) {
+        requireTimestamp(now);
+        if (status != AssetStatus.UNDER_REPAIR) {
+            throw new IllegalStateException("Only an asset under repair can start repair work");
+        }
+        if (condition != AssetCondition.DAMAGED) {
+            throw new IllegalStateException("Only a damaged asset can start repair work");
+        }
+        this.condition = AssetCondition.UNDER_REPAIR;
+        this.updatedAt = now;
+    }
+
     /** Marks a repaired asset as available for its next lifecycle. */
     public void completeRepair(Instant now) {
         requireTimestamp(now);

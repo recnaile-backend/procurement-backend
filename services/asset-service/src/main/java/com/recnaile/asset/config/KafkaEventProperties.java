@@ -8,6 +8,11 @@ public record KafkaEventProperties(
         String consumerGroup,
         Topics topics) {
 
+    /**
+     * Keep this as a single canonical constructor so Spring Boot can reliably
+     * constructor-bind the nested topic properties. Multiple constructors on
+     * the nested record can cause the binder to leave {@code topics} null.
+     */
     public record Topics(
             String stockIssueApproved,
             String returnAccepted,
@@ -17,16 +22,5 @@ public record KafkaEventProperties(
             String auditEvent,
             String outwardIssued,
             String returnRecorded) {
-
-        public Topics(
-                String stockIssueApproved,
-                String returnAccepted,
-                String assetAssigned,
-                String assetReturned,
-                String assetStatusChanged,
-                String auditEvent) {
-            this(stockIssueApproved, returnAccepted, assetAssigned, assetReturned, assetStatusChanged,
-                    auditEvent, "outward.events", "return.recorded");
-        }
     }
 }

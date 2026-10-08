@@ -194,7 +194,7 @@ class AssetEventHandlerTest {
                 AssetEventHandler.RETURN_RECORDED,
                 mapper.readTree("""
                         {
-                          "returnId":"RET%2F26-27%2F001",
+                          "returnId":"RETURN%2F26-27%2F001",
                           "outwardNumber":"OUT%2F26-27%2F001",
                           "itemId":"ITEM-001",
                           "qty":2,
@@ -203,7 +203,7 @@ class AssetEventHandlerTest {
                         """)));
 
         verify(returnService).processReturnForOutwardItem(
-                eq("OUT%2F26-27%2F001"), eq("ITEM-001"), eq(2), eq("RET%2F26-27%2F001"),
+                eq("OUT%2F26-27%2F001"), eq("ITEM-001"), eq(2), eq("RETURN%2F26-27%2F001"),
                 eq(AssetCondition.GOOD), any(Instant.class));
         verify(processedEventRepository).save(any(ProcessedEvent.class));
     }
@@ -216,11 +216,11 @@ class AssetEventHandlerTest {
                 "evt-004",
                 AssetEventHandler.RETURN_ACCEPTED,
                 mapper.readTree("""
-                        {"assetId":"ASSET%2F26-27%2F001","outwardNumber":"OUT%2F26-27%2F001","returnId":"RET%2F26-27%2F001","condition":"GOOD"}
+                        {"assetId":"ASSET%2F26-27%2F001","outwardNumber":"OUT%2F26-27%2F001","returnId":"RETURN%2F26-27%2F001","condition":"GOOD"}
                         """)));
 
         verify(returnService).processReturn(
-                eq("ASSET%2F26-27%2F001"), eq("OUT%2F26-27%2F001"), eq("RET%2F26-27%2F001"), eq(AssetCondition.GOOD), any(Instant.class));
+                eq("ASSET%2F26-27%2F001"), eq("OUT%2F26-27%2F001"), eq("RETURN%2F26-27%2F001"), eq(AssetCondition.GOOD), any(Instant.class));
         verify(processedEventRepository).save(any(ProcessedEvent.class));
     }
 }

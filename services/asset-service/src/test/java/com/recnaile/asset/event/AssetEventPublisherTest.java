@@ -40,6 +40,6 @@ class AssetEventPublisherTest {
     private KafkaEventProperties properties() {
         return new KafkaEventProperties(true, "asset-service", new KafkaEventProperties.Topics(
                 "stock-issue-approved", "return-accepted", "asset-assigned", "asset-returned",
-                "asset-status-changed", "audit-events"));
+                "asset-status-changed", "audit.events", "outward.events", "return.recorded"));
     }
 }

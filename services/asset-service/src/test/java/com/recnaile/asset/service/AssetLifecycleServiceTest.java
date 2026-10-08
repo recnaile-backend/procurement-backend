@@ -60,6 +60,29 @@ class AssetLifecycleServiceTest {
     }
 
     @Test
+    void beginRepairShouldMoveReturnedDamagedAssetToUnderRepair() {
+        Asset asset = assignedAsset();
+        asset.returnFromAssignment(AssetCondition.DAMAGED, Instant.parse("2026-10-05T10:00:00Z"));
+        when(assetRepository.findById("asset-001")).thenReturn(Optional.of(asset));
+        when(assetRepository.save(any(Asset.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Asset result = service.beginRepair("asset-001", Instant.parse("2026-10-05T10:30:00Z"));
+
+        assertEquals(AssetStatus.UNDER_REPAIR, result.getStatus());
+        assertEquals(AssetCondition.UNDER_REPAIR, result.getCondition());
+    }
+
+    @Test
+    void beginRepairShouldRejectGoodReturnedAsset() {
+        Asset asset = assignedAsset();
+        asset.returnFromAssignment(AssetCondition.GOOD, Instant.parse("2026-10-05T10:00:00Z"));
+        when(assetRepository.findById("asset-001")).thenReturn(Optional.of(asset));
+
+        assertThrows(IllegalStateException.class,
+                () -> service.beginRepair("asset-001", Instant.parse("2026-10-05T10:30:00Z")));
+    }
+
+    @Test
     void completeRepairShouldReturnAssetToAvailableState() {
         Asset asset = assignedAsset();
         asset.returnFromAssignment(AssetCondition.DAMAGED, Instant.parse("2026-10-05T10:00:00Z"));

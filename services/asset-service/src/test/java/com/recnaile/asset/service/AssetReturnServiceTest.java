@@ -47,18 +47,18 @@ class AssetReturnServiceTest {
         when(assetService.get("ASSET%2F26-27%2F001")).thenReturn(asset);
         when(assignmentService.getActiveAssignment("ASSET%2F26-27%2F001")).thenReturn(assignment);
         when(assignmentService.closeAssignment(
-                eq("ASSET%2F26-27%2F001"), eq(returnedAt), eq("RET%2F26-27%2F001"), eq(AssetCondition.GOOD)))
+                eq("ASSET%2F26-27%2F001"), eq(returnedAt), eq("RETURN%2F26-27%2F001"), eq(AssetCondition.GOOD)))
                 .thenAnswer(invocation -> {
-                    assignment.close(returnedAt, "RET%2F26-27%2F001", AssetCondition.GOOD);
+                    assignment.close(returnedAt, "RETURN%2F26-27%2F001", AssetCondition.GOOD);
                     return assignment;
                 });
 
         AssetAssignment result = service.processReturn(
-                "ASSET%2F26-27%2F001", "OUT%2F26-27%2F001", "RET%2F26-27%2F001", AssetCondition.GOOD, returnedAt);
+                "ASSET%2F26-27%2F001", "OUT%2F26-27%2F001", "RETURN%2F26-27%2F001", AssetCondition.GOOD, returnedAt);
 
-        assertEquals("RET%2F26-27%2F001", result.getReturnId());
+        assertEquals("RETURN%2F26-27%2F001", result.getReturnId());
         verify(assignmentService).closeAssignment(
-                "ASSET%2F26-27%2F001", returnedAt, "RET%2F26-27%2F001", AssetCondition.GOOD);
+                "ASSET%2F26-27%2F001", returnedAt, "RETURN%2F26-27%2F001", AssetCondition.GOOD);
     }
 
     @Test
@@ -72,14 +72,14 @@ class AssetReturnServiceTest {
         when(assetService.get("ASSET%2F26-27%2F001")).thenReturn(asset);
         when(assignmentService.getActiveAssignment("ASSET%2F26-27%2F001")).thenReturn(assignment);
         when(assignmentService.closeAssignment(
-                eq("ASSET%2F26-27%2F001"), eq(returnedAt), eq("RET%2F26-27%2F002"), eq(AssetCondition.DAMAGED)))
+                eq("ASSET%2F26-27%2F001"), eq(returnedAt), eq("RETURN%2F26-27%2F002"), eq(AssetCondition.DAMAGED)))
                 .thenReturn(assignment);
 
         service.processReturn(
-                "ASSET%2F26-27%2F001", "OUT%2F26-27%2F001", "RET%2F26-27%2F002", AssetCondition.DAMAGED, returnedAt);
+                "ASSET%2F26-27%2F001", "OUT%2F26-27%2F001", "RETURN%2F26-27%2F002", AssetCondition.DAMAGED, returnedAt);
 
         verify(assignmentService).closeAssignment(
-                "ASSET%2F26-27%2F001", returnedAt, "RET%2F26-27%2F002", AssetCondition.DAMAGED);
+                "ASSET%2F26-27%2F001", returnedAt, "RETURN%2F26-27%2F002", AssetCondition.DAMAGED);
     }
 
 
@@ -103,16 +103,16 @@ class AssetReturnServiceTest {
                 .thenReturn(List.of(firstAssignment, secondAssignment));
         when(assetService.get(first.getAssetId())).thenReturn(first);
         when(assetService.get(second.getAssetId())).thenReturn(second);
-        when(assignmentService.closeAssignment(any(), eq(returnedAt), eq("RET%2F26-27%2F001"), eq(AssetCondition.GOOD)))
+        when(assignmentService.closeAssignment(any(), eq(returnedAt), eq("RETURN%2F26-27%2F001"), eq(AssetCondition.GOOD)))
                 .thenReturn(firstAssignment);
 
         service.processReturnForOutwardItem(
-                "OUT%2F26-27%2F001", "ITEM-001", 2, "RET%2F26-27%2F001", AssetCondition.GOOD, returnedAt);
+                "OUT%2F26-27%2F001", "ITEM-001", 2, "RETURN%2F26-27%2F001", AssetCondition.GOOD, returnedAt);
 
         verify(assignmentService).closeAssignment(
-                first.getAssetId(), returnedAt, "RET%2F26-27%2F001", AssetCondition.GOOD);
+                first.getAssetId(), returnedAt, "RETURN%2F26-27%2F001", AssetCondition.GOOD);
         verify(assignmentService).closeAssignment(
-                second.getAssetId(), returnedAt, "RET%2F26-27%2F001", AssetCondition.GOOD);
+                second.getAssetId(), returnedAt, "RETURN%2F26-27%2F001", AssetCondition.GOOD);
     }
 
     @Test
@@ -127,14 +127,14 @@ class AssetReturnServiceTest {
         when(assetService.get(first.getAssetId())).thenReturn(first);
 
         assertThrows(IllegalStateException.class, () -> service.processReturnForOutwardItem(
-                "OUT%2F26-27%2F001", "ITEM-001", 2, "RET%2F26-27%2F002", AssetCondition.GOOD, returnedAt));
+                "OUT%2F26-27%2F001", "ITEM-001", 2, "RETURN%2F26-27%2F002", AssetCondition.GOOD, returnedAt));
         verify(assignmentService, never()).closeAssignment(any(), any(), any(), any());
     }
 
     @Test
     void returnRejectsNonReturnCondition() {
         assertThrows(IllegalArgumentException.class, () -> service.processReturn(
-                "ASSET%2F26-27%2F001", "OUT%2F26-27%2F001", "RET%2F26-27%2F003", AssetCondition.UNDER_REPAIR,
+                "ASSET%2F26-27%2F001", "OUT%2F26-27%2F001", "RETURN%2F26-27%2F003", AssetCondition.UNDER_REPAIR,
                 Instant.parse("2026-10-06T09:00:00Z")));
     }
 
@@ -147,7 +147,7 @@ class AssetReturnServiceTest {
         when(assetService.get("ASSET%2F26-27%2F001")).thenReturn(asset);
 
         assertThrows(IllegalStateException.class, () -> service.processReturn(
-                "ASSET%2F26-27%2F001", "OUT%2F26-27%2F001", "RET%2F26-27%2F004", AssetCondition.GOOD,
+                "ASSET%2F26-27%2F001", "OUT%2F26-27%2F001", "RETURN%2F26-27%2F004", AssetCondition.GOOD,
                 Instant.parse("2026-10-06T09:00:00Z")));
     }
 
