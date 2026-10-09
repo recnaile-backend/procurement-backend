@@ -27,6 +27,23 @@ class NotificationDraftFactoryTest {
         assertTrue(factory.createInAppDrafts(event, null, null).isEmpty());
     }
 
+    @Test void createsDeduplicatedDraftsForExplicitRecipientArrayAndPreservesRole() throws Exception {
+        var event = mapper.readTree("""
+            {"eventId":"evt-4","eventType":"SLA_BREACH","payload":{"recipients":[
+              {"recipientId":"manager-1","recipientRole":"manager"},
+              {"userId":"manager-1","role":"MANAGER"},
+              {"recipientId":"procurement-2","recipientRole":"procurement"},
+              {"recipientRole":"missing-id"}, null, "not-an-object"
+            ]}}
+            """);
+        var drafts = factory.createInAppDrafts(event, null, null);
+        assertEquals(2, drafts.size());
+        assertEquals("manager-1", drafts.get(0).getRecipientId());
+        assertEquals("MANAGER", drafts.get(0).getRecipientRole());
+        assertEquals("procurement-2", drafts.get(1).getRecipientId());
+        assertEquals("PROCUREMENT", drafts.get(1).getRecipientRole());
+    }
+
     @Test void rejectsMalformedEnvelopeAndUnknownEventType() throws Exception {
         assertThrows(IllegalArgumentException.class, () -> factory.createInAppDrafts(mapper.readTree("{}"), null, null));
         var event = mapper.readTree("""

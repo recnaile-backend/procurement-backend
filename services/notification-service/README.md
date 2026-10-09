@@ -181,3 +181,40 @@ The archive was checked for ZIP integrity. The full repository Gradle tests/buil
 git add services/notification-service
 git commit -m "feat(notification): orchestrate inbox events into in-app notifications"
 ```
+
+
+## Phase 07 — explicit multi-recipient targeting
+
+The draft factory now supports an explicit `payload.recipients` array in addition to the existing single-recipient fields (`recipientId`, `requestedBy`, `createdBy`, `employeeId`, `userId`). Each array entry may use `recipientId` or `userId`, and may optionally carry `recipientRole` or `role`. Recipient IDs are deduplicated within one event; the first occurrence wins. Invalid entries and entries without an explicit recipient ID are ignored. Role values are normalized to uppercase and stored as descriptive event metadata only: this service does not infer role membership, look up users, or authorize access based on event-supplied roles.
+
+Example payload fragment:
+
+```json
+{
+  "recipients": [
+    { "recipientId": "employee-42" },
+    { "recipientId": "manager-7", "recipientRole": "manager" }
+  ]
+}
+```
+
+### Verification (PowerShell, from repository root)
+
+```powershell
+# Back up the existing service folder before replacing it; this command deletes it.
+Remove-Item -Recurse -Force .\services\notification-service
+.\gradlew.bat :services:notification-service:test
+.\gradlew.bat :services:notification-service:build
+docker compose build notification-service
+docker compose up -d notification-service
+docker compose ps notification-service
+```
+
+The archive has been checked for ZIP integrity. The full Gradle test/build and Docker build require the complete repository environment and were not run while producing this service-only archive; run the commands above before deployment.
+
+### Git commit
+
+```powershell
+git add services/notification-service
+git commit -m "feat(notification): support explicit multi-recipient event targeting"
+```

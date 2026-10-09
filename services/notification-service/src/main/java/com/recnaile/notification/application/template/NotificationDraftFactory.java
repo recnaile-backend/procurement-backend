@@ -6,8 +6,10 @@ import com.recnaile.notification.domain.model.NotificationDocument;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
 /** Creates persisted-notification candidates only for explicit recipient identifiers in an event payload. */
@@ -29,27 +31,51 @@ public class NotificationDraftFactory {
             throw new IllegalArgumentException("INVALID_EVENT_ENVELOPE");
         NotificationTemplate template = catalog.find(eventType)
                 .orElseThrow(() -> new IllegalArgumentException("UNSUPPORTED_EVENT_TYPE"));
-        List<String> recipients = resolveExplicitRecipients(payload);
+        Map<String, Recipient> recipients = resolveExplicitRecipients(payload);
         List<NotificationDocument> drafts = new ArrayList<>();
-        for (String recipient : recipients) {
-            drafts.add(new NotificationDocument(eventId, eventType.toUpperCase(Locale.ROOT), recipient, null,
+        for (Recipient recipient : recipients.values()) {
+            drafts.add(new NotificationDocument(eventId, eventType.toUpperCase(Locale.ROOT), recipient.id(), recipient.role(),
                     NotificationChannel.IN_APP, template.title(), template.message(), correlationId, traceId));
         }
         return List.copyOf(drafts);
     }
 
-    private List<String> resolveExplicitRecipients(JsonNode payload) {
-        // Deliberately do not infer users from raw HTTP headers or untrusted role claims.
+    private Map<String, Recipient> resolveExplicitRecipients(JsonNode payload) {
+        // Only explicit event-payload recipients are accepted; role membership is not inferred.
+        Map<String, Recipient> recipients = new LinkedHashMap<>();
         for (String field : RECIPIENT_FIELDS) {
             JsonNode value = payload.get(field);
-            if (value != null && value.isTextual() && !value.asText().isBlank())
-                return List.of(value.asText().trim());
+            if (value != null && value.isTextual() && !value.asText().isBlank()) {
+                addRecipient(recipients, value.asText(), null);
+                break;
+            }
         }
-        return List.of();
+        JsonNode recipientArray = payload.get("recipients");
+        if (recipientArray != null && recipientArray.isArray()) {
+            for (JsonNode item : recipientArray) {
+                if (item == null || !item.isObject()) continue;
+                String id = text(item, "recipientId");
+                if (id == null) id = text(item, "userId");
+                String role = text(item, "recipientRole");
+                if (role == null) role = text(item, "role");
+                if (id != null) addRecipient(recipients, id, role);
+            }
+        }
+        return recipients;
+    }
+
+    private void addRecipient(Map<String, Recipient> recipients, String id, String role) {
+        String normalizedId = id == null ? null : id.trim();
+        if (normalizedId == null || normalizedId.isBlank()) return;
+        String normalizedRole = role == null || role.isBlank() ? null : role.trim().toUpperCase(Locale.ROOT);
+        recipients.putIfAbsent(normalizedId, new Recipient(normalizedId, normalizedRole));
     }
 
     private String text(JsonNode node, String field) {
         JsonNode value = node.get(field);
         return value != null && value.isTextual() && !value.asText().isBlank() ? value.asText().trim() : null;
     }
+
+    private record Recipient(String id, String role) { }
+
 }
