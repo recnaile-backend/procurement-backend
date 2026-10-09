@@ -12,7 +12,7 @@ class NotificationDocumentTest {
     @Test
     void newNotificationStartsPendingAndUnread() {
         NotificationDocument notification = new NotificationDocument(
-                "event-1", "INDENT_SUBMITTED", "user-1", "PROCUREMENT",
+                "event-1", "INDENT_SUBMITTED", "EMP-1", "PROCUREMENT",
                 NotificationChannel.IN_APP, "Indent submitted", "Indent I-100 was submitted", null, "trace-1");
 
         assertEquals(NotificationDeliveryStatus.PENDING, notification.getDeliveryStatus());
@@ -25,7 +25,7 @@ class NotificationDocumentTest {
     @Test
     void readStateIsIndependentFromDeliveryState() {
         NotificationDocument notification = new NotificationDocument(
-                "event-1", "INDENT_SUBMITTED", "user-1", null,
+                "event-1", "INDENT_SUBMITTED", "EMP-1", null,
                 NotificationChannel.IN_APP, "Title", "Message", null, null);
         Instant readAt = Instant.parse("2026-10-09T10:00:00Z");
 
@@ -39,7 +39,7 @@ class NotificationDocumentTest {
     @Test
     void deliveryAttemptsAndStatusCanAdvance() {
         NotificationDocument notification = new NotificationDocument(
-                "event-1", "PO_ISSUED", "user-1", null,
+                "event-1", "PO_ISSUED", "EMP-1", null,
                 NotificationChannel.EMAIL, "PO issued", "PO PO-100 was issued", "corr-1", "trace-1");
         Instant now = Instant.parse("2026-10-09T10:00:00Z");
 
@@ -54,13 +54,13 @@ class NotificationDocumentTest {
     @Test
     void requiredIdentityAndMessageFieldsCannotBeBlank() {
         assertThrows(IllegalArgumentException.class, () -> new NotificationDocument(
-                " ", "INDENT_SUBMITTED", "user-1", null,
+                " ", "INDENT_SUBMITTED", "EMP-1", null,
                 NotificationChannel.IN_APP, "Title", "Message", null, null));
     }
     @Test
     void nullChannelIsRejected() {
         assertThrows(NullPointerException.class, () -> new NotificationDocument(
-                "event-1", "INDENT_SUBMITTED", "user-1", null, null,
+                "event-1", "INDENT_SUBMITTED", "EMP-1", null, null,
                 "Title", "Message", null, null));
     }
 

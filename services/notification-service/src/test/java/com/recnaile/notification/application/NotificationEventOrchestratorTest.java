@@ -38,7 +38,7 @@ class NotificationEventOrchestratorTest {
         var envelope = mapper.readTree("""
                 {"eventId":"evt-1","eventType":"INDENT_SUBMITTED","eventVersion":1,
                  "occurredAt":"2026-10-09T10:00:00Z","producer":"indent-service",
-                 "payload":{"requestedBy":"employee-7"}}
+                 "payload":{"empId":"employee-7"}}
                 """);
         Map<String, Object> raw = mapper.convertValue(envelope, new com.fasterxml.jackson.core.type.TypeReference<>() {});
         IncomingDomainEvent inbox = new IncomingDomainEvent("evt-1", "INDENT_SUBMITTED", "topic", 0, 1,

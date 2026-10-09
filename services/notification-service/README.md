@@ -82,7 +82,7 @@ git commit -m "feat(notification): establish notification domain foundation"
 
 The persistence layer uses two collections owned by this service:
 
-- `notifications`: one notification per `(eventId, recipientId, channel)`; the compound unique index prevents duplicate logical notifications, including concurrent inserts.
+- `notifications`: one notification per `(eventId, empId, channel)`; the compound unique index prevents duplicate logical notifications, including concurrent inserts.
 - `notification_event_processing`: one processing ledger record per `eventId`, with `RECEIVED`, `PROCESSED`, and `FAILED` states.
 
 `NotificationPersistenceService.saveIfAbsent` first checks for an existing notification and relies on the MongoDB unique index as the final concurrency-safe guard. `EventIdempotencyService.registerIfNew` similarly uses the unique event ID index to handle concurrent duplicate registrations. Required indexes are created during application startup; if index creation fails, startup fails rather than running without the idempotency constraints.
@@ -123,7 +123,7 @@ Supported event types currently include INDENT_SUBMITTED, INDENT_VERIFIED, INDEN
 
 ## Notification template and draft planning
 
-The template catalog now provides deterministic version-one wording for the currently supported procurement event types. `NotificationDraftFactory` creates in-app notification candidates only when the event payload contains an explicit recipient identifier (`recipientId`, `requestedBy`, `createdBy`, `employeeId`, or `userId`). It does not guess recipients from role names, request headers, or unrelated fields. Events without an explicit recipient produce no draft and need a later, authoritative recipient-resolution integration.
+The template catalog now provides deterministic version-one wording for the currently supported procurement event types. `NotificationDraftFactory` creates in-app notification candidates only when the event payload contains an explicit empId (`empId`, `requestedBy`, `createdBy`, `employeeId`, or `userId`). It does not guess recipients from role names, request headers, or unrelated fields. Events without an explicit recipient produce no draft and need a later, authoritative recipient-resolution integration.
 
 This is the template/draft-planning layer; it does not yet deliver email, resolve role-based recipients, or automatically process inbox records. Template wording intentionally avoids copying arbitrary payload values into user-visible messages.
 
@@ -155,7 +155,7 @@ git commit -m "feat(notification): add event templates and in-app draft planning
 This phase connects the durable Kafka inbox to the version-one in-app template/draft layer. After the inbox record and event-processing ledger are persisted, the consumer creates drafts for explicit recipients, persists each notification idempotently, updates the inbox state, marks the processing ledger, and only then acknowledges Kafka. If processing fails, the inbox and ledger are marked failed and the listener exception is allowed to reach Spring Kafka's configured error handling. Duplicate deliveries are safe to retry because notification uniqueness is enforced by the MongoDB compound index.
 
 - Inbox states now transition through `RECEIVED`, `PROCESSING`, `PROCESSED`, and `FAILED`.
-- Only explicit recipient IDs in event payloads are used. Missing recipient data results in zero notifications; no identity is guessed.
+- Only explicit employee ID (empId)s in event payloads are used. Missing recipient data results in zero notifications; no identity is guessed.
 - Correlation and trace IDs are propagated when present in the envelope.
 - Failure records contain bounded normalized codes, not exception messages or event payload contents.
 - This is not an atomic multi-document transaction. A crash between notification persistence and status updates can cause replay, which is handled through the unique notification index. Configure the listener's bounded retry/DLT policy before production use.
@@ -185,15 +185,15 @@ git commit -m "feat(notification): orchestrate inbox events into in-app notifica
 
 ## Phase 07 — explicit multi-recipient targeting
 
-The draft factory now supports an explicit `payload.recipients` array in addition to the existing single-recipient fields (`recipientId`, `requestedBy`, `createdBy`, `employeeId`, `userId`). Each array entry may use `recipientId` or `userId`, and may optionally carry `recipientRole` or `role`. Recipient IDs are deduplicated within one event; the first occurrence wins. Invalid entries and entries without an explicit recipient ID are ignored. Role values are normalized to uppercase and stored as descriptive event metadata only: this service does not infer role membership, look up users, or authorize access based on event-supplied roles.
+The draft factory now supports an explicit `payload.recipients` array in addition to the existing single-recipient fields (`empId`, `requestedBy`, `createdBy`, `employeeId`, `userId`). Each array entry may use `empId` or `userId`, and may optionally carry `recipientRole` or `role`. Recipient IDs are deduplicated within one event; the first occurrence wins. Invalid entries and entries without an explicit employee ID (empId) are ignored. Role values are normalized to uppercase and stored as descriptive event metadata only: this service does not infer role membership, look up users, or authorize access based on event-supplied roles.
 
 Example payload fragment:
 
 ```json
 {
   "recipients": [
-    { "recipientId": "employee-42" },
-    { "recipientId": "manager-7", "recipientRole": "manager" }
+    { "empId": "employee-42" },
+    { "empId": "manager-7", "recipientRole": "manager" }
   ]
 }
 ```
@@ -229,7 +229,7 @@ Added a user inbox API backed by the notification collection:
 - `PATCH /api/v1/notifications/me/read-all` marks the caller's unread notifications as read and returns `updatedCount`.
 - `DELETE /api/v1/notifications/me` deletes all notifications belonging to the authenticated caller and returns `deletedCount`; it cannot delete another user's notifications.
 - API responses omit internal failure codes and raw event payloads.
-- Recipient identity is derived from `Principal.getName()`; no recipient ID query parameter is accepted. The API assumes the gateway or deployment security layer authenticates requests and maps the principal name to the platform's stable user ID. Direct exposure of this service without authentication is not supported; configure and verify JWT resource-server enforcement in the deployment before production use.
+- Recipient identity is derived from `Principal.getName()`; no employee ID (empId) query parameter is accepted. The API assumes the gateway or deployment security layer authenticates requests and maps the principal name to the platform's stable user ID. Direct exposure of this service without authentication is not supported; configure and verify JWT resource-server enforcement in the deployment before production use.
 
 ### Validation (PowerShell, repository root)
 
@@ -251,3 +251,37 @@ The archive has been checked for ZIP integrity. Gradle tests/build and Docker bu
 git add services/notification-service
 git commit -m "feat(notification): add inbox deletion and read-state APIs"
 ```
+
+
+## Phase 10 — server-side inbox pagination
+
+`GET /api/v1/notifications/me` now supports zero-based `page` in addition to `limit` and `unreadOnly`. Defaults are `page=0`, `limit=50`; `limit` must be 1–100 and `page` must be 0–100000. The repository applies paging and sorting in MongoDB rather than loading the entire inbox into application memory. Results are newest-first, with notification ID as a stable tie-breaker. Examples:
+
+- `GET /api/v1/notifications/me?page=0&limit=20`
+- `GET /api/v1/notifications/me?unreadOnly=true&page=1&limit=20`
+
+The response remains a JSON array for backward compatibility. An empty array means that page has no results.
+
+### Verification (PowerShell, repository root)
+
+```powershell
+# Back up the existing service folder before replacing it; this command deletes it.
+Remove-Item -Recurse -Force .\services\notification-service
+.\gradlew.bat :services:notification-service:test
+.\gradlew.bat :services:notification-service:build
+docker compose build notification-service
+docker compose up -d notification-service
+docker compose ps notification-service
+```
+
+### Git commit
+
+```powershell
+git add services/notification-service
+git commit -m "feat(notification): add server-side inbox pagination"
+```
+
+
+## Canonical recipient identity (Phase 11)
+
+The notification service uses `empId` as the only recipient identity. Event payloads may provide `payload.empId` for one recipient or `payload.recipients: [{"empId":"EMP-001"}]` for multiple recipients. Duplicate empIds within one event are deduplicated. The service deliberately does not fall back to `userId`, `employeeId`, `requestedBy`, `createdBy`, or `recipientId`. Inbox API authentication must map the verified JWT principal to the stable empId; clients must not submit another empId to access or mutate an inbox. Email delivery and audit persistence are outside this service.

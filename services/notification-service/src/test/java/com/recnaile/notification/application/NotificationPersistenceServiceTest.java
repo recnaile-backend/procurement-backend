@@ -19,7 +19,7 @@ class NotificationPersistenceServiceTest {
     @Test
     void returnsExistingNotificationForDuplicateEventRecipientAndChannel() {
         NotificationDocument existing = notification();
-        when(repository.findByEventIdAndRecipientIdAndChannel("event-1", "user-1", NotificationChannel.IN_APP))
+        when(repository.findByEventIdAndEmpIdAndChannel("event-1", "EMP-1", NotificationChannel.IN_APP))
                 .thenReturn(Optional.of(existing));
 
         assertSame(existing, service.saveIfAbsent(notification()));
@@ -29,7 +29,7 @@ class NotificationPersistenceServiceTest {
     @Test
     void savesNotificationWhenNoDuplicateExists() {
         NotificationDocument candidate = notification();
-        when(repository.findByEventIdAndRecipientIdAndChannel("event-1", "user-1", NotificationChannel.IN_APP))
+        when(repository.findByEventIdAndEmpIdAndChannel("event-1", "EMP-1", NotificationChannel.IN_APP))
                 .thenReturn(Optional.empty());
         when(repository.save(candidate)).thenReturn(candidate);
 
@@ -40,7 +40,7 @@ class NotificationPersistenceServiceTest {
     @Test
     void resolvesConcurrentDuplicateUsingUniqueIndexLookup() {
         NotificationDocument existing = notification();
-        when(repository.findByEventIdAndRecipientIdAndChannel("event-1", "user-1", NotificationChannel.IN_APP))
+        when(repository.findByEventIdAndEmpIdAndChannel("event-1", "EMP-1", NotificationChannel.IN_APP))
                 .thenReturn(Optional.empty(), Optional.of(existing));
         when(repository.save(any())).thenThrow(new DuplicateKeyException("duplicate"));
 
@@ -48,7 +48,7 @@ class NotificationPersistenceServiceTest {
     }
 
     private NotificationDocument notification() {
-        return new NotificationDocument("event-1", "INDENT_SUBMITTED", "user-1", null,
+        return new NotificationDocument("event-1", "INDENT_SUBMITTED", "EMP-1", null,
                 NotificationChannel.IN_APP, "Title", "Message", null, null);
     }
 }

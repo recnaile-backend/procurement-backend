@@ -15,7 +15,7 @@ import java.util.Objects;
 /** Creates persisted-notification candidates only for explicit recipient identifiers in an event payload. */
 @Component
 public class NotificationDraftFactory {
-    private static final List<String> RECIPIENT_FIELDS = List.of("recipientId", "requestedBy", "createdBy", "employeeId", "userId");
+    private static final List<String> RECIPIENT_FIELDS = List.of("empId");
     private final NotificationTemplateCatalog catalog;
 
     public NotificationDraftFactory(NotificationTemplateCatalog catalog) {
@@ -34,14 +34,14 @@ public class NotificationDraftFactory {
         Map<String, Recipient> recipients = resolveExplicitRecipients(payload);
         List<NotificationDocument> drafts = new ArrayList<>();
         for (Recipient recipient : recipients.values()) {
-            drafts.add(new NotificationDocument(eventId, eventType.toUpperCase(Locale.ROOT), recipient.id(), recipient.role(),
+            drafts.add(new NotificationDocument(eventId, eventType.toUpperCase(Locale.ROOT), recipient.id(), null,
                     NotificationChannel.IN_APP, template.title(), template.message(), correlationId, traceId));
         }
         return List.copyOf(drafts);
     }
 
     private Map<String, Recipient> resolveExplicitRecipients(JsonNode payload) {
-        // Only explicit event-payload recipients are accepted; role membership is not inferred.
+        // Only explicit empId values are accepted; other identity aliases and role-based targeting are deliberately ignored.
         Map<String, Recipient> recipients = new LinkedHashMap<>();
         for (String field : RECIPIENT_FIELDS) {
             JsonNode value = payload.get(field);
@@ -54,11 +54,8 @@ public class NotificationDraftFactory {
         if (recipientArray != null && recipientArray.isArray()) {
             for (JsonNode item : recipientArray) {
                 if (item == null || !item.isObject()) continue;
-                String id = text(item, "recipientId");
-                if (id == null) id = text(item, "userId");
-                String role = text(item, "recipientRole");
-                if (role == null) role = text(item, "role");
-                if (id != null) addRecipient(recipients, id, role);
+                String id = text(item, "empId");
+                if (id != null) addRecipient(recipients, id, null);
             }
         }
         return recipients;

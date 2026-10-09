@@ -15,7 +15,7 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 
-/** User inbox API. The gateway/security layer must authenticate requests and set Principal.getName() to the stable user ID. */
+/** User inbox API. The gateway/security layer must authenticate requests and set Principal.getName() to the employee ID (empId). */
 @RestController
 @RequestMapping("/api/v1/notifications")
 public class NotificationInboxController {
@@ -29,9 +29,10 @@ public class NotificationInboxController {
     public ResponseEntity<List<NotificationResponse>> listMine(
             Principal principal,
             @RequestParam(defaultValue = "false") boolean unreadOnly,
-            @RequestParam(defaultValue = "50") int limit) {
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestParam(defaultValue = "0") int page) {
         if (principal == null) return ResponseEntity.status(401).build();
-        return ResponseEntity.ok(inboxService.listForRecipient(principal.getName(), unreadOnly, limit));
+        return ResponseEntity.ok(inboxService.listForRecipient(principal.getName(), unreadOnly, limit, page));
     }
 
     @GetMapping("/me/unread-count")

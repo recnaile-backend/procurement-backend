@@ -3,20 +3,17 @@ package com.recnaile.notification.domain.model;
 import com.recnaile.notification.domain.enums.NotificationChannel;
 import com.recnaile.notification.domain.enums.NotificationDeliveryStatus;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
 
 /** Persisted notification for a single recipient and channel. */
 @Document(collection = "notifications")
-@CompoundIndex(name = "recipient_created_at_idx", def = "{'recipientId': 1, 'createdAt': -1}")
-@CompoundIndex(name = "event_recipient_channel_unique", def = "{'eventId': 1, 'recipientId': 1, 'channel': 1}", unique = true)
 public class NotificationDocument {
     @Id private String id;
     private String eventId;
     private String eventType;
-    private String recipientId;
+    private String empId;
     private String recipientRole;
     private NotificationChannel channel;
     private String title;
@@ -34,12 +31,12 @@ public class NotificationDocument {
 
     protected NotificationDocument() { }
 
-    public NotificationDocument(String eventId, String eventType, String recipientId,
+    public NotificationDocument(String eventId, String eventType, String empId,
                                  String recipientRole, NotificationChannel channel,
                                  String title, String message, String correlationId, String traceId) {
         this.eventId = requireText(eventId, "eventId");
         this.eventType = requireText(eventType, "eventType");
-        this.recipientId = requireText(recipientId, "recipientId");
+        this.empId = requireText(empId, "empId");
         this.recipientRole = recipientRole;
         this.channel = java.util.Objects.requireNonNull(channel, "channel");
         this.title = requireText(title, "title");
@@ -73,7 +70,7 @@ public class NotificationDocument {
     public void setId(String id) { this.id = id; }
     public String getEventId() { return eventId; }
     public String getEventType() { return eventType; }
-    public String getRecipientId() { return recipientId; }
+    public String getEmpId() { return empId; }
     public String getRecipientRole() { return recipientRole; }
     public NotificationChannel getChannel() { return channel; }
     public String getTitle() { return title; }

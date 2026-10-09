@@ -19,25 +19,25 @@ public class NotificationPersistenceService {
     }
 
     /**
-     * Persists one notification per (eventId, recipientId, channel). The unique MongoDB index
+     * Persists one notification per (eventId, empId, channel). The unique MongoDB index
      * is the concurrency-safe guard; the pre-check avoids unnecessary duplicate-key exceptions.
      */
     public NotificationDocument saveIfAbsent(NotificationDocument notification) {
         Objects.requireNonNull(notification, "notification");
-        Optional<NotificationDocument> existing = repository.findByEventIdAndRecipientIdAndChannel(
-                notification.getEventId(), notification.getRecipientId(), notification.getChannel());
+        Optional<NotificationDocument> existing = repository.findByEventIdAndEmpIdAndChannel(
+                notification.getEventId(), notification.getEmpId(), notification.getChannel());
         if (existing.isPresent()) return existing.get();
         try {
             return repository.save(notification);
         } catch (DuplicateKeyException duplicate) {
-            return repository.findByEventIdAndRecipientIdAndChannel(
-                    notification.getEventId(), notification.getRecipientId(), notification.getChannel())
+            return repository.findByEventIdAndEmpIdAndChannel(
+                    notification.getEventId(), notification.getEmpId(), notification.getChannel())
                     .orElseThrow(() -> duplicate);
         }
     }
 
     public Optional<NotificationDocument> findByEventRecipientAndChannel(
-            String eventId, String recipientId, NotificationChannel channel) {
-        return repository.findByEventIdAndRecipientIdAndChannel(eventId, recipientId, channel);
+            String eventId, String empId, NotificationChannel channel) {
+        return repository.findByEventIdAndEmpIdAndChannel(eventId, empId, channel);
     }
 }
