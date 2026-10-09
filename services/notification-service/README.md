@@ -218,3 +218,35 @@ The archive has been checked for ZIP integrity. The full Gradle test/build and D
 git add services/notification-service
 git commit -m "feat(notification): support explicit multi-recipient event targeting"
 ```
+
+## Phase 08 — authenticated-user inbox and read state
+
+Added a user inbox API backed by the notification collection:
+
+- `GET /api/v1/notifications/me?unreadOnly=false&limit=50` lists the caller's notifications, newest first, with a maximum limit of 100.
+- `PATCH /api/v1/notifications/{notificationId}/read` marks one notification read only when it belongs to the caller.
+- `PATCH /api/v1/notifications/me/read-all` marks the caller's unread notifications as read and returns `updatedCount`.
+- `DELETE /api/v1/notifications/me` deletes all notifications belonging to the authenticated caller and returns `deletedCount`; it cannot delete another user's notifications.
+- API responses omit internal failure codes and raw event payloads.
+- Recipient identity is derived from `Principal.getName()`; no recipient ID query parameter is accepted. The API assumes the gateway or deployment security layer authenticates requests and maps the principal name to the platform's stable user ID. Direct exposure of this service without authentication is not supported; configure and verify JWT resource-server enforcement in the deployment before production use.
+
+### Validation (PowerShell, repository root)
+
+```powershell
+# Back up the existing folder before replacing it; this command deletes it.
+Remove-Item -Recurse -Force .\services\notification-service
+.\gradlew.bat :services:notification-service:test
+.\gradlew.bat :services:notification-service:build
+docker compose build notification-service
+docker compose up -d notification-service
+docker compose ps notification-service
+```
+
+The archive has been checked for ZIP integrity. Gradle tests/build and Docker build must be run from the full repository; they were not executed in the service-only workspace.
+
+### Git commit
+
+```powershell
+git add services/notification-service
+git commit -m "feat(notification): add inbox deletion and read-state APIs"
+```

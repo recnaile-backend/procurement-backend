@@ -11,4 +11,6 @@ public interface NotificationRepository extends MongoRepository<NotificationDocu
     boolean existsByEventIdAndRecipientIdAndChannel(String eventId, String recipientId, NotificationChannel channel);
     Optional<NotificationDocument> findByEventIdAndRecipientIdAndChannel(String eventId, String recipientId, NotificationChannel channel);
     List<NotificationDocument> findByRecipientIdOrderByCreatedAtDesc(String recipientId);
+    List<NotificationDocument> findByRecipientIdAndReadOrderByCreatedAtDesc(String recipientId, boolean read);
+    Optional<NotificationDocument> findByIdAndRecipientId(String id, String recipientId);
 }
