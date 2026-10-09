@@ -90,3 +90,18 @@ git status
 - `POST /api/v1/assets/repair?assetId=ASSET%2F26-27%2F001` starts the actual repair work for an asset already in `UNDER_REPAIR` with condition `DAMAGED`. It changes the condition to `UNDER_REPAIR`.
 - `POST /api/v1/assets/repair/complete?assetId=ASSET%2F26-27%2F001` completes the repair and changes the asset to `RETURNED` with condition `GOOD`.
 - Both endpoints accept an optional `Idempotency-Key` and require asset mutation authorization.
+
+
+## Return event idempotency fix (2026-10-09)
+
+The Asset Service now treats the Return Service `returnId` as a business-level idempotency key in addition to the Kafka event ID. If the same return request is redelivered with a different event ID, the handler detects the return ID in assignment history and does not close another asset. A regression test covers this duplicate-delivery case.
+
+Run tests from the procurement-backend root with `./gradlew :services:asset-service:test` (PowerShell: `\.\gradlew.bat :services:asset-service:test`) and build with `./gradlew :services:asset-service:build`.
+
+
+### Return replay protection (latest fix)
+
+- `Idempotency-Key` remains optional on HTTP endpoints. When omitted, requests execute normally; business-level return protection is still enforced using the required `returnId`.
+- If an administrative/recovery return is retried with the same `returnId` for the same asset, the existing assignment history is returned without closing anything again.
+- If that `returnId` has already closed a different asset, the request fails with a conflict-style business error instead of returning another asset. This prevents the normal `RETURN_RECORDED` event and the manual recovery endpoint from applying one business return twice.
+- Added regression tests for same-asset replay and reuse of one return ID against a second asset.

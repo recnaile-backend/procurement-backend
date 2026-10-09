@@ -91,6 +91,45 @@ class AssetReturnServiceTest {
     }
 
     @Test
+    void sameReturnIdForSameAssetIsAReplayAndDoesNotCloseAnotherAssignment() {
+        Instant returnedAt = Instant.parse("2026-10-06T09:00:00Z");
+        AssetAssignment historical = AssetAssignment.start(
+                "ASSET%2F26-27%2F001", "EMP-001", "Engineering", "PROC-001",
+                "OUT%2F26-27%2F001", Instant.parse("2026-10-01T09:00:00Z"), null);
+        historical.close(returnedAt, "RETURN%2F26-27%2F001", AssetCondition.GOOD);
+        when(assignmentService.hasProcessedReturnId("RETURN%2F26-27%2F001")).thenReturn(true);
+        when(assignmentService.assignmentsForReturnId("RETURN%2F26-27%2F001"))
+                .thenReturn(List.of(historical));
+
+        AssetAssignment result = service.processReturn(
+                "ASSET%2F26-27%2F001", "OUT%2F26-27%2F001", "RETURN%2F26-27%2F001",
+                AssetCondition.GOOD, returnedAt);
+
+        assertEquals(historical.getAssignmentId(), result.getAssignmentId());
+        verify(assignmentService, never()).closeAssignment(any(), any(), any(), any());
+        verify(assetService, never()).get(any());
+    }
+
+    @Test
+    void sameReturnIdCannotReturnASecondAsset() {
+        Instant returnedAt = Instant.parse("2026-10-06T09:00:00Z");
+        AssetAssignment historical = AssetAssignment.start(
+                "ASSET%2F26-27%2F001", "EMP-001", "Engineering", "PROC-001",
+                "OUT%2F26-27%2F001", Instant.parse("2026-10-01T09:00:00Z"), null);
+        historical.close(returnedAt, "RETURN%2F26-27%2F001", AssetCondition.GOOD);
+        when(assignmentService.hasProcessedReturnId("RETURN%2F26-27%2F001")).thenReturn(true);
+        when(assignmentService.assignmentsForReturnId("RETURN%2F26-27%2F001"))
+                .thenReturn(List.of(historical));
+
+        assertThrows(IllegalStateException.class, () -> service.processReturn(
+                "ASSET%2F26-27%2F002", "OUT%2F26-27%2F001", "RETURN%2F26-27%2F001",
+                AssetCondition.GOOD, returnedAt));
+
+        verify(assignmentService, never()).closeAssignment(any(), any(), any(), any());
+        verify(assetService, never()).get(any());
+    }
+
+    @Test
     void damagedReturnClosesAssignmentWithDamagedCondition() {
         Instant returnedAt = Instant.parse("2026-10-06T09:00:00Z");
         Asset asset = assignedAsset();
@@ -142,6 +181,19 @@ class AssetReturnServiceTest {
                 first.getAssetId(), returnedAt, "RETURN%2F26-27%2F001", AssetCondition.GOOD);
         verify(assignmentService).closeAssignment(
                 second.getAssetId(), returnedAt, "RETURN%2F26-27%2F001", AssetCondition.GOOD);
+    }
+
+    @Test
+    void duplicateReturnIdDoesNotCloseAnotherAssetEvenWhenEventIdChanges() {
+        when(assignmentService.hasProcessedReturnId("RETURN%2F26-27%2F001")).thenReturn(true);
+
+        service.processReturnForOutwardItem(
+                "OUT%2F26-27%2F001", "ITEM-001", 1, "RETURN%2F26-27%2F001",
+                AssetCondition.GOOD, Instant.parse("2026-10-06T09:00:00Z"));
+
+        verify(assignmentService).hasProcessedReturnId("RETURN%2F26-27%2F001");
+        verify(assignmentService, never()).activeAssignmentsForOutward(any());
+        verify(assignmentService, never()).closeAssignment(any(), any(), any(), any());
     }
 
     @Test

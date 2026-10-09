@@ -122,6 +122,17 @@ public class AssetAssignmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found: " + assignmentId));
     }
 
+    public boolean hasProcessedReturnId(String returnId) {
+        String normalizedReturnId = ReferenceNumberNormalizer.returnId(returnId);
+        return assignmentRepository.existsByReturnId(normalizedReturnId);
+    }
+
+    /** Returns the historical assignments closed by a business return ID. */
+    public List<AssetAssignment> assignmentsForReturnId(String returnId) {
+        String normalizedReturnId = ReferenceNumberNormalizer.returnId(returnId);
+        return assignmentRepository.findByReturnId(normalizedReturnId);
+    }
+
     public List<AssetAssignment> activeAssignmentsForOutward(String outwardNumber) {
         String normalizedOutwardNumber = ReferenceNumberNormalizer.outwardNumber(outwardNumber);
         return assignmentRepository.findByOutwardNumberAndReturnedAtIsNullOrderByAssignedAtAsc(normalizedOutwardNumber);

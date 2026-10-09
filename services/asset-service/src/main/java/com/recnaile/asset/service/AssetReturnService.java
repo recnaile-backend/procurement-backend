@@ -64,6 +64,20 @@ public class AssetReturnService {
             throw new IllegalArgumentException("Return timestamp is required");
         }
 
+        String normalizedReturnId = ReferenceNumberNormalizer.returnId(returnId);
+        String normalizedAssetId = com.recnaile.asset.model.AssetId.normalize(assetId);
+        // The Return Service event and the administrative recovery endpoint can
+        // race or arrive in either order. Treat returnId as the business operation
+        // identity: a replay for the same asset returns its existing history, while
+        // reusing it for another asset must never close a second assignment.
+        if (assignmentService.hasProcessedReturnId(normalizedReturnId)) {
+            return assignmentService.assignmentsForReturnId(normalizedReturnId).stream()
+                    .filter(existing -> normalizedAssetId.equals(existing.getAssetId()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Return ID has already been applied to a different asset: " + normalizedReturnId));
+        }
+
         Asset asset = assetService.get(assetId);
         if (asset.getStatus() != AssetStatus.IN_USE || asset.getAssignedUserId() == null) {
             throw new IllegalStateException("Only an assigned IN_USE asset can be returned");
@@ -105,6 +119,13 @@ public class AssetReturnService {
         }
         if (returnedAt == null) {
             throw new IllegalArgumentException("Return timestamp is required");
+        }
+
+        // Return Service may redeliver the same business return under a different
+        // Kafka event ID. Assignment-level returnId idempotency prevents that replay
+        // from closing another asset in the same outward/item group.
+        if (assignmentService.hasProcessedReturnId(returnId)) {
+            return;
         }
 
         List<AssetAssignment> candidates = new ArrayList<>();

@@ -11,6 +11,12 @@ public interface AssetAssignmentRepository extends MongoRepository<AssetAssignme
 
     boolean existsByAssetIdAndReturnedAtIsNull(String assetId);
 
+    /** Return IDs are idempotency keys: one return request may close multiple units,
+     * but a replay must never close additional units. */
+    boolean existsByReturnId(String returnId);
+
+    List<AssetAssignment> findByReturnId(String returnId);
+
     Optional<AssetAssignment> findById(String assignmentId);
 
     Optional<AssetAssignment> findFirstByAssetIdAndReturnedAtIsNullOrderByAssignedAtDesc(String assetId);
