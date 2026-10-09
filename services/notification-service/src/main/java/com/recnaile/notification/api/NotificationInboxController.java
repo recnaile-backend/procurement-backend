@@ -34,6 +34,12 @@ public class NotificationInboxController {
         return ResponseEntity.ok(inboxService.listForRecipient(principal.getName(), unreadOnly, limit));
     }
 
+    @GetMapping("/me/unread-count")
+    public ResponseEntity<Map<String, Long>> unreadCount(Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).build();
+        return ResponseEntity.ok(Map.of("unreadCount", inboxService.unreadCount(principal.getName())));
+    }
+
     @PatchMapping("/{notificationId}/read")
     public ResponseEntity<NotificationResponse> markRead(Principal principal,
                                                            @PathVariable String notificationId) {

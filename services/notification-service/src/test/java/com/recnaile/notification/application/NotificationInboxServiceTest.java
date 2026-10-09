@@ -25,6 +25,20 @@ class NotificationInboxServiceTest {
     }
 
     @Test
+    void returnsUnreadCountForAuthenticatedRecipient() {
+        when(repository.countByRecipientIdAndReadFalse("user-1")).thenReturn(3L);
+
+        assertEquals(3L, service.unreadCount("user-1"));
+        verify(repository).countByRecipientIdAndReadFalse("user-1");
+    }
+
+    @Test
+    void unreadCountRequiresRecipientIdentity() {
+        assertThrows(ResponseStatusException.class, () -> service.unreadCount(" "));
+        verifyNoInteractions(repository);
+    }
+
+    @Test
     void rejectsLimitsAboveMaximum() {
         assertThrows(ResponseStatusException.class, () -> service.listForRecipient("user-1", false, 101));
     }

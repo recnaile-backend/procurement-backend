@@ -224,6 +224,7 @@ git commit -m "feat(notification): support explicit multi-recipient event target
 Added a user inbox API backed by the notification collection:
 
 - `GET /api/v1/notifications/me?unreadOnly=false&limit=50` lists the caller's notifications, newest first, with a maximum limit of 100.
+- `GET /api/v1/notifications/me/unread-count` returns the caller's unread count as `{"unreadCount": 3}`. The count is calculated in MongoDB and scoped to the authenticated principal.
 - `PATCH /api/v1/notifications/{notificationId}/read` marks one notification read only when it belongs to the caller.
 - `PATCH /api/v1/notifications/me/read-all` marks the caller's unread notifications as read and returns `updatedCount`.
 - `DELETE /api/v1/notifications/me` deletes all notifications belonging to the authenticated caller and returns `deletedCount`; it cannot delete another user's notifications.

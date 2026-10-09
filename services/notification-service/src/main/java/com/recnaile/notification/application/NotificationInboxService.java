@@ -30,6 +30,12 @@ public class NotificationInboxService {
         return documents.stream().limit(limit).map(NotificationResponse::from).toList();
     }
 
+    /** Returns the number of unread notifications belonging to the recipient. */
+    public long unreadCount(String recipientId) {
+        requireRecipient(recipientId);
+        return repository.countByRecipientIdAndReadFalse(recipientId);
+    }
+
     public NotificationResponse markRead(String recipientId, String notificationId) {
         requireRecipient(recipientId);
         if (notificationId == null || notificationId.isBlank()) {
