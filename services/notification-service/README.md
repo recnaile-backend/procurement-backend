@@ -110,3 +110,12 @@ docker compose ps notification-service
 git add services/notification-service
 git commit -m "feat(notification): add MongoDB persistence and event deduplication"
 ```
+
+
+## Kafka event ingestion (added)
+
+The consumer subscribes to the configured indent, purchase-order, inward, inventory, outward, return and asset topics. It validates the common envelope fields and supported event type, persists the original envelope to the `notification_event_inbox` collection, registers the event ID in the processing ledger, and only then manually acknowledges the Kafka record. A unique index on inbox `eventId` prevents duplicate inbox records.
+
+This phase provides durable ingestion, not final notification generation: recipient resolution, template rendering, delivery and retry/DLT operations are implemented in later phases. The consumer currently relies on Spring Kafka's listener error behavior for invalid/transient records; configure the bounded retry and dead-letter policy in the dedicated resilience phase before production deployment. Event-specific JSON Schema validation is not yet wired into the consumer; only envelope structure and the supported event-type allowlist are checked here.
+
+Supported event types currently include INDENT_SUBMITTED, INDENT_VERIFIED, INDENT_APPROVED, INDENT_REJECTED, PO_CREATED, PO_ISSUED, PO_CLOSED, GOODS_RECEIVED, OUTWARD_ISSUED, RETURN_RECORDED, LOW_STOCK_ALERT, SLA_BREACH and REJECTION_FLAGGED. Cancellation event types are not accepted until their canonical contracts and topic routing are defined.
