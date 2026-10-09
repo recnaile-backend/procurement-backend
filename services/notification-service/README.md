@@ -77,3 +77,36 @@ The commands must be run in the full repository with the root Gradle wrapper and
 git add services/notification-service
 git commit -m "feat(notification): establish notification domain foundation"
 ```
+
+## MongoDB persistence and idempotency
+
+The persistence layer uses two collections owned by this service:
+
+- `notifications`: one notification per `(eventId, recipientId, channel)`; the compound unique index prevents duplicate logical notifications, including concurrent inserts.
+- `notification_event_processing`: one processing ledger record per `eventId`, with `RECEIVED`, `PROCESSED`, and `FAILED` states.
+
+`NotificationPersistenceService.saveIfAbsent` first checks for an existing notification and relies on the MongoDB unique index as the final concurrency-safe guard. `EventIdempotencyService.registerIfNew` similarly uses the unique event ID index to handle concurrent duplicate registrations. Required indexes are created during application startup; if index creation fails, startup fails rather than running without the idempotency constraints.
+
+These are persistence primitives for the upcoming Kafka-consumer phase; they do not yet implement a complete event-consumption/acknowledgment workflow. Avoid marking an event `PROCESSED` until its notification records have been durably written. If multiple MongoDB writes must be atomic as a group, configure MongoDB as a replica set and use a transaction in the event-processing orchestration layer.
+
+## Validation commands (run from repository root)
+
+```powershell
+.\gradlew.bat :services:notification-service:test
+.\gradlew.bat :services:notification-service:build
+```
+
+After successful tests and build:
+
+```powershell
+docker compose build notification-service
+docker compose up -d notification-service
+docker compose ps notification-service
+```
+
+## Git
+
+```powershell
+git add services/notification-service
+git commit -m "feat(notification): add MongoDB persistence and event deduplication"
+```

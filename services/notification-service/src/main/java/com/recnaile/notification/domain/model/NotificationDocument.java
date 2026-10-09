@@ -11,6 +11,7 @@ import java.time.Instant;
 /** Persisted notification for a single recipient and channel. */
 @Document(collection = "notifications")
 @CompoundIndex(name = "recipient_created_at_idx", def = "{'recipientId': 1, 'createdAt': -1}")
+@CompoundIndex(name = "event_recipient_channel_unique", def = "{'eventId': 1, 'recipientId': 1, 'channel': 1}", unique = true)
 public class NotificationDocument {
     @Id private String id;
     private String eventId;
