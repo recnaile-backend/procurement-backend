@@ -41,6 +41,58 @@ class InventoryEventServiceTest {
         when(allocations.save(any())).thenAnswer(i->i.getArgument(0));
     }
 
+
+    @Test
+    void returnRecordedGoodIncreasesAvailableStockAndRecordsAllocation() throws Exception {
+        String balanceKey = InventoryEventService.key("ITEM-1", "Software", "P-1", "Rack-003");
+        StockBalanceDocument balance = new StockBalanceDocument();
+        balance.setBalanceKey(balanceKey); balance.setItemId("ITEM-1");
+        balance.setDepartmentName("Software"); balance.setProjectId("P-1"); balance.setLocation("Rack-003");
+        balance.setAvailableQuantity(74); balance.setDefectQuantity(1); balance.setMinimumStock(10);
+        balance.setMaximumStock(100); balance.setLowStock(false); balance.setStatus(StockStatus.IN_STOCK);
+        StockAllocationDocument allocation = new StockAllocationDocument(
+                "OUT%2F26-27%2F008", "ITEM-1", balanceKey, 4, java.time.Instant.now());
+        when(allocations.findByOutwardIdAndItemId("OUT%2F26-27%2F008", "ITEM-1"))
+                .thenReturn(Optional.of(allocation));
+        when(movements.findBySourceTransactionIdAndItemIdAndEventType(
+                "RETURN%2F26-27%2F003", "ITEM-1", "RETURN_RECORDED")).thenReturn(java.util.List.of());
+        when(balances.findByBalanceKey(balanceKey)).thenReturn(Optional.of(balance));
+        var event = new ObjectMapper().readTree("""
+          {"eventId":"asset-recovery-return:RETURN%2F26-27%2F003","eventType":"RETURN_RECORDED",
+           "occurredAt":"2026-10-08T12:00:00Z","payload":{"returnId":"RETURN%2F26-27%2F003",
+           "outwardNumber":"OUT%2F26-27%2F008","itemId":"ITEM-1","qty":1,"condition":"GOOD"}}
+        """);
+
+        service.consume(event);
+
+        assertEquals(75, balance.getAvailableQuantity());
+        assertEquals(1, allocation.getReturnedQuantity());
+        verify(movements).save(any(StockMovementDocument.class));
+    }
+
+    @Test
+    void returnRecordedDuplicateBusinessReturnDoesNotIncreaseStockTwice() throws Exception {
+        StockMovementDocument existing = new StockMovementDocument(
+                "old-event:ITEM-1:AVAILABLE", "old-event", "RETURN_RECORDED",
+                "RETURN%2F26-27%2F003", "ITEM-1", "Software", "P-1", "Rack-003",
+                StockType.AVAILABLE, 1, 1, "RETURN_GOOD", java.time.Instant.now(),
+                java.time.Instant.now(), null, null, null);
+        when(movements.findBySourceTransactionIdAndItemIdAndEventType(
+                "RETURN%2F26-27%2F003", "ITEM-1", "RETURN_RECORDED"))
+                .thenReturn(java.util.List.of(existing));
+        var event = new ObjectMapper().readTree("""
+          {"eventId":"asset-recovery-return:RETURN%2F26-27%2F003","eventType":"RETURN_RECORDED",
+           "occurredAt":"2026-10-08T12:00:00Z","payload":{"returnId":"RETURN%2F26-27%2F003",
+           "outwardNumber":"OUT%2F26-27%2F008","itemId":"ITEM-1","qty":1,"condition":"GOOD"}}
+        """);
+
+        service.consume(event);
+
+        verify(balances, never()).save(any());
+        verify(movements, never()).save(any());
+        verify(idempotency).save(any(IdempotencyDocument.class));
+    }
+
     @Test
     void goodsReceivedAddsAcceptedAndRejected() throws Exception {
         when(balances.findByBalanceKey(anyString())).thenReturn(Optional.empty());

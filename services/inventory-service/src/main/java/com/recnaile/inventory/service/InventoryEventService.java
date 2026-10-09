@@ -139,9 +139,11 @@ public class InventoryEventService {
                 int quantity = integralQuantity(item.get("quantity"), "quantity");
                 if (quantity <= 0) throw new IllegalArgumentException("Issued quantity must be greater than zero");
                 Dimensions dimensions = dimensions(payload, item);
-                apply(event, itemId, outwardNumber, StockType.AVAILABLE, -quantity,
+                StockBalanceDocument issuedBalance = apply(event, itemId, outwardNumber, StockType.AVAILABLE, -quantity,
                         "OUTWARD_ISSUED", dimensions);
-                upsertAllocation(outwardNumber, itemId, quantity, dimensions.balanceKey(itemId), Instant.now());
+                // getOrCreate may fill the rack/location from Master Data. Persist the
+                // actual balance key that was debited, not the incomplete event dimensions.
+                upsertAllocation(outwardNumber, itemId, quantity, issuedBalance.getBalanceKey(), Instant.now());
             }
             return;
         }
@@ -151,9 +153,9 @@ public class InventoryEventService {
         int quantity = firstInteger(payload, "quantity", "issuedQuantity");
         if (quantity <= 0) throw new IllegalArgumentException("Issued quantity must be greater than zero");
         Dimensions dimensions = dimensions(payload, payload);
-        apply(event, itemId, outwardNumber, StockType.AVAILABLE, -quantity,
+        StockBalanceDocument issuedBalance = apply(event, itemId, outwardNumber, StockType.AVAILABLE, -quantity,
                 "OUTWARD_ISSUED", dimensions);
-        upsertAllocation(outwardNumber, itemId, quantity, dimensions.balanceKey(itemId), Instant.now());
+        upsertAllocation(outwardNumber, itemId, quantity, issuedBalance.getBalanceKey(), Instant.now());
     }
 
     private void returnRecorded(JsonNode event) {
@@ -174,6 +176,23 @@ public class InventoryEventService {
             default -> throw new IllegalArgumentException("Unsupported return condition: " + condition);
         };
 
+        // A returnId is the business identity of a return. This protects stock from
+        // being restored twice when a normal Return Service event and an administrative
+        // Asset recovery event describe the same return but carry different Kafka eventIds.
+        List<StockMovementDocument> priorReturnMovements = movementRepository
+                .findBySourceTransactionIdAndItemIdAndEventType(returnId, itemId, "RETURN_RECORDED");
+        if (!priorReturnMovements.isEmpty()) {
+            boolean sameReturn = priorReturnMovements.stream().allMatch(movement ->
+                    movement.getQuantity() == quantity
+                    && movement.getStockType() == stockType
+                    && ("RETURN_" + condition).equals(movement.getReason()));
+            if (!sameReturn) {
+                throw new IllegalArgumentException(
+                        "Return ID was already processed with different quantity or condition: " + returnId);
+            }
+            return;
+        }
+
         StockAllocationDocument allocation = allocationRepository
                 .findByOutwardIdAndItemId(outwardId, itemId)
                 .orElseGet(() -> migrateAllocationFromIssueLedger(outwardId, itemId));
@@ -183,11 +202,41 @@ public class InventoryEventService {
         }
 
         StockBalanceDocument balance = balanceRepository.findByBalanceKey(allocation.getBalanceKey())
-                .orElseThrow(() -> new IllegalStateException("Inventory balance for issued outward could not be found: " + allocation.getBalanceKey()));
+                .orElseGet(() -> repairAllocationBalanceKeyFromIssueLedger(allocation, outwardId, itemId));
 
         applyToBalance(event, balance, returnId, stockType, quantity, "RETURN_" + condition);
         allocation.recordReturn(quantity, Instant.now());
         allocationRepository.save(allocation);
+    }
+
+    /**
+     * Repairs legacy allocations that stored event dimensions before Master Data
+     * supplied the canonical rack/location. The issue movement records the exact
+     * balance dimensions actually debited, so use it only when it resolves to one
+     * existing balance. Never guess by item alone.
+     */
+    private StockBalanceDocument repairAllocationBalanceKeyFromIssueLedger(
+            StockAllocationDocument allocation, String outwardId, String itemId) {
+        List<StockMovementDocument> issueMovements = movementRepository
+                .findBySourceTransactionIdAndItemIdAndEventType(outwardId, itemId, "OUTWARD_ISSUED");
+        Set<String> candidateKeys = new LinkedHashSet<>();
+        for (StockMovementDocument movement : issueMovements) {
+            candidateKeys.add(key(itemId, movement.getDepartmentName(), movement.getProjectId(), movement.getLocation()));
+        }
+        List<StockBalanceDocument> candidates = candidateKeys.stream()
+                .map(balanceRepository::findByBalanceKey)
+                .flatMap(Optional::stream)
+                .toList();
+        if (candidates.size() != 1) {
+            throw new IllegalStateException("Cannot safely resolve the issued inventory balance for outward "
+                    + outwardId + " and item " + itemId + "; allocation key=" + allocation.getBalanceKey()
+                    + ", matching balances=" + candidates.size());
+        }
+        StockBalanceDocument repaired = candidates.get(0);
+        allocation.setBalanceKey(repaired.getBalanceKey());
+        allocation.setUpdatedAt(Instant.now());
+        allocationRepository.save(allocation);
+        return repaired;
     }
 
     private StockAllocationDocument migrateAllocationFromIssueLedger(String outwardId, String itemId) {
@@ -230,11 +279,12 @@ public class InventoryEventService {
         }
     }
 
-    private void apply(JsonNode event, String itemId, String sourceId, StockType type,
+    private StockBalanceDocument apply(JsonNode event, String itemId, String sourceId, StockType type,
                        int delta, String reason, Dimensions dimensions) {
         StockBalanceDocument balance = getOrCreate(itemId, dimensions.departmentName,
                 dimensions.projectId, dimensions.location);
         applyToBalance(event, balance, sourceId, type, delta, reason);
+        return balance;
     }
 
     private void applyToBalance(JsonNode event, StockBalanceDocument balance, String sourceId,

@@ -81,7 +81,7 @@ public class AssetController {
             @Parameter(description = "Optional idempotency key for safe retries", example = "asset-create-20261006-001")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreateAssetRequest request) {
-        authorizationService.requireAnyRole(authentication, "ADMIN");
+        authorizationService.requireAnyRole(authentication, "MD", "PROCUREMENT");
         Supplier<Asset> action = () -> assetService.create(request.itemId(), request.outwardNumber(), request.name(), request.brand(),
                 request.model(), request.issuedBy(), request.condition(), request.remarks(), Instant.now(clock));
         Asset asset = idempotencyService == null ? action.get() : idempotencyService.execute(
@@ -163,7 +163,7 @@ public class AssetController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody AssignAssetRequest request) {
         Asset asset = assetService.get(assetId);
-        authorizationService.requireAnyRole(authentication, "ADMIN");
+        authorizationService.requireAnyRole(authentication, "MD", "PROCUREMENT");
         Supplier<com.recnaile.asset.model.AssetAssignment> action = () -> assignmentService.startAssignment(
                 assetId, request.employeeId(), request.departmentName(), request.issuedBy(), request.outwardNumber(),
                 Instant.now(clock), request.remarks());
@@ -194,7 +194,7 @@ public class AssetController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody ReturnAssetRequest request) {
         Asset asset = assetService.get(assetId);
-        authorizationService.requireAnyRole(authentication, "ADMIN");
+        authorizationService.requireAnyRole(authentication, "MD", "PROCUREMENT");
         Supplier<com.recnaile.asset.model.AssetAssignment> action = () -> returnService.processReturn(
                 assetId, request.outwardNumber(), request.returnId(), request.condition(), Instant.now(clock));
         var assignment = idempotencyService == null ? action.get() : idempotencyService.execute(

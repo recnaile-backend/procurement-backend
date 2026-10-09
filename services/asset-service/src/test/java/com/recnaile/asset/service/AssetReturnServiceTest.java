@@ -22,18 +22,47 @@ import com.recnaile.asset.model.AssetAssignment;
 import com.recnaile.asset.model.AssetCondition;
 import com.recnaile.asset.model.AssetId;
 import com.recnaile.asset.model.AssetStatus;
+import com.recnaile.asset.outbox.AssetOutboxService;
+import com.recnaile.asset.config.KafkaEventProperties;
 
 @ExtendWith(MockitoExtension.class)
 class AssetReturnServiceTest {
 
     @Mock AssetService assetService;
     @Mock AssetAssignmentService assignmentService;
+    @Mock AssetOutboxService outboxService;
+    @Mock KafkaEventProperties kafkaProperties;
+    @Mock KafkaEventProperties.Topics topics;
 
     private AssetReturnService service;
 
     @BeforeEach
     void setUp() {
         service = new AssetReturnService(assetService, assignmentService);
+    }
+
+
+    @Test
+    void administrativeReturnWritesCanonicalReturnRecordedOutboxEvent() {
+        Instant returnedAt = Instant.parse("2026-10-08T12:00:00Z");
+        Asset asset = assignedAsset();
+        AssetAssignment assignment = AssetAssignment.start(
+                "ASSET%2F26-27%2F001", "EMP-001", "Engineering", "PROC-001",
+                "OUT%2F26-27%2F001", Instant.parse("2026-10-01T09:00:00Z"), null);
+        when(assetService.get("ASSET%2F26-27%2F001")).thenReturn(asset);
+        when(assignmentService.getActiveAssignment("ASSET%2F26-27%2F001")).thenReturn(assignment);
+        when(assignmentService.closeAssignment(any(), any(), any(), any())).thenReturn(assignment);
+        when(kafkaProperties.topics()).thenReturn(topics);
+        when(topics.returnRecorded()).thenReturn("return.recorded");
+        AssetReturnService eventPublishingService = new AssetReturnService(
+                assetService, assignmentService, outboxService, kafkaProperties);
+
+        eventPublishingService.processReturn("ASSET%2F26-27%2F001", "OUT%2F26-27%2F001",
+                "RETURN%2F26-27%2F001", AssetCondition.GOOD, returnedAt);
+
+        verify(outboxService).enqueueWithEventId(
+                eq("asset-recovery-return:RETURN%2F26-27%2F001"), eq("return.recorded"),
+                eq("RETURN%2F26-27%2F001"), eq("RETURN_RECORDED"), any());
     }
 
     @Test

@@ -140,7 +140,12 @@ public class AssetEventHandler {
     }
 
     private void handleReturnRecorded(JsonNode payload) {
-        String outwardNumber = requiredText(payload, "outwardNumber");
+        // Recovery endpoint already closed the assignment in the same transaction
+        // that wrote this outbox event. Do not consume our own event as a second return.
+        if ("ASSET_SERVICE_RECOVERY".equalsIgnoreCase(firstText(payload, "origin"))) {
+            return;
+        }
+        String outwardNumber = requiredText(payload, "outwardNumber", "outwardId");
         String itemId = requiredText(payload, "itemId");
         int quantity = requiredPositiveInteger(payload, "qty", "quantity");
         String returnId = requiredText(payload, "returnId");

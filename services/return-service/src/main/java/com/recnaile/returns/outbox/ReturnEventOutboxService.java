@@ -2,7 +2,6 @@ package com.recnaile.returns.outbox;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.recnaile.returns.event.ReturnAcceptedEvent;
 import com.recnaile.returns.event.ReturnRecordedEvent;
 import com.recnaile.returns.model.entity.ReturnRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,16 +46,6 @@ public class ReturnEventOutboxService {
         ReturnRecordedEvent event = ReturnRecordedEvent.create(requireRequest(returnRequest));
         return save(event.eventId(), event.eventType(), returnRequest, event,
                 environment.getProperty("app.kafka.topics.return-recorded", "return.recorded"));
-    }
-
-    public ReturnEventOutbox enqueueReturnAccepted(ReturnRequest returnRequest) {
-        ReturnRequest request = requireRequest(returnRequest);
-        if (!Boolean.TRUE.equals(request.getAssetTracked())) {
-            return null;
-        }
-        ReturnAcceptedEvent event = ReturnAcceptedEvent.create(request);
-        return save(event.eventId(), event.eventType(), request, event,
-                environment.getProperty("app.kafka.topics.return-accepted", "return-accepted"));
     }
 
     private ReturnEventOutbox save(

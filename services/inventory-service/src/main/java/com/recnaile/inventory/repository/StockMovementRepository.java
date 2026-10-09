@@ -13,4 +13,7 @@ public interface StockMovementRepository extends MongoRepository<StockMovementDo
 
     List<StockMovementDocument> findBySourceTransactionIdAndItemIdAndEventType(
             String sourceTransactionId, String itemId, String eventType);
+
+    List<StockMovementDocument> findBySourceTransactionIdAndItemIdAndEventTypeAndReason(
+            String sourceTransactionId, String itemId, String eventType, String reason);
 }

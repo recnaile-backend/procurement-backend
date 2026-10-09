@@ -7,6 +7,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import com.recnaile.asset.config.KafkaEventProperties;
+import com.recnaile.asset.outbox.AssetOutboxService;
 
 import com.recnaile.asset.model.AssetCondition;
 import com.recnaile.asset.model.AssetStatus;
@@ -23,10 +30,21 @@ public class AssetReturnService {
 
     private final AssetService assetService;
     private final AssetAssignmentService assignmentService;
+    private final AssetOutboxService outboxService;
+    private final KafkaEventProperties kafkaProperties;
 
-    public AssetReturnService(AssetService assetService, AssetAssignmentService assignmentService) {
+    @Autowired
+    public AssetReturnService(AssetService assetService, AssetAssignmentService assignmentService,
+            AssetOutboxService outboxService, KafkaEventProperties kafkaProperties) {
         this.assetService = assetService;
         this.assignmentService = assignmentService;
+        this.outboxService = outboxService;
+        this.kafkaProperties = kafkaProperties;
+    }
+
+    /** Test-friendly constructor for lifecycle-only tests. */
+    AssetReturnService(AssetService assetService, AssetAssignmentService assignmentService) {
+        this(assetService, assignmentService, null, null);
     }
 
     @Transactional
@@ -57,7 +75,9 @@ public class AssetReturnService {
                     "Outward number does not match the active asset assignment");
         }
 
-        return assignmentService.closeAssignment(assetId, returnedAt, returnId, condition);
+        AssetAssignment closed = assignmentService.closeAssignment(assetId, returnedAt, returnId, condition);
+        enqueueRecoveryReturn(asset, normalizedOutwardNumber, returnId, condition, returnedAt);
+        return closed;
     }
 
     /**
@@ -105,6 +125,33 @@ public class AssetReturnService {
             assignmentService.closeAssignment(
                     candidates.get(i).getAssetId(), returnedAt, returnId, condition);
         }
+    }
+
+
+    private void enqueueRecoveryReturn(Asset asset, String outwardNumber, String returnId,
+            AssetCondition condition, Instant returnedAt) {
+        if (outboxService == null || kafkaProperties == null) {
+            // Compatibility for isolated unit tests that exercise only asset lifecycle behavior.
+            return;
+        }
+        String normalizedReturnId = ReferenceNumberNormalizer.returnId(returnId);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("returnId", normalizedReturnId);
+        payload.put("outwardNumber", outwardNumber);
+        payload.put("outwardId", outwardNumber);
+        payload.put("itemId", asset.getItemId());
+        payload.put("qty", 1);
+        payload.put("condition", condition.name());
+        // The Asset consumer must not apply the same return a second time after it publishes it.
+        payload.put("origin", "ASSET_SERVICE_RECOVERY");
+        payload.put("assetId", asset.getAssetId());
+        payload.put("returnedAt", returnedAt.toString());
+        outboxService.enqueueWithEventId(
+                "asset-recovery-return:" + normalizedReturnId,
+                kafkaProperties.topics().returnRecorded(),
+                normalizedReturnId,
+                "RETURN_RECORDED",
+                payload);
     }
 
     private static void requireText(String value, String field) {

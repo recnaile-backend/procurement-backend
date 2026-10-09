@@ -30,7 +30,7 @@ public class AssetAuthorizationService {
 
     public void requireAssetRead(Authentication authentication, Asset asset) {
         requireAuthenticated(authentication);
-        if (hasAnyRole(authentication, "ADMIN", "MD", "PROCUREMENT")) {
+        if (hasAnyRole(authentication, "MD", "PROCUREMENT")) {
             return;
         }
 
@@ -51,7 +51,7 @@ public class AssetAuthorizationService {
 
     public void requireAssetMutation(Authentication authentication, Asset asset) {
         requireAuthenticated(authentication);
-        if (hasAnyRole(authentication, "ADMIN", "MD", "PROCUREMENT")) {
+        if (hasAnyRole(authentication, "MD", "PROCUREMENT")) {
             return;
         }
         throw new AccessDeniedException("You are not authorized to modify this asset");
@@ -60,7 +60,7 @@ public class AssetAuthorizationService {
 
     public List<Asset> filterReadableAssets(Authentication authentication, List<Asset> assets) {
         requireAuthenticated(authentication);
-        if (hasAnyRole(authentication, "ADMIN", "MD", "PROCUREMENT")) {
+        if (hasAnyRole(authentication, "MD", "PROCUREMENT")) {
             return assets;
         }
         if (hasRole(authentication, "TL")) {
@@ -78,7 +78,7 @@ public class AssetAuthorizationService {
 
     public void requireEmployeeHistory(Authentication authentication, String employeeId) {
         requireAuthenticated(authentication);
-        if (hasAnyRole(authentication, "ADMIN", "MD", "PROCUREMENT", "TL")) {
+        if (hasAnyRole(authentication, "MD", "PROCUREMENT", "TL")) {
             return;
         }
         if (hasRole(authentication, "EMPLOYEE") && Objects.equals(subject(authentication), employeeId)) {
@@ -89,7 +89,7 @@ public class AssetAuthorizationService {
 
     public void requireDepartmentHistory(Authentication authentication, String departmentName) {
         requireAuthenticated(authentication);
-        if (hasAnyRole(authentication, "ADMIN", "MD", "PROCUREMENT")) {
+        if (hasAnyRole(authentication, "MD", "PROCUREMENT")) {
             return;
         }
         if ((hasRole(authentication, "TL") || hasRole(authentication, "EMPLOYEE"))

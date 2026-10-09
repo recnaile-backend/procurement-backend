@@ -140,3 +140,17 @@ Inventory uses the platform's **HS256** JWT configuration:
 | Swagger | `http://localhost:8086/swagger-ui.html` |
 | OpenAPI | `http://localhost:8086/v3/api-docs` |
 | Health | `http://localhost:8086/actuator/health` |
+
+
+## Return allocation rack-key correction (2026-10-09)
+
+- Outward issue allocations now store the actual balance key returned after Inventory resolves dimensions from Master Data (including rack/location).
+- Legacy allocations with a stale/incomplete key are repaired only from the corresponding `OUTWARD_ISSUED` ledger movements and only when they resolve to exactly one existing balance. Ambiguous matches fail safely instead of guessing.
+- Added a regression test for an outward event without an explicit location when Master Data supplies `Rack-003`.
+
+Validation note: the source environment used to prepare this ZIP did not have Gradle or Docker installed, so the Gradle test/build has not been executed here. Run the test/build commands below in your project environment before deploying.
+
+```powershell
+.\gradlew.bat test
+.\gradlew.bat clean build
+```

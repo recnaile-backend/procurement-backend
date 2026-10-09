@@ -145,14 +145,8 @@ public class ReturnProcessingService {
 
         ReturnRequest saved = repository.save(returnRequest);
 
-        /*
-         * Both downstream events are written in the same MongoDB transaction
-         * as the accepted Return state. Inventory always receives
-         * RETURN_RECORDED; Asset receives ReturnAccepted only for reusable
-         * asset-tracked items.
-         */
+        // One canonical downstream event drives Inventory and Asset integrations.
         outboxService.enqueue(saved);
-        outboxService.enqueueReturnAccepted(saved);
 
         enqueueIntegrations(
                 saved,

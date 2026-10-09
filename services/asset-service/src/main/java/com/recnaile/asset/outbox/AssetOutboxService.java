@@ -32,11 +32,19 @@ public class AssetOutboxService {
     }
 
     public void enqueue(String topic, String key, String eventType, Map<String, Object> payload) {
+        enqueueWithEventId(UUID.randomUUID().toString(), topic, key, eventType, payload);
+    }
+
+    /** Enqueues a business event with a stable ID for retry-safe recovery actions. */
+    public void enqueueWithEventId(String eventId, String topic, String key, String eventType,
+            Map<String, Object> payload) {
         if (!properties.enabled()) return;
+        if (eventId == null || eventId.isBlank()) {
+            throw new IllegalArgumentException("Event ID is required");
+        }
         if (topic == null || topic.isBlank()) {
             throw new IllegalStateException("Kafka topic is not configured for event type: " + eventType);
         }
-        String eventId = UUID.randomUUID().toString();
         String correlationId = firstNonBlank(MDC.get("correlationId"), MDC.get("traceId"), eventId);
         Map<String, Object> envelope = new LinkedHashMap<>();
         envelope.put("eventId", eventId);

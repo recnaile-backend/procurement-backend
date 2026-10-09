@@ -62,7 +62,6 @@ app:
   kafka:
     topics:
       return-recorded: ${KAFKA_RETURN_RECORDED_TOPIC:return.recorded}
-      return-accepted: ${KAFKA_RETURN_ACCEPTED_TOPIC:return-accepted}
       audit: ${KAFKA_AUDIT_TOPIC:audit.events}
       notification: ${KAFKA_NOTIFICATION_TOPIC:notification.events}
   outbox:

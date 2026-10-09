@@ -30,10 +30,6 @@ public class KafkaReturnEventPublisher {
         return send(topic, returnRequest.getReturnId(), ReturnRecordedEvent.create(returnRequest));
     }
 
-    public CompletableFuture<?> publishReturnAccepted(String topic, ReturnRequest returnRequest) {
-        return send(topic, returnRequest.getReturnId(), ReturnAcceptedEvent.create(returnRequest));
-    }
-
     public CompletableFuture<?> publish(String topic, String key, String payload) {
         return kafkaTemplate.send(topic, key, payload);
     }

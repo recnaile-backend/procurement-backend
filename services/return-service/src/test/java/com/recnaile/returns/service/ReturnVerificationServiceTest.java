@@ -49,6 +49,44 @@ class ReturnVerificationServiceTest {
     }
 
     @Test
+    void authenticatedActorIsAuthoritativeWhenLegacyVerifiedByDiffers() {
+        Instant now = Instant.parse("2026-09-30T05:30:00Z");
+        Clock clock = Clock.fixed(now, ZoneOffset.UTC);
+        ReturnVerificationService service = new ReturnVerificationService(
+                repository, new ReturnStateMachine(clock), clock);
+        ReturnRequest request = returnRequest();
+
+        when(repository.findByReturnId("RETURN%2F26-27%2F001")).thenReturn(Optional.of(request));
+        when(repository.save(request)).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ReturnRequest result = service.verify(
+                "RETURN%2F26-27%2F001",
+                new VerifyReturnRequest("EMP001"),
+                "MD001",
+                null);
+
+        assertThat(result.getStatus()).isEqualTo(ReturnStatus.VERIFIED);
+        assertThat(result.getVerifiedBy()).isEqualTo("MD001");
+    }
+
+    @Test
+    void authenticatedActorCanVerifyWithoutRequestBodyVerifier() {
+        Instant now = Instant.parse("2026-09-30T05:30:00Z");
+        Clock clock = Clock.fixed(now, ZoneOffset.UTC);
+        ReturnVerificationService service = new ReturnVerificationService(
+                repository, new ReturnStateMachine(clock), clock);
+        ReturnRequest request = returnRequest();
+
+        when(repository.findByReturnId("RETURN%2F26-27%2F001")).thenReturn(Optional.of(request));
+        when(repository.save(request)).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ReturnRequest result = service.verify(
+                "RETURN%2F26-27%2F001", new VerifyReturnRequest(null), "MD001", null);
+
+        assertThat(result.getVerifiedBy()).isEqualTo("MD001");
+    }
+
+    @Test
     void verifyRejectsUnknownReturn() {
         ReturnVerificationService service = new ReturnVerificationService(
                 repository, new ReturnStateMachine(), Clock.systemUTC());

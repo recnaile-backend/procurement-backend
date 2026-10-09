@@ -53,35 +53,6 @@ class ReturnEventOutboxServiceTest {
         verify(repository).save(any(ReturnEventOutbox.class));
     }
 
-    @Test
-    void enqueueReturnAcceptedSkipsConsumableItems() {
-        ReturnRequest request = returnRequest(false);
-        ReturnEventOutboxService service = service(Instant.parse("2026-09-30T06:05:00Z"));
-
-        assertThat(service.enqueueReturnAccepted(request)).isNull();
-        verify(repository, never()).save(any(ReturnEventOutbox.class));
-    }
-
-    @Test
-    void enqueueReturnAcceptedCreatesAssetEventForReusableItems() throws Exception {
-        when(environment.getProperty("app.kafka.topics.return-accepted", "return-accepted"))
-                .thenReturn("return-accepted.test");
-
-        ReturnRequest request = returnRequest(true);
-        ReturnEventOutboxService service = service(Instant.parse("2026-09-30T06:05:00Z"));
-        when(repository.save(any(ReturnEventOutbox.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-        ReturnEventOutbox result = service.enqueueReturnAccepted(request);
-
-        assertThat(result.getEventType()).isEqualTo("ReturnAccepted");
-        assertThat(result.getTopic()).isEqualTo("return-accepted.test");
-        assertThat(objectMapper().readTree(result.getPayload()).get("returnId").asText())
-                .isEqualTo("RETURN%2F26-27%2F001");
-        assertThat(objectMapper().readTree(result.getPayload()).get("outwardId").asText())
-                .isEqualTo("OUT%2F26-27%2F001");
-    }
-
     private ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());

@@ -57,11 +57,11 @@ public class ReturnVerificationService {
             throw new IllegalArgumentException("request must not be null");
         }
 
+        // The authenticated JWT employeeId is authoritative. The request field is
+        // retained for backward-compatible clients but is never used to impersonate
+        // another verifier. This also makes Swagger/manual clients safe when the
+        // stale verifiedBy value differs from the current MD/TL/PROCUREMENT login.
         String verifier = normalizeVerifier(actor == null ? request.verifiedBy() : actor);
-        if (actor != null && request.verifiedBy() != null
-                && !verifier.equals(request.verifiedBy().trim())) {
-            throw new IllegalArgumentException("verifiedBy must match the authenticated user");
-        }
         if (idempotencyService != null && idempotencyKey != null && !idempotencyKey.isBlank()) {
             String key = idempotencyService.normalizeKey(idempotencyKey);
             String fingerprint = idempotencyService.hash(normalizedReturnId + "|VERIFY_RETURN|" + verifier);

@@ -151,6 +151,43 @@ class InventoryEventServiceExtendedTest {
     }
 
     @Test
+    void outwardAllocationUsesResolvedMasterDataRackWhenEventOmitsLocation() throws Exception {
+        MasterDataItemClient masterData = mock(MasterDataItemClient.class);
+        MasterDataItemResponse item = new MasterDataItemResponse(
+                "ITEM-RACK", "Laptop", null, null, "Software", BigDecimal.TEN, BigDecimal.valueOf(100),
+                BigDecimal.ZERO, BigDecimal.ZERO, "REUSABLE", "PCS", BigDecimal.ZERO, BigDecimal.ZERO,
+                BigDecimal.ZERO, "Rack-003", "ACTIVE", null, "Electronics", true, null, 0L);
+        when(masterData.findById("ITEM-RACK")).thenReturn(Optional.of(item));
+        StockBalanceDocument rackBalance = new StockBalanceDocument();
+        rackBalance.setBalanceKey(InventoryEventService.key("ITEM-RACK", "Software", "P-1", "Rack-003"));
+        rackBalance.setItemId("ITEM-RACK");
+        rackBalance.setDepartmentName("Software");
+        rackBalance.setProjectId("P-1");
+        rackBalance.setLocation("Rack-003");
+        rackBalance.setAvailableQuantity(10);
+        rackBalance.setDefectQuantity(0);
+        rackBalance.setMinimumStock(0);
+        rackBalance.setMaximumStock(100);
+        rackBalance.setLowStock(false);
+        rackBalance.setStatus(StockStatus.IN_STOCK);
+        rackBalance.setUpdatedAt(Instant.now());
+        when(balances.findByBalanceKey(rackBalance.getBalanceKey())).thenReturn(Optional.of(rackBalance));
+
+        InventoryEventService rackService = new InventoryEventService(
+                balances, movements, idempotency, outbox, audit, allocations,
+                new ObjectMapper(), new SimpleMeterRegistry(), masterData);
+
+        rackService.consume(new ObjectMapper().readTree("""
+            {"eventId":"outward-rack-event","eventType":"OUTWARD_ISSUED",
+             "outwardNumber":"OUT-RACK-1","departmentName":"Software","projectId":"P-1",
+             "items":[{"itemId":"ITEM-RACK","quantity":2}]}
+        """));
+
+        assertEquals(8, rackBalance.getAvailableQuantity());
+        verify(allocations).save(argThat(a -> rackBalance.getBalanceKey().equals(a.getBalanceKey())));
+    }
+
+    @Test
     void goodsReceivedCanResolveCurrentInwardItemNameToCanonicalMasterDataItemId() throws Exception {
         MasterDataItemClient masterData = mock(MasterDataItemClient.class);
         MasterDataItemResponse laptop = new MasterDataItemResponse(
