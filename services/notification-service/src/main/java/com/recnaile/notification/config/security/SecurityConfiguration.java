@@ -1,6 +1,8 @@
 package com.recnaile.notification.config.security;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.List;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -17,6 +19,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -64,7 +68,10 @@ public class SecurityConfiguration {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers(
+                                "/actuator/health", "/actuator/health/**",
+                                "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**"
+                        ).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt ->
                         jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
@@ -85,10 +92,28 @@ public class SecurityConfiguration {
 
     @Bean
     JwtAuthenticationConverter notificationJwtAuthenticationConverter() {
-        // Keep this as Spring's concrete converter. JWT claim validation belongs
-        // in the JwtDecoder validator above; convert(Jwt) is final in this version.
+        // Match Inventory Service RBAC: read the Auth Service "roles" array,
+        // trim entries, and normalize them to Spring's ROLE_ convention.
+        // Keep employeeId as the principal because notification ownership uses empId.
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setPrincipalClaimName("employeeId");
+        converter.setJwtGrantedAuthoritiesConverter(this::extractRoles);
         return converter;
+    }
+
+    private Collection<GrantedAuthority> extractRoles(Jwt jwt) {
+        Object rawRoles = jwt.getClaims().get("roles");
+        if (!(rawRoles instanceof Collection<?> roles)) {
+            return List.of();
+        }
+        return roles.stream()
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .map(String::trim)
+                .filter(role -> !role.isBlank())
+                .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
+                .map(SimpleGrantedAuthority::new)
+                .map(authority -> (GrantedAuthority) authority)
+                .toList();
     }
 }

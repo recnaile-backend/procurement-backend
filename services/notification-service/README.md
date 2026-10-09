@@ -10,6 +10,45 @@ Event-driven, in-app notification service for the RECNAILE Procurement Platform.
 - **Email delivery:** not implemented / out of scope
 - **Audit persistence and replay audit trail:** owned by the separate Audit Service
 
+## API error documentation
+
+Swagger UI includes a shared HTTP error catalogue on each operation, plus endpoint-specific
+responses for notification inbox and audited replay APIs. Documented statuses include:
+
+| Status | Meaning |
+|---|---|
+| `400` | Invalid request parameter, path value, or rejected operation input |
+| `401` | Missing/invalid/expired JWT, invalid issuer/signature, or missing `employeeId` claim |
+| `403` | Authenticated caller lacks the required authority |
+| `404` | Notification/event not found or unavailable to the caller |
+| `405` | HTTP method not supported for the path |
+| `409` | Conflict with resource or processing state, where applicable |
+| `413` / `415` | Request body too large / unsupported content type, where applicable |
+| `422` | Semantic validation failure, where applicable |
+| `429` | Configured rate limit exceeded, where applicable |
+| `500` | Unexpected application failure |
+| `502` / `503` | Upstream failure or temporarily unavailable dependency, where applicable |
+
+These are OpenAPI descriptions, not a promise that every status is emitted by every endpoint.
+Error response bodies can vary across Spring Security, validation, application, and infrastructure
+failures. This documentation change does not introduce a custom global exception handler or
+standardize runtime error JSON.
+
+## Swagger UI / OpenAPI
+
+After starting the service, open:
+
+- Swagger UI: `http://localhost:8090/swagger-ui/index.html`
+- OpenAPI JSON: `http://localhost:8090/v3/api-docs`
+
+The Swagger UI and OpenAPI document endpoints are public so the documentation can load.
+Business API endpoints remain protected by JWT. In Swagger UI, select **Authorize** and
+enter a valid Auth Service access token (paste the token; do not include `Bearer ` unless
+the UI explicitly asks for it). The service validates the token signature, issuer, and
+the required `employeeId` claim.
+
+Dependency: `org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9`.
+
 ## Phase 11 baseline retained
 
 - Durable Kafka event inbox and processing ledger.
@@ -99,3 +138,15 @@ See [`PHASES-01-17.md`](PHASES-01-17.md) for the full phase map, retry/DLT confi
 - The separate Audit Service must be enabled and consume the audit topic to persist replay audit records. The Notification Service does not own audit persistence.
 - Delivery remains in-app only; no email transport is implemented.
 - Phase 17 is not considered verified until the full-repository test suite and deployment acceptance checklist pass.
+
+## Notification replay authorization (RBAC)
+
+The event replay endpoint
+`POST /api/v1/notifications/operations/events/{eventId}/replay` is restricted to the
+Managing Director authority `ROLE_MD`. Other roles are denied unless the authorization
+policy is deliberately changed. The Auth Service must issue/map the MD role to the exact
+Spring Security authority `ROLE_MD`; verify this mapping with a real MD JWT before release.
+
+The `/me` inbox endpoints always operate on the authenticated employee's own notifications,
+including for MD. The MD role does not make `/me` endpoints cross-employee endpoints.
+
