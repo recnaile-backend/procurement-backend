@@ -119,3 +119,32 @@ The consumer subscribes to the configured indent, purchase-order, inward, invent
 This phase provides durable ingestion, not final notification generation: recipient resolution, template rendering, delivery and retry/DLT operations are implemented in later phases. The consumer currently relies on Spring Kafka's listener error behavior for invalid/transient records; configure the bounded retry and dead-letter policy in the dedicated resilience phase before production deployment. Event-specific JSON Schema validation is not yet wired into the consumer; only envelope structure and the supported event-type allowlist are checked here.
 
 Supported event types currently include INDENT_SUBMITTED, INDENT_VERIFIED, INDENT_APPROVED, INDENT_REJECTED, PO_CREATED, PO_ISSUED, PO_CLOSED, GOODS_RECEIVED, OUTWARD_ISSUED, RETURN_RECORDED, LOW_STOCK_ALERT, SLA_BREACH and REJECTION_FLAGGED. Cancellation event types are not accepted until their canonical contracts and topic routing are defined.
+
+
+## Notification template and draft planning
+
+The template catalog now provides deterministic version-one wording for the currently supported procurement event types. `NotificationDraftFactory` creates in-app notification candidates only when the event payload contains an explicit recipient identifier (`recipientId`, `requestedBy`, `createdBy`, `employeeId`, or `userId`). It does not guess recipients from role names, request headers, or unrelated fields. Events without an explicit recipient produce no draft and need a later, authoritative recipient-resolution integration.
+
+This is the template/draft-planning layer; it does not yet deliver email, resolve role-based recipients, or automatically process inbox records. Template wording intentionally avoids copying arbitrary payload values into user-visible messages.
+
+### Validation and delivery (PowerShell, repository root)
+
+Back up the current service folder before replacing it. Then run:
+
+```powershell
+Remove-Item -Recurse -Force .\services\notification-service
+.\gradlew.bat :services:notification-service:test
+.\gradlew.bat :services:notification-service:build
+docker compose build notification-service
+docker compose up -d notification-service
+docker compose ps notification-service
+```
+
+The remove command is destructive; run it only after backing up the existing folder and extracting the replacement archive. This ZIP was archive-checked, but the full repository Gradle test/build and Docker image were not run in this environment.
+
+### Git commit
+
+```powershell
+git add services/notification-service
+git commit -m "feat(notification): add event templates and in-app draft planning"
+```
