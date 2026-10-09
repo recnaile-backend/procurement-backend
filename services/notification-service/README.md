@@ -148,3 +148,36 @@ The remove command is destructive; run it only after backing up the existing fol
 git add services/notification-service
 git commit -m "feat(notification): add event templates and in-app draft planning"
 ```
+
+
+## Phase 06 — inbox-to-notification orchestration
+
+This phase connects the durable Kafka inbox to the version-one in-app template/draft layer. After the inbox record and event-processing ledger are persisted, the consumer creates drafts for explicit recipients, persists each notification idempotently, updates the inbox state, marks the processing ledger, and only then acknowledges Kafka. If processing fails, the inbox and ledger are marked failed and the listener exception is allowed to reach Spring Kafka's configured error handling. Duplicate deliveries are safe to retry because notification uniqueness is enforced by the MongoDB compound index.
+
+- Inbox states now transition through `RECEIVED`, `PROCESSING`, `PROCESSED`, and `FAILED`.
+- Only explicit recipient IDs in event payloads are used. Missing recipient data results in zero notifications; no identity is guessed.
+- Correlation and trace IDs are propagated when present in the envelope.
+- Failure records contain bounded normalized codes, not exception messages or event payload contents.
+- This is not an atomic multi-document transaction. A crash between notification persistence and status updates can cause replay, which is handled through the unique notification index. Configure the listener's bounded retry/DLT policy before production use.
+- Role-based recipients, email delivery, user-facing notification APIs, read-state APIs and DLT replay remain future work.
+
+### Phase 06 verification (run from repository root, PowerShell)
+
+```powershell
+# Back up the current service folder before replacing it; this command deletes it.
+Remove-Item -Recurse -Force .\services\notification-service
+.\gradlew.bat :services:notification-service:test
+.\gradlew.bat :services:notification-service:build
+docker compose build notification-service
+docker compose up -d notification-service
+docker compose ps notification-service
+```
+
+The archive was checked for ZIP integrity. The full repository Gradle tests/build and Docker build could not be executed from this service-only workspace; run the commands above before treating it as production-ready.
+
+### Git commit
+
+```powershell
+git add services/notification-service
+git commit -m "feat(notification): orchestrate inbox events into in-app notifications"
+```

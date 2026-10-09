@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recnaile.notification.application.DomainEventEnvelopeValidator;
 import com.recnaile.notification.application.EventIdempotencyService;
 import com.recnaile.notification.application.IncomingDomainEventInbox;
+import com.recnaile.notification.application.NotificationEventOrchestrator;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
@@ -22,13 +23,16 @@ public class DomainEventKafkaConsumer {
     private final DomainEventEnvelopeValidator validator;
     private final IncomingDomainEventInbox inbox;
     private final EventIdempotencyService idempotencyService;
+    private final NotificationEventOrchestrator orchestrator;
 
     public DomainEventKafkaConsumer(ObjectMapper objectMapper, DomainEventEnvelopeValidator validator,
-            IncomingDomainEventInbox inbox, EventIdempotencyService idempotencyService) {
+            IncomingDomainEventInbox inbox, EventIdempotencyService idempotencyService,
+            NotificationEventOrchestrator orchestrator) {
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.validator = Objects.requireNonNull(validator, "validator");
         this.inbox = Objects.requireNonNull(inbox, "inbox");
         this.idempotencyService = Objects.requireNonNull(idempotencyService, "idempotencyService");
+        this.orchestrator = Objects.requireNonNull(orchestrator, "orchestrator");
     }
 
     @KafkaListener(topics = {
@@ -49,6 +53,14 @@ public class DomainEventKafkaConsumer {
                 record.offset(), now, raw);
         // Keep the separate processing ledger aligned for subsequent notification orchestration.
         idempotencyService.registerIfNew(envelope.eventId(), envelope.eventType(), now);
+        String correlationId = text(root, "correlationId");
+        String traceId = text(root, "traceId");
+        // Do not ack until generated notifications and processing status are durably persisted.
+        orchestrator.process(root, correlationId, traceId);
         acknowledgment.acknowledge();
+    }
+    private String text(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        return value != null && value.isTextual() && !value.asText().isBlank() ? value.asText().trim() : null;
     }
 }

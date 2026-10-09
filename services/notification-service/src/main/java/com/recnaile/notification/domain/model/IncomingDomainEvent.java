@@ -50,6 +50,10 @@ public class IncomingDomainEvent {
     public long getOffset() { return offset; }
     public Instant getReceivedAt() { return receivedAt; }
     public Map<String, Object> getEnvelope() { return envelope; }
+    public void markProcessing() { this.status = InboxStatus.PROCESSING; }
+    public void markProcessed() { this.status = InboxStatus.PROCESSED; }
+    public void markFailed() { this.status = InboxStatus.FAILED; }
+
     public InboxStatus getStatus() { return status; }
     public enum InboxStatus { RECEIVED, PROCESSING, PROCESSED, FAILED }
 }
