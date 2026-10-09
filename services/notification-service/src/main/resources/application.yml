@@ -3,9 +3,18 @@ spring:
     name: notification-service
   data:
     mongodb:
-      uri: ${MONGODB_BASE_URI}/${MONGODB_DATABASE:notification}?retryWrites=true&w=majority&appName=recnaile
+      uri: ${MONGODB_BASE_URI:mongodb://localhost:27017}/${MONGODB_DATABASE:notification}?retryWrites=true&w=majority&appName=recnaile
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:notification-service}
+      enable-auto-commit: false
+      auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:earliest}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      ack-mode: manual
+      concurrency: ${KAFKA_CONSUMER_CONCURRENCY:3}
 server:
   port: ${SERVICE_PORT:8090}
 management:
@@ -24,7 +33,17 @@ otel:
   exporter:
     otlp:
       endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
-
 app:
   service-name: notification-service
-  description: "In-app/email notification orchestration and event consumers"
+  description: "Event-driven in-app/email notification orchestration"
+  kafka:
+    topics:
+      indent: ${KAFKA_INDENT_TOPIC:procurement.indent.events}
+      purchase-order: ${KAFKA_PO_TOPIC:procurement.po.events}
+      inward: ${KAFKA_INWARD_TOPIC:procurement.inward.events}
+      inventory: ${KAFKA_INVENTORY_TOPIC:procurement.inventory.events}
+      outward: ${KAFKA_OUTWARD_TOPIC:procurement.outward.events}
+      return: ${KAFKA_RETURN_TOPIC:procurement.return.events}
+      asset: ${KAFKA_ASSET_TOPIC:procurement.asset.events}
+    retry-suffix: ${KAFKA_RETRY_SUFFIX:.retry}
+    dlt-suffix: ${KAFKA_DLT_SUFFIX:.dlt}
