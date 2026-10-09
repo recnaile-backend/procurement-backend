@@ -12,6 +12,9 @@ spring:
       auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:earliest}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
     listener:
       ack-mode: manual
       concurrency: ${KAFKA_CONSUMER_CONCURRENCY:3}
@@ -52,3 +55,6 @@ app:
       asset: ${KAFKA_ASSET_TOPIC:procurement.asset.events}
     retry-suffix: ${KAFKA_RETRY_SUFFIX:.retry}
     dlt-suffix: ${KAFKA_DLT_SUFFIX:.dlt}
+    retry-interval-ms: ${KAFKA_RETRY_INTERVAL_MS:1000}
+    retry-attempts: ${KAFKA_RETRY_ATTEMPTS:3}
+    audit-topic: ${KAFKA_AUDIT_TOPIC:procurement.audit.events}

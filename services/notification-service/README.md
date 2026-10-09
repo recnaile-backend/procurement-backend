@@ -89,3 +89,13 @@ The test suite includes checks that the Auth Service `employeeId` claim becomes 
 git add services/notification-service
 git commit -m "feat(notification): enforce JWT authentication and empId principal"
 ```
+
+## Phases 13–17 consolidated hardening
+
+See [`PHASES-01-17.md`](PHASES-01-17.md) for the full phase map, retry/DLT configuration, audited replay endpoint, and production acceptance checklist.
+
+- Kafka retries use a bounded backoff and route exhausted records to the configured `.dlt` topic suffix.
+- Audited replay endpoint: `POST /api/v1/notifications/operations/events/{eventId}/replay`. It requires `ROLE_ADMIN`, `ROLE_AUDIT_ADMIN`, or `SCOPE_notification.replay` and publishes to `KAFKA_AUDIT_TOPIC` before reprocessing the durable inbox event.
+- The separate Audit Service must be enabled and consume the audit topic to persist replay audit records. The Notification Service does not own audit persistence.
+- Delivery remains in-app only; no email transport is implemented.
+- Phase 17 is not considered verified until the full-repository test suite and deployment acceptance checklist pass.
