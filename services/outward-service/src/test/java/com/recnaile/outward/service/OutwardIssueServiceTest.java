@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
+import com.recnaile.outward.client.inventory.InventoryStockClient;
 import com.recnaile.outward.domain.enums.OutwardStatus;
 import com.recnaile.outward.domain.model.OutwardItem;
 import com.recnaile.outward.domain.model.OutwardRequest;
@@ -34,6 +35,7 @@ class OutwardIssueServiceTest {
     @Mock OutwardRequestRepository requestRepository;
     @Mock OutwardIssueTransactionRepository issueRepository;
     @Mock OutwardStateMachine stateMachine;
+    @Mock InventoryStockClient inventoryStockClient;
     @Mock Authentication authentication;
     @Mock TransactionalOutboxService outboxService;
     @Mock com.recnaile.outward.outbox.AuditEventService auditEventService;
@@ -43,7 +45,7 @@ class OutwardIssueServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new OutwardIssueService(requestRepository, issueRepository, stateMachine, outboxService, auditEventService,
+        service = new OutwardIssueService(requestRepository, issueRepository, stateMachine, inventoryStockClient, outboxService, auditEventService,
                 Clock.fixed(fixed, ZoneOffset.UTC));
     }
 
@@ -54,6 +56,7 @@ class OutwardIssueServiceTest {
         when(authentication.getName()).thenReturn("issuer-1");
         when(requestRepository.findByOutwardNumber(request.getOutwardNumber())).thenReturn(Optional.of(request));
         when(issueRepository.findByOutwardNumber(request.getOutwardNumber())).thenReturn(Optional.empty());
+        when(inventoryStockClient.getAvailableQuantity("item-1")).thenReturn(new BigDecimal("10"));
         when(stateMachine.transition(OutwardStatus.APPROVED, OutwardStatus.ISSUED)).thenReturn(OutwardStatus.ISSUED);
         when(issueRepository.save(any(OutwardIssueTransaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -68,7 +71,47 @@ class OutwardIssueServiceTest {
         assertEquals(OutwardStatus.ISSUED, request.getStatus());
         verify(issueRepository).save(any(OutwardIssueTransaction.class));
         verify(requestRepository).save(request);
+        verify(outboxService).enqueueStockIssueApproved(
+                eq(request), eq(request.getItems().get(0)), eq(request.getApprovedBy()), eq(fixed));
         verify(outboxService).enqueueOutwardIssued(any(OutwardIssueTransaction.class));
+    }
+
+    @Test
+    void issueRejectsInsufficientInventoryStockBeforePersistence() {
+        OutwardRequest request = approvedRequest();
+        when(authentication.isAuthenticated()).thenReturn(true);
+        when(authentication.getName()).thenReturn("issuer-1");
+        when(requestRepository.findByOutwardNumber(request.getOutwardNumber())).thenReturn(Optional.of(request));
+        when(issueRepository.findByOutwardNumber(request.getOutwardNumber())).thenReturn(Optional.empty());
+        when(inventoryStockClient.getAvailableQuantity("item-1")).thenReturn(BigDecimal.ZERO);
+
+        OutwardException ex = assertThrows(OutwardException.class,
+                () -> service.issue(request.getOutwardNumber(), "issue-key-stock", authentication));
+
+        assertEquals("OUTWARD_INSUFFICIENT_STOCK", ex.getCode());
+        verify(issueRepository, never()).save(any());
+        verify(requestRepository, never()).save(any());
+        verifyNoInteractions(outboxService);
+    }
+
+    @Test
+    void issueDoesNotPersistWhenInventoryIsUnavailable() {
+        OutwardRequest request = approvedRequest();
+        when(authentication.isAuthenticated()).thenReturn(true);
+        when(authentication.getName()).thenReturn("issuer-1");
+        when(requestRepository.findByOutwardNumber(request.getOutwardNumber())).thenReturn(Optional.of(request));
+        when(issueRepository.findByOutwardNumber(request.getOutwardNumber())).thenReturn(Optional.empty());
+        when(inventoryStockClient.getAvailableQuantity("item-1"))
+                .thenThrow(new com.recnaile.outward.exception.DownstreamServiceException(
+                        "INVENTORY_SERVICE_UNAVAILABLE", "Inventory unavailable", null));
+
+        OutwardException ex = assertThrows(OutwardException.class,
+                () -> service.issue(request.getOutwardNumber(), "issue-key-unavailable", authentication));
+
+        assertEquals("INVENTORY_SERVICE_UNAVAILABLE", ex.getCode());
+        verify(issueRepository, never()).save(any());
+        verify(requestRepository, never()).save(any());
+        verifyNoInteractions(outboxService);
     }
 
     @Test
@@ -123,6 +166,7 @@ class OutwardIssueServiceTest {
         when(authentication.getName()).thenReturn("issuer-1");
         when(requestRepository.findByOutwardNumber(request.getOutwardNumber())).thenReturn(Optional.of(request));
         when(issueRepository.findByOutwardNumber(request.getOutwardNumber())).thenReturn(Optional.empty());
+        when(inventoryStockClient.getAvailableQuantity("item-1")).thenReturn(new BigDecimal("10"));
         when(stateMachine.transition(OutwardStatus.APPROVED, OutwardStatus.ISSUED)).thenReturn(OutwardStatus.ISSUED);
         when(issueRepository.save(any(OutwardIssueTransaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -147,6 +191,7 @@ class OutwardIssueServiceTest {
         when(requestRepository.findByOutwardNumber(request.getOutwardNumber())).thenReturn(Optional.of(request));
         when(issueRepository.findByIdempotencyKey("issue-key-concurrent")).thenReturn(Optional.empty());
         when(issueRepository.findByOutwardNumber(request.getOutwardNumber())).thenReturn(Optional.empty());
+        when(inventoryStockClient.getAvailableQuantity("item-1")).thenReturn(new BigDecimal("10"));
         when(stateMachine.transition(OutwardStatus.APPROVED, OutwardStatus.ISSUED)).thenReturn(OutwardStatus.ISSUED);
         when(issueRepository.save(any(OutwardIssueTransaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

@@ -2,6 +2,7 @@ package com.recnaile.purchaseorder.dto;
 
 import com.recnaile.purchaseorder.domain.enums.PurchaseOrderStatus;
 import com.recnaile.purchaseorder.domain.enums.PurchaseType;
+import com.recnaile.purchaseorder.domain.model.ApprovedIndentSnapshot;
 import com.recnaile.purchaseorder.domain.model.InvoiceMetadata;
 import com.recnaile.purchaseorder.domain.model.PurchaseOrder;
 import com.recnaile.purchaseorder.domain.model.PurchaseOrderLine;
@@ -16,6 +17,7 @@ public record PurchaseOrderResponse(
         LocalDate poDate,
         String indentNumber,
         String indentStatus,
+        ApprovedIndentResponse indentDetails,
         String vendorName,
         String projectId,
         String departmentName,
@@ -63,6 +65,7 @@ public record PurchaseOrderResponse(
                 po.getPoDate(),
                 indentNumber,
                 po.getIndentStatus(),
+                ApprovedIndentResponse.from(po.getIndentDetails()),
                 po.getVendorName(),
                 po.getProjectId(),
                 po.getDepartmentName(),
@@ -87,8 +90,69 @@ public record PurchaseOrderResponse(
                 po.getVersion());
     }
 
+    public record ApprovedIndentResponse(
+            String requesterId,
+            String departmentName,
+            String projectId,
+            String reason,
+            List<ApprovedIndentItemResponse> items,
+            BigDecimal estimatedTotalAmount,
+            String status,
+            String approvalLevel,
+            String verifierId,
+            Instant verifiedAt,
+            String verificationRemarks,
+            String approverId,
+            Instant approvedAt,
+            String approvalRemarks) {
+
+        static ApprovedIndentResponse from(ApprovedIndentSnapshot snapshot) {
+            if (snapshot == null) {
+                return null;
+            }
+            List<ApprovedIndentItemResponse> items = snapshot.getItems() == null
+                    ? List.of()
+                    : snapshot.getItems().stream()
+                            .filter(java.util.Objects::nonNull)
+                            .map(ApprovedIndentItemResponse::from)
+                            .toList();
+
+            return new ApprovedIndentResponse(
+                    snapshot.getRequesterId(),
+                    snapshot.getDepartmentName(),
+                    snapshot.getProjectId(),
+                    snapshot.getReason(),
+                    items,
+                    snapshot.getEstimatedTotalAmount(),
+                    snapshot.getStatus(),
+                    snapshot.getApprovalLevel(),
+                    snapshot.getVerifierId(),
+                    snapshot.getVerifiedAt(),
+                    snapshot.getVerificationRemarks(),
+                    snapshot.getApproverId(),
+                    snapshot.getApprovedAt(),
+                    snapshot.getApprovalRemarks());
+        }
+    }
+
+    public record ApprovedIndentItemResponse(
+            String itemName,
+            BigDecimal quantity,
+            BigDecimal estimatedUnitPrice,
+            BigDecimal estimatedLineAmount,
+            String remarks) {
+
+        static ApprovedIndentItemResponse from(ApprovedIndentSnapshot.Item item) {
+            return new ApprovedIndentItemResponse(
+                    item.getItemName(),
+                    item.getQuantity(),
+                    item.getEstimatedUnitPrice(),
+                    item.getEstimatedLineAmount(),
+                    item.getRemarks());
+        }
+    }
+
     public record PurchaseOrderItemResponse(
-            String itemId,
             String itemName,
             BigDecimal quantity,
             BigDecimal unitPrice,
@@ -96,7 +160,6 @@ public record PurchaseOrderResponse(
 
         static PurchaseOrderItemResponse from(PurchaseOrderLine line) {
             return new PurchaseOrderItemResponse(
-                    line.getItemId(),
                     line.getItemName(),
                     line.getOrderedQuantity(),
                     line.getUnitPrice(),

@@ -7,7 +7,8 @@ public record ItemResponse(
         String name,
         String unitOfMeasure,
         String type,
-        BigDecimal availableStock,
+        /** Legacy field retained for wire compatibility; Outward never uses it for stock decisions. */
+        @Deprecated BigDecimal availableStock,
         boolean assetTracked,
         String status
 ) {

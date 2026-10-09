@@ -14,7 +14,7 @@
   "receivedBy": "Rajesh",
   "items": [
     {
-      "itemId": "ITEM-001",
+      "itemName": "Bolt",
       "unitOfMeasure": "PCS",
       "acceptedQuantity": 5,
       "rejectedQuantity": 1,
@@ -29,10 +29,10 @@
 Purchase Order from the Purchase Order Service and matches each receipt item
 using:
 
-`poId + itemId`
+`poId + itemName`
 
-The Purchase Order must contain a unique `itemId` for each item. If duplicate
-`itemId` values are returned for one Purchase Order, GRN creation is rejected
+The Purchase Order must contain a unique `itemName` for each item. If duplicate
+`itemName` values are returned for one Purchase Order, GRN creation is rejected
 because the receipt item would be ambiguous.
 
 ## Quantity responsibility
@@ -42,7 +42,7 @@ Cumulative received-quantity validation is handled in Phase 06.
 
 ### Error handling
 
-Invalid receipt references are client/business validation errors. For example, an `itemId` that is not present in the referenced issued PO returns HTTP 400 with `ITEM_NOT_IN_PURCHASE_ORDER`; it is not exposed as an HTTP 500 server error.
+Invalid receipt references are client/business validation errors. For example, an `itemName` that is not present in the referenced issued PO returns HTTP 400 with `ITEM_NOT_IN_PURCHASE_ORDER`; it is not exposed as an HTTP 500 server error.
 
 The successful response exposes the GRN receipt collection as `items`, while the internal MongoDB document continues to use its existing `lines` field.
 
@@ -80,7 +80,7 @@ The `Idempotency-Key` header remains optional. When supplied, the idempotency re
 
 ## Phase 12 — GOODS_RECEIVED Event
 
-After a GRN is persisted, one `GOODS_RECEIVED` event is created for each GRN receipt line. The event uses version `1` and is published through the transactional outbox to the shared `procurement.events` Kafka topic.
+After a GRN is persisted as `DRAFT`, no `GOODS_RECEIVED` event is created. The event is created for each GRN receipt line only when the GRN is explicitly confirmed through `POST /api/v1/goods-receipts/{grnId}/receive`. The event uses version `1` and is published through the transactional outbox to the shared `procurement.events` Kafka topic.
 
 
 

@@ -1,14 +1,15 @@
 package com.recnaile.returns.service;
 
 import com.recnaile.returns.exception.ReturnNotFoundException;
+import com.recnaile.returns.idempotency.IdempotencyService;
+import com.recnaile.returns.integration.outbox.ReturnIntegrationOutboxService;
+import com.recnaile.returns.reservation.ReturnAllocationService;
 import com.recnaile.returns.model.entity.ReturnRequest;
 import com.recnaile.returns.outbox.ReturnEventOutboxService;
 import com.recnaile.returns.repository.ReturnRequestRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.recnaile.returns.idempotency.IdempotencyService;
-import com.recnaile.returns.integration.outbox.ReturnIntegrationOutboxService;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -20,15 +21,29 @@ public class ReturnProcessingService {
     private final ReturnStateMachine stateMachine;
     private final Clock clock;
     private final ReturnEventOutboxService outboxService;
+    private final IssuedReturnValidationService issuedReturnValidationService;
     private final IdempotencyService idempotencyService;
     private final ReturnIntegrationOutboxService integrationOutboxService;
+    private final ReturnAllocationService returnAllocationService;
 
     @Autowired
     public ReturnProcessingService(
             ReturnRequestRepository repository,
             ReturnStateMachine stateMachine,
-            ReturnEventOutboxService outboxService, IdempotencyService idempotencyService, ReturnIntegrationOutboxService integrationOutboxService) {
-        this(repository, stateMachine, Clock.systemUTC(), outboxService, idempotencyService, integrationOutboxService);
+            ReturnEventOutboxService outboxService,
+            IssuedReturnValidationService issuedReturnValidationService,
+            IdempotencyService idempotencyService,
+            ReturnIntegrationOutboxService integrationOutboxService,
+            ReturnAllocationService returnAllocationService) {
+        this(
+                repository,
+                stateMachine,
+                Clock.systemUTC(),
+                outboxService,
+                issuedReturnValidationService,
+                idempotencyService,
+                integrationOutboxService,
+                returnAllocationService);
     }
 
     ReturnProcessingService(
@@ -36,24 +51,45 @@ public class ReturnProcessingService {
             ReturnStateMachine stateMachine,
             Clock clock,
             ReturnEventOutboxService outboxService) {
-        this(repository, stateMachine, clock, outboxService, null, null);
+        this(repository, stateMachine, clock, outboxService, null, null, null, null);
     }
 
     ReturnProcessingService(
-            ReturnRequestRepository repository, ReturnStateMachine stateMachine, Clock clock,
-            ReturnEventOutboxService outboxService, IdempotencyService idempotencyService) {
-        this(repository, stateMachine, clock, outboxService, idempotencyService, null);
+            ReturnRequestRepository repository,
+            ReturnStateMachine stateMachine,
+            Clock clock,
+            ReturnEventOutboxService outboxService,
+            IdempotencyService idempotencyService) {
+        this(repository, stateMachine, clock, outboxService, null, idempotencyService, null, null);
     }
 
     ReturnProcessingService(
-            ReturnRequestRepository repository, ReturnStateMachine stateMachine, Clock clock,
-            ReturnEventOutboxService outboxService, IdempotencyService idempotencyService, ReturnIntegrationOutboxService integrationOutboxService) {
+            ReturnRequestRepository repository,
+            ReturnStateMachine stateMachine,
+            Clock clock,
+            ReturnEventOutboxService outboxService,
+            IdempotencyService idempotencyService,
+            ReturnIntegrationOutboxService integrationOutboxService) {
+        this(repository, stateMachine, clock, outboxService, null, idempotencyService, integrationOutboxService, null);
+    }
+
+    ReturnProcessingService(
+            ReturnRequestRepository repository,
+            ReturnStateMachine stateMachine,
+            Clock clock,
+            ReturnEventOutboxService outboxService,
+            IssuedReturnValidationService issuedReturnValidationService,
+            IdempotencyService idempotencyService,
+            ReturnIntegrationOutboxService integrationOutboxService,
+            ReturnAllocationService returnAllocationService) {
         this.repository = repository;
         this.stateMachine = stateMachine;
         this.clock = clock;
         this.outboxService = outboxService;
+        this.issuedReturnValidationService = issuedReturnValidationService;
         this.idempotencyService = idempotencyService;
         this.integrationOutboxService = integrationOutboxService;
+        this.returnAllocationService = returnAllocationService;
     }
 
     @Transactional
@@ -62,42 +98,91 @@ public class ReturnProcessingService {
     }
 
     @Transactional
-    public ReturnRequest process(String returnId, String actor, String idempotencyKey) {
+    public ReturnRequest process(
+            String returnId,
+            String actor,
+            String idempotencyKey) {
         String normalizedReturnId = normalizeReturnId(returnId);
         String normalizedActor = actor == null || actor.isBlank() ? "system" : actor.trim();
+
         if (idempotencyService != null && idempotencyKey != null && !idempotencyKey.isBlank()) {
             String key = idempotencyService.normalizeKey(idempotencyKey);
-            String fingerprint = idempotencyService.hash(normalizedReturnId + "|PROCESS_RETURN");
-            var existing = idempotencyService.findExisting(key, "PROCESS_RETURN", normalizedActor, fingerprint);
+            String fingerprint = idempotencyService.hash(
+                    normalizedReturnId + "|PROCESS_RETURN|" + normalizedActor);
+
+            var existing = idempotencyService.findExisting(
+                    key, "PROCESS_RETURN", normalizedActor, fingerprint);
             if (existing.isPresent()) {
                 return existing.get();
             }
-            ReturnRequest returnRequest = repository.findByReturnId(normalizedReturnId)
-                    .orElseThrow(() -> new ReturnNotFoundException(normalizedReturnId));
-            stateMachine.process(returnRequest);
-            returnRequest.setUpdatedAt(Instant.now(clock));
-            ReturnRequest saved = repository.save(returnRequest);
-            outboxService.enqueue(saved);
-            enqueueIntegrations(saved, normalizedActor, "PROCESS", "VERIFIED", saved.getStatus().name(), null);
-            idempotencyService.record(key, "PROCESS_RETURN", normalizedActor, fingerprint, saved.getReturnId());
+            idempotencyService.claim(key, "PROCESS_RETURN", normalizedActor, fingerprint);
+
+            ReturnRequest saved = processAndPublish(normalizedReturnId, normalizedActor);
+            idempotencyService.complete(
+                    key, "PROCESS_RETURN", normalizedActor, fingerprint, saved.getReturnId());
             return saved;
         }
 
-        ReturnRequest returnRequest = repository.findByReturnId(normalizedReturnId)
-                .orElseThrow(() -> new ReturnNotFoundException(normalizedReturnId));
+        return processAndPublish(normalizedReturnId, normalizedActor);
+    }
 
+    private ReturnRequest processAndPublish(String returnId, String actor) {
+        ReturnRequest returnRequest = repository.findByReturnId(returnId)
+                .orElseThrow(() -> new ReturnNotFoundException(returnId));
+
+        if (issuedReturnValidationService != null) {
+            var validation = issuedReturnValidationService.validate(returnRequest);
+            returnRequest.setAssetTracked(validation.assetTracked());
+            if (returnAllocationService != null) {
+                returnAllocationService.reserve(returnRequest, validation.issuedQuantity());
+            }
+        }
+
+        String previous = returnRequest.getStatus().name();
         stateMachine.process(returnRequest);
-        returnRequest.setUpdatedAt(Instant.now(clock));
+        Instant processedAt = Instant.now(clock);
+        returnRequest.setUpdatedAt(processedAt);
+
         ReturnRequest saved = repository.save(returnRequest);
+
+        // One canonical downstream event drives Inventory and Asset integrations.
         outboxService.enqueue(saved);
-        enqueueIntegrations(saved, normalizedActor, "PROCESS", "VERIFIED", saved.getStatus().name(), null);
+
+        enqueueIntegrations(
+                saved,
+                actor,
+                "PROCESS",
+                previous,
+                saved.getStatus().name(),
+                null);
+
         return saved;
     }
 
-    private void enqueueIntegrations(ReturnRequest r, String actor, String action, String previous, String next, String correlationId) {
-        if (integrationOutboxService == null) return;
-        integrationOutboxService.audit(r.getReturnId(), actor, null, action, previous, next, correlationId);
-        integrationOutboxService.notify(r.getReturnId(), actor, action, "Return processed as " + r.getCondition(), correlationId);
+    private void enqueueIntegrations(
+            ReturnRequest returnRequest,
+            String actor,
+            String action,
+            String previous,
+            String next,
+            String correlationId) {
+        if (integrationOutboxService == null) {
+            return;
+        }
+        integrationOutboxService.audit(
+                returnRequest.getReturnId(),
+                actor,
+                null,
+                action,
+                previous,
+                next,
+                correlationId);
+        integrationOutboxService.notify(
+                returnRequest.getReturnId(),
+                actor,
+                action,
+                "Return processed as " + returnRequest.getCondition(),
+                correlationId);
     }
 
     private String normalizeReturnId(String returnId) {

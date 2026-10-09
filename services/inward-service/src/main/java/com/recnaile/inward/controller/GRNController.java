@@ -21,6 +21,7 @@ import com.recnaile.inward.dto.CreateGRNRequest;
 import com.recnaile.inward.dto.GRNResponse;
 import com.recnaile.inward.service.GRNCreationService;
 import com.recnaile.inward.service.GRNQueryService;
+import com.recnaile.inward.service.GRNReceiptService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -38,10 +39,12 @@ public class GRNController {
 
     private final GRNCreationService grnCreationService;
     private final GRNQueryService grnQueryService;
+    private final GRNReceiptService grnReceiptService;
 
-    public GRNController(GRNCreationService grnCreationService, GRNQueryService grnQueryService) {
+    public GRNController(GRNCreationService grnCreationService, GRNQueryService grnQueryService, GRNReceiptService grnReceiptService) {
         this.grnCreationService = grnCreationService;
         this.grnQueryService = grnQueryService;
+        this.grnReceiptService = grnReceiptService;
     }
 
     @Operation(
@@ -138,7 +141,7 @@ public class GRNController {
             summary = "Create GRN",
             description = "Creates a DRAFT GRN against an ISSUED Purchase Order. "
                     + "The Purchase Order Service is revalidated before the GRN is persisted. "
-                    + "Each requested item must belong to the PO. Rejected quantity requires a rejection reason. "
+                    + "Each requested itemName must match an itemName carried by the issued PO. Rejected quantity requires a rejection reason. "
                     + "Cumulative outstanding-quantity validation is handled in Phase 06."
     )
     @ApiResponses({
@@ -154,7 +157,7 @@ public class GRNController {
                             examples = {
                                     @ExampleObject(
                                             name = "ItemNotInPurchaseOrder",
-                                            value = "{\"success\":false,\"data\":null,\"error\":{\"code\":\"ITEM_NOT_IN_PURCHASE_ORDER\",\"message\":\"Item Item-999 does not belong to PO PO-008\",\"traceId\":\"corr-123\"}}"
+                                            value = "{\"success\":false,\"data\":null,\"error\":{\"code\":\"ITEM_NOT_IN_PURCHASE_ORDER\",\"message\":\"Item Bolt-999 does not belong to PO PO-008\",\"traceId\":\"corr-123\"}}"
                                     ),
                                     @ExampleObject(
                                             name = "ValidationError",
@@ -176,7 +179,7 @@ public class GRNController {
                     description = "Authenticated user is not permitted to create a GRN",
                     content = @Content(
                             schema = @Schema(implementation = com.recnaile.inward.dto.ApiErrorResponse.class),
-                            examples = @ExampleObject(value = "{\"success\":false,\"data\":null,\"error\":{\"code\":\"FORBIDDEN\",\"message\":\"You do not have permission to create a GRN. Required role: PROCUREMENT or ADMIN.\",\"traceId\":\"corr-123\"}}")
+                            examples = @ExampleObject(value = "{\"success\":false,\"data\":null,\"error\":{\"code\":\"FORBIDDEN\",\"message\":\"You do not have permission to create a GRN. Required role: PROCUREMENT or MD.\",\"traceId\":\"corr-123\"}}")
                     )
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -226,4 +229,26 @@ public class GRNController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(grnCreationService.create(request, idempotencyKey, principal)));
     }
+    @Operation(
+            summary = "Confirm GRN receipt",
+            description = "Confirms a DRAFT GRN. Inventory-facing GOODS_RECEIVED events are created only after this confirmation. The final status is PARTIALLY_RECEIVED when the PO still has outstanding quantity, or COMPLETED when the PO is fully received."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "GRN receipt confirmed successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Authentication required"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Authenticated user is not permitted to confirm a GRN"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "GRN not found"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "Invalid GRN state or concurrent update")
+    })
+    @PostMapping("/{grnId}/receive")
+    @PreAuthorize("hasAnyRole('PROCUREMENT', 'MD')")
+    public ResponseEntity<ApiResponse<GRNResponse>> receiveGRN(
+            @PathVariable String grnId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            Authentication authentication) {
+        String principal = authentication == null ? "UNKNOWN" : authentication.getName();
+        return ResponseEntity.ok(ApiResponse.success(
+                grnReceiptService.receive(grnId, idempotencyKey, principal)));
+    }
+
 }

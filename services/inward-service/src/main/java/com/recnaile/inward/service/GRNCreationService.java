@@ -77,7 +77,6 @@ public class GRNCreationService {
     public GRNResponse create(CreateGRNRequest request) {
         GRNResponse response = createInternal(request);
         if (outboxService != null) {
-            outboxService.enqueueGoodsReceived(response);
             outboxService.enqueueGRNCreateAuditEvent(response);
         }
         return response;
@@ -88,7 +87,6 @@ public class GRNCreationService {
         if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyService == null) {
             GRNResponse response = createInternal(request);
             if (outboxService != null) {
-                outboxService.enqueueGoodsReceived(response);
                 outboxService.enqueueGRNCreateAuditEvent(response);
             }
             return response;
@@ -105,7 +103,6 @@ public class GRNCreationService {
         try {
             GRNResponse response = createInternal(request);
             if (outboxService != null) {
-                outboxService.enqueueGoodsReceived(response);
                 outboxService.enqueueGRNCreateAuditEvent(response);
             }
             idempotencyService.complete(record, response.grnId());
@@ -140,21 +137,21 @@ public class GRNCreationService {
 
         Map<String, PurchaseOrderLineSummary> poItems = new HashMap<>();
         for (PurchaseOrderLineSummary item : purchaseOrder.items() == null ? List.<PurchaseOrderLineSummary>of() : purchaseOrder.items()) {
-            if (item == null || item.itemId() == null || item.itemId().isBlank()) {
+            if (item == null || item.itemName() == null || item.itemName().isBlank()) {
                 continue;
             }
 
-            if (poItems.putIfAbsent(item.itemId(), item) != null) {
-                throw new DuplicatePurchaseOrderItemException(request.poId(), item.itemId());
+            if (poItems.putIfAbsent(item.itemName(), item) != null) {
+                throw new DuplicatePurchaseOrderItemException(request.poId(), item.itemName());
             }
         }
 
-        Set<String> requestItemIds = new HashSet<>();
+        Set<String> requestItemNames = new HashSet<>();
         List<CreateGRNLineRequest> requestedItems = request.items() == null ? List.of() : request.items();
         List<GRNLine> grnLines = requestedItems.stream()
                 .map(item -> {
-                    if (!requestItemIds.add(item.itemId())) {
-                        throw new DuplicateGRNItemException(item.itemId());
+                    if (!requestItemNames.add(item.itemName())) {
+                        throw new DuplicateGRNItemException(item.itemName());
                     }
                     return toGRNLine(item, poItems, request.poId());
                 })
@@ -165,8 +162,6 @@ public class GRNCreationService {
         receiptProgressService.validateRequestedQuantities(
                 request.poId(), purchaseOrder, grnLines);
 
-        Instant receivedAt = Instant.now(clock);
-
         GRNDocument grn = new GRNDocument(
                 null,
                 grnNumberGenerator.next(),
@@ -174,7 +169,7 @@ public class GRNCreationService {
                 purchaseOrder.vendorName(),
                 request.deliveryNoteNumber(),
                 request.deliveryDate(),
-                receivedAt,
+                null,
                 request.receivedBy(),
                 GRNStatus.DRAFT,
                 grnLines
@@ -192,10 +187,10 @@ public class GRNCreationService {
             Map<String, PurchaseOrderLineSummary> poItems,
             String poId
     ) {
-        PurchaseOrderLineSummary poItem = poItems.get(request.itemId());
+        PurchaseOrderLineSummary poItem = poItems.get(request.itemName());
 
         if (poItem == null) {
-            throw new ItemNotInPurchaseOrderException(request.itemId(), poId);
+            throw new ItemNotInPurchaseOrderException(request.itemName(), poId);
         }
 
         if (request.rejectedQuantity().signum() > 0
@@ -204,7 +199,7 @@ public class GRNCreationService {
         }
 
         return new GRNLine(
-                poItem.itemId(),
+                poItem.itemName(),
                 poItem.quantity(),
                 request.acceptedQuantity(),
                 request.rejectedQuantity(),

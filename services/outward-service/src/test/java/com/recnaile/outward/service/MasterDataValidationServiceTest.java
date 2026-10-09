@@ -90,17 +90,17 @@ class MasterDataValidationServiceTest {
     }
 
     @Test
-    void rejectsQuantityAboveAvailableStock() {
+    void doesNotValidateStockFromMasterData() {
+        useMdAuthentication();
         stubActiveDepartment();
-        when(masterDataClient.getItem("ITEM-1"))
-                .thenReturn(new ItemResponse("ITEM-1", "Laptop", "NOS", "REUSABLE",
-                        new BigDecimal("2"), true, "ACTIVE"));
+        stubActiveItem();
+        when(authEmployeeClient.getEmployees())
+                .thenReturn(List.of(employee("EMP-1", "Employee", "One", true)));
 
-        MasterDataValidationException exception = assertThrows(
-                MasterDataValidationException.class,
-                () -> service.validate(request("ITEM-1", new BigDecimal("3"), null, "Engineering")));
+        MasterDataValidationService.ValidationResult result =
+                service.validate(request("ITEM-1", new BigDecimal("999"), null, "Engineering"));
 
-        assertEquals("OUTWARD_INSUFFICIENT_STOCK", exception.getCode());
+        assertEquals(true, result.assetTracked());
     }
 
     @Test

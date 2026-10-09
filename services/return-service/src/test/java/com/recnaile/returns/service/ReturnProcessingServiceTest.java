@@ -36,13 +36,13 @@ class ReturnProcessingServiceTest {
         Instant now = Instant.parse("2026-09-30T06:00:00Z");
         ReturnRequest request = returnRequest(ReturnCondition.GOOD);
         request.setStatus(ReturnStatus.VERIFIED);
-        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RETURN%2F26-27%2F001")).thenReturn(Optional.of(request));
         when(repository.save(request)).thenAnswer(invocation -> invocation.getArgument(0));
 
         ReturnProcessingService service = new ReturnProcessingService(
                 repository, new ReturnStateMachine(), Clock.fixed(now, ZoneOffset.UTC), outboxService);
 
-        ReturnRequest result = service.process(" RET-1 ");
+        ReturnRequest result = service.process(" RETURN%2F26-27%2F001 ");
 
         assertThat(result.getStatus()).isEqualTo(ReturnStatus.ACCEPTED_GOOD);
         assertThat(result.getUpdatedAt()).isEqualTo(now);
@@ -54,13 +54,13 @@ class ReturnProcessingServiceTest {
     void processDamagedReturnSetsAcceptedDamaged() {
         ReturnRequest request = returnRequest(ReturnCondition.DAMAGED);
         request.setStatus(ReturnStatus.VERIFIED);
-        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RETURN%2F26-27%2F001")).thenReturn(Optional.of(request));
         when(repository.save(request)).thenAnswer(invocation -> invocation.getArgument(0));
 
         ReturnProcessingService service = new ReturnProcessingService(
                 repository, new ReturnStateMachine(), Clock.systemUTC(), outboxService);
 
-        ReturnRequest result = service.process("RET-1");
+        ReturnRequest result = service.process("RETURN%2F26-27%2F001");
 
         assertThat(result.getStatus()).isEqualTo(ReturnStatus.ACCEPTED_DAMAGED);
         verify(repository).save(request);
@@ -69,22 +69,22 @@ class ReturnProcessingServiceTest {
 
     @Test
     void processRejectsUnknownReturn() {
-        when(repository.findByReturnId("RET-404")).thenReturn(Optional.empty());
+        when(repository.findByReturnId("RETURN%2F26-27%2F404")).thenReturn(Optional.empty());
         ReturnProcessingService service = new ReturnProcessingService(
                 repository, new ReturnStateMachine(), Clock.systemUTC(), outboxService);
 
-        assertThatThrownBy(() -> service.process("RET-404"))
+        assertThatThrownBy(() -> service.process("RETURN%2F26-27%2F404"))
                 .isInstanceOf(ReturnNotFoundException.class);
     }
 
     @Test
     void processRejectsPendingReturn() {
         ReturnRequest request = returnRequest(ReturnCondition.GOOD);
-        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RETURN%2F26-27%2F001")).thenReturn(Optional.of(request));
         ReturnProcessingService service = new ReturnProcessingService(
                 repository, new ReturnStateMachine(), Clock.systemUTC(), outboxService);
 
-        assertThatThrownBy(() -> service.process("RET-1"))
+        assertThatThrownBy(() -> service.process("RETURN%2F26-27%2F001"))
                 .isInstanceOf(InvalidReturnStateTransitionException.class);
     }
 
@@ -92,11 +92,11 @@ class ReturnProcessingServiceTest {
     void processRejectsAlreadyProcessedReturn() {
         ReturnRequest request = returnRequest(ReturnCondition.GOOD);
         request.setStatus(ReturnStatus.ACCEPTED_GOOD);
-        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RETURN%2F26-27%2F001")).thenReturn(Optional.of(request));
         ReturnProcessingService service = new ReturnProcessingService(
                 repository, new ReturnStateMachine(), Clock.systemUTC(), outboxService);
 
-        assertThatThrownBy(() -> service.process("RET-1"))
+        assertThatThrownBy(() -> service.process("RETURN%2F26-27%2F001"))
                 .isInstanceOf(InvalidReturnStateTransitionException.class);
     }
 

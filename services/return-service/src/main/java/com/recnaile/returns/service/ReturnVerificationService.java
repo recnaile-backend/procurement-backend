@@ -57,11 +57,11 @@ public class ReturnVerificationService {
             throw new IllegalArgumentException("request must not be null");
         }
 
+        // The authenticated JWT employeeId is authoritative. The request field is
+        // retained for backward-compatible clients but is never used to impersonate
+        // another verifier. This also makes Swagger/manual clients safe when the
+        // stale verifiedBy value differs from the current MD/TL/PROCUREMENT login.
         String verifier = normalizeVerifier(actor == null ? request.verifiedBy() : actor);
-        if (actor != null && request.verifiedBy() != null
-                && !verifier.equals(request.verifiedBy().trim())) {
-            throw new IllegalArgumentException("verifiedBy must match the authenticated user");
-        }
         if (idempotencyService != null && idempotencyKey != null && !idempotencyKey.isBlank()) {
             String key = idempotencyService.normalizeKey(idempotencyKey);
             String fingerprint = idempotencyService.hash(normalizedReturnId + "|VERIFY_RETURN|" + verifier);
@@ -69,6 +69,7 @@ public class ReturnVerificationService {
             if (existing.isPresent()) {
                 return existing.get();
             }
+            idempotencyService.claim(key, "VERIFY_RETURN", verifier, fingerprint);
             ReturnRequest returnRequest = repository.findByReturnId(normalizedReturnId)
                     .orElseThrow(() -> new ReturnNotFoundException(normalizedReturnId));
             stateMachine.verify(returnRequest);
@@ -78,7 +79,7 @@ public class ReturnVerificationService {
             returnRequest.setUpdatedAt(verifiedAt);
             ReturnRequest saved = repository.save(returnRequest);
             enqueueIntegrations(saved, verifier, "VERIFY", "PENDING_VERIFICATION", saved.getStatus().name(), null);
-            idempotencyService.record(key, "VERIFY_RETURN", verifier, fingerprint, saved.getReturnId());
+            idempotencyService.complete(key, "VERIFY_RETURN", verifier, fingerprint, saved.getReturnId());
             return saved;
         }
 

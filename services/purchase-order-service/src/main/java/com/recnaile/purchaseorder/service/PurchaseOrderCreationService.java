@@ -9,6 +9,7 @@ import com.recnaile.purchaseorder.client.masterdata.MasterDataVendorClient;
 import com.recnaile.purchaseorder.client.masterdata.VendorResponse;
 import com.recnaile.purchaseorder.domain.enums.PurchaseOrderStatus;
 import com.recnaile.purchaseorder.domain.enums.PurchaseType;
+import com.recnaile.purchaseorder.domain.model.ApprovedIndentSnapshot;
 import com.recnaile.purchaseorder.domain.model.IdempotencyRecord;
 import com.recnaile.purchaseorder.domain.model.PurchaseOrder;
 import com.recnaile.purchaseorder.domain.model.PurchaseOrderLine;
@@ -101,8 +102,9 @@ public class PurchaseOrderCreationService {
             }
 
             VendorResponse vendor = masterDataVendorClient.requireActiveVendorByName(command.vendorName().trim());
-            var department = masterDataReferenceClient.requireActiveDepartmentByName(command.departmentName().trim());
-            validateItemsAgainstMasterData(command.items());
+            var department = masterDataReferenceClient.requireActiveDepartmentByName(indent.departmentName().trim());
+            // Approved Indent is the source of truth for item data during PO conversion.
+            // Item Master validation is intentionally not repeated here.
             PurchaseOrder po = createFromIndentData(command, indent, vendor, department.id(), actorId);
             PurchaseOrder saved = repository.save(po);
             outboxService.enqueueCreated(saved, actorId);
@@ -144,7 +146,6 @@ public class PurchaseOrderCreationService {
         try {
             VendorResponse vendor = masterDataVendorClient.requireActiveVendorByName(command.vendorName().trim());
             var department = masterDataReferenceClient.requireActiveDepartmentByName(command.departmentName().trim());
-            validateItemsAgainstMasterData(command.items());
             PurchaseOrder po = new PurchaseOrder();
             populateCommonFields(po, vendor, department.id(), command.projectId(), command.departmentName(),
                     command.purchaseType(), command.expectedDeliveryDate(), actorId);
@@ -177,16 +178,50 @@ public class PurchaseOrderCreationService {
                                                  String departmentId,
                                                  String actorId) {
         PurchaseOrder po = new PurchaseOrder();
-        populateCommonFields(po, vendor, departmentId, command.projectId(), command.departmentName(),
+        populateCommonFields(po, vendor, departmentId, indent.projectId(), indent.departmentName(),
                 command.purchaseType(), command.expectedDeliveryDate(), actorId);
         po.setPoId(numberGenerator.nextNumber());
         po.setIndentNumber(indent.indentNumber());
         po.setIndentStatus(indent.status());
+        po.setIndentDetails(toIndentSnapshot(indent));
         po.setSourceIndentIds(List.of(indent.indentNumber()));
-        po.setLines(toLines(command.items()));
+        po.setLines(toLines(indent.items()));
         po.transitionStatus(PurchaseOrderStatus.DRAFT);
         commercialCalculator.calculate(po);
         return po;
+    }
+
+    private ApprovedIndentSnapshot toIndentSnapshot(IndentDetails indent) {
+        ApprovedIndentSnapshot snapshot = new ApprovedIndentSnapshot();
+        snapshot.setRequesterId(indent.requesterId());
+        snapshot.setDepartmentId(indent.departmentId());
+        snapshot.setDepartmentName(indent.departmentName());
+        snapshot.setProjectId(indent.projectId());
+        snapshot.setReason(indent.reason());
+        snapshot.setEstimatedTotalAmount(indent.estimatedTotalAmount());
+        snapshot.setStatus(indent.status());
+        snapshot.setApprovalLevel(indent.approvalLevel());
+        snapshot.setVerifierId(indent.verifierId());
+        snapshot.setVerifiedAt(indent.verifiedAt());
+        snapshot.setVerificationRemarks(indent.verificationRemarks());
+        snapshot.setApproverId(indent.approverId());
+        snapshot.setApprovedAt(indent.approvedAt());
+        snapshot.setApprovalRemarks(indent.approvalRemarks());
+
+        List<ApprovedIndentSnapshot.Item> items = new ArrayList<>();
+        if (indent.items() != null) {
+            for (IndentDetails.Item source : indent.items()) {
+                ApprovedIndentSnapshot.Item item = new ApprovedIndentSnapshot.Item();
+                item.setItemName(source.itemName());
+                item.setQuantity(source.quantity());
+                item.setEstimatedUnitPrice(source.unitPrice());
+                item.setEstimatedLineAmount(source.estimatedLineAmount());
+                item.setRemarks(source.remarks());
+                items.add(item);
+            }
+        }
+        snapshot.setItems(items);
+        return snapshot;
     }
 
     private void populateCommonFields(PurchaseOrder po,
@@ -212,41 +247,31 @@ public class PurchaseOrderCreationService {
     private List<PurchaseOrderLine> toLines(List<?> sourceItems) {
         List<PurchaseOrderLine> lines = new ArrayList<>();
         for (Object source : sourceItems) {
-            String itemId;
             String itemName;
             BigDecimal quantity;
             BigDecimal unitPrice;
             BigDecimal gstRate;
 
             if (source instanceof CreatePurchaseOrderRequest.Item item) {
-                itemId = item.itemId();
                 itemName = item.itemName();
                 quantity = item.quantity();
                 unitPrice = item.unitPrice();
                 gstRate = item.gstRate();
             } else if (source instanceof IndentDetails.Item item) {
-                itemId = item.itemId();
                 itemName = item.itemName();
                 quantity = item.quantity();
                 unitPrice = item.unitPrice();
-                gstRate = item.gstRate();
-            } else if (source instanceof CreatePurchaseOrderFromApprovedIndentCommand.ApprovedIndentLine item) {
-                itemId = item.itemId();
-                itemName = item.itemName();
-                quantity = item.quantity();
-                unitPrice = item.unitPrice();
-                gstRate = item.gstRate();
+                gstRate = item.gstRate() == null ? BigDecimal.ZERO : item.gstRate();
             } else {
                 throw new BusinessRuleException("PO_ITEMS_INVALID", "Unsupported PO item data");
             }
 
-            if (isBlank(itemId) || isBlank(itemName) || quantity == null || quantity.signum() <= 0
+            if (isBlank(itemName) || quantity == null || quantity.signum() <= 0
                     || unitPrice == null || unitPrice.signum() < 0 || gstRate == null || gstRate.signum() < 0) {
                 throw new BusinessRuleException("PO_ITEMS_INVALID", "PO item data is incomplete or invalid");
             }
 
             PurchaseOrderLine line = new PurchaseOrderLine();
-            line.setItemId(itemId.trim());
             line.setItemName(itemName.trim());
             line.setOrderedQuantity(quantity);
             line.setReceivedQuantity(BigDecimal.ZERO);
@@ -255,23 +280,6 @@ public class PurchaseOrderCreationService {
             lines.add(line);
         }
         return lines;
-    }
-
-    private void validateItemsAgainstMasterData(List<?> sourceItems) {
-        for (Object source : sourceItems) {
-            String itemId;
-            String itemName;
-            if (source instanceof CreatePurchaseOrderRequest.Item item) {
-                itemId = item.itemId();
-                itemName = item.itemName();
-            } else if (source instanceof CreatePurchaseOrderFromApprovedIndentCommand.ApprovedIndentLine item) {
-                itemId = item.itemId();
-                itemName = item.itemName();
-            } else {
-                throw new BusinessRuleException("PO_ITEMS_INVALID", "Unsupported PO item data");
-            }
-            masterDataReferenceClient.requireActiveItem(itemId.trim(), itemName.trim());
-        }
     }
 
     private void validateApprovedIndent(IndentDetails indent, String requestedIndentNumber) {
@@ -292,6 +300,12 @@ public class PurchaseOrderCreationService {
         if (isBlank(indent.status())) {
             throw new BusinessRuleException("INDENT_STATUS_MISSING", "Indent-service did not return the current indent status");
         }
+        if (isBlank(indent.departmentName())) {
+            throw new BusinessRuleException("INDENT_DEPARTMENT_MISSING", "Approved indent does not contain departmentName");
+        }
+        if (indent.items() == null || indent.items().isEmpty()) {
+            throw new BusinessRuleException("INDENT_ITEMS_MISSING", "Approved indent does not contain purchase items");
+        }
     }
 
     private void validateApprovedIndentCommand(CreatePurchaseOrderFromApprovedIndentCommand command) {
@@ -300,6 +314,9 @@ public class PurchaseOrderCreationService {
         }
         if (command.purchaseType() == null) {
             throw new BusinessRuleException("PURCHASE_TYPE_REQUIRED", "Purchase type is required");
+        }
+        if (isBlank(command.vendorName())) {
+            throw new BusinessRuleException("VENDOR_NAME_REQUIRED", "Vendor name is required");
         }
     }
 

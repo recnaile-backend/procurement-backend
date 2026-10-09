@@ -35,7 +35,7 @@ public class SecurityErrorHandlers implements AuthenticationEntryPoint, AccessDe
     public void handle(HttpServletRequest request, HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException {
         String message = isCreateGoodsReceipt(request)
-                ? "You do not have permission to create a GRN. Required role: PROCUREMENT or ADMIN."
+                ? "You do not have permission to create a GRN. Required role: PROCUREMENT or MD."
                 : "You do not have permission to access this resource.";
 
         write(response, HttpServletResponse.SC_FORBIDDEN,

@@ -1,19 +1,135 @@
 # Inventory Service
 
-Authoritative inventory stock ledger and balance projection for the RECNAILE Procurement Platform.
+Authoritative stock ledger for the RECNAILE Procurement Platform.
 
-## Responsibilities
+## Responsibility
 
-- Consume `GOODS_RECEIVED`, `OUTWARD_ISSUED`, and `RETURN_RECORDED`.
-- Maintain immutable stock movements and derived/current balances.
-- Track `AVAILABLE` and `DEFECT` quantities.
-- Reject operations that would make available stock negative.
-- Process each event exactly once using the envelope `eventId`.
-- Protect concurrent balance updates using MongoDB optimistic locking.
-- Evaluate min/max thresholds and emit `LOW_STOCK_ALERT` on transition into low-stock state.
-- Persist an outbox record for reliable alert publication.
-- Provide reconciliation support by comparing balances with the movement ledger.
-- Expose authenticated stock, threshold, movement-history, summary, and reconciliation APIs.
+Inventory owns **stock**, not Item Master data.
+
+- Master Data Service creates and maintains the canonical item using `itemId`.
+- Inventory never creates a second item identity and never reads Master Data MongoDB directly.
+- Inventory reads Master Data item metadata over the documented REST API.
+- A newly-created Master Data item is visible from Inventory before the first GRN; if the item has explicit `availableStock`/`defectStock` opening values, those values are projected as the initial stock until the first Inventory movement.
+- `availableStock` and `defectStock` in the Master Data item payload are treated as **opening-stock inputs only before the first Inventory movement**. This supports existing item masters without making Master Data the long-term stock owner.
+- Once an Inventory movement exists for an item, Inventory-owned movements are authoritative. Later Master Data edits to `availableStock`/`defectStock` do not overwrite transactional stock. Use Inventory adjustments or business events for post-transaction corrections.
+- `department` and `rack` from Master Data are used as metadata defaults when an Inventory balance does not have its own department/location dimension.
+- `minimumStock` and `maximumStock` come from Master Data unless a balance has an explicit Inventory threshold override.
+
+## Stock lifecycle
+
+```text
+Master Data Item
+      |
+      | itemId + metadata
+      v
+Inventory
+      |
+      +-- GOODS_RECEIVED       -> AVAILABLE / DEFECT
+      +-- OUTWARD_ISSUED       -> AVAILABLE decrease
+      +-- RETURN_RECORDED      -> GOOD: AVAILABLE increase
+      |                          DAMAGED: DEFECT increase
+      +-- Administrative Adjustment (controlled recovery only)
+```
+
+Inventory is the only service that mutates stock balances.
+
+## REST APIs
+
+### Stock reads
+
+```text
+GET /api/v1/inventory/stock
+GET /api/v1/inventory/stock/{itemId}
+GET /api/v1/inventory/stock/{itemId}/summary
+GET /api/v1/inventory/stock/{itemId}/movements
+GET /api/v1/inventory/reconciliation/{itemId}
+```
+
+Reconciliation requires `PROCUREMENT`, `TL`, or `MD`.
+
+These APIs use the Master Data `itemId` as the canonical item identity.
+
+### Thresholds
+
+```text
+PUT /api/v1/inventory/stock/{itemId}/thresholds
+```
+
+Required role: `PROCUREMENT` or `MD`.
+
+The endpoint updates only Inventory's threshold override for the selected balance dimension. It never changes Master Data.
+
+### Administrative correction
+
+```text
+POST /api/v1/inventory/stock/{itemId}/adjustments
+```
+
+Required role: `PROCUREMENT` or `MD`.
+
+Required header:
+
+```text
+Idempotency-Key: <stable-key>
+```
+
+Request example:
+
+```json
+{
+  "departmentName": "IT",
+  "projectId": "PROJ-2001",
+  "location": "RACK-A01",
+  "stockType": "AVAILABLE",
+  "delta": 5,
+  "reason": "Physical stock count correction"
+}
+```
+
+The normal Inward/Outward/Return event flow must be used for business transactions. Administrative adjustment exists only for controlled reconciliation/recovery.
+
+The old `PUT /available-quantity` endpoint is intentionally removed because clients must not directly set authoritative stock quantities.
+
+## Master Data integration
+
+Configured with:
+
+```text
+MASTER_DATA_SERVICE_URL=http://master-data-service:8082
+JWT_SECRET_KEY=<shared HS256 secret>
+JWT_ISSUER=auth-service
+```
+
+Inventory creates a short-lived internal HS256 service token to call the authenticated Master Data GET APIs. No Master Data database access is performed.
+
+For `GOODS_RECEIVED`, `itemId` is preferred. The current Inward compatibility contract may provide `itemName`; when `itemId` is absent Inventory resolves the name uniquely against Master Data and then stores the canonical `itemId`. Ambiguous or unknown names are rejected.
+
+## Events consumed
+
+- `GOODS_RECEIVED` from Inward/GRN
+- `OUTWARD_ISSUED` from Outward
+- `RETURN_RECORDED` from Return
+
+State-changing events are idempotent and protected by unique MongoDB movement keys and optimistic concurrency.
+
+## Security
+
+Inventory uses the platform's **HS256** JWT configuration:
+
+- issuer: `auth-service`
+- signing key: `JWT_SECRET_KEY`
+- roles: JWT `roles` claim
+- GET APIs: `EMPLOYEE`, `PROCUREMENT`, `TL`, `MD`
+- Thresholds and administrative adjustments: `PROCUREMENT`, `MD`
+
+## Observability
+
+- Actuator health/metrics/prometheus
+- Micrometer inventory counters
+- OpenTelemetry tracing/export
+- Immutable stock movement history
+- Transactional outbox for low-stock alerts
+- Audit records for stock changes and administrative corrections
 
 ## Runtime
 
@@ -21,310 +137,20 @@ Authoritative inventory stock ledger and balance projection for the RECNAILE Pro
 |---|---|
 | Service | `inventory-service` |
 | Port | `8086` |
-| Base API path | `/api/v1/inventory` |
-| OpenAPI JSON | `/v3/api-docs` |
-| Swagger UI | `/swagger-ui.html` |
-| Swagger UI alternate path | `/swagger-ui/index.html` |
-| Prometheus | `/actuator/prometheus` |
-| Health | `/actuator/health` |
+| Swagger | `http://localhost:8086/swagger-ui.html` |
+| OpenAPI | `http://localhost:8086/v3/api-docs` |
+| Health | `http://localhost:8086/actuator/health` |
 
-## Swagger UI
 
-Open the service directly:
+## Return allocation rack-key correction (2026-10-09)
 
-```text
-http://localhost:8086/swagger-ui.html
-```
+- Outward issue allocations now store the actual balance key returned after Inventory resolves dimensions from Master Data (including rack/location).
+- Legacy allocations with a stale/incomplete key are repaired only from the corresponding `OUTWARD_ISSUED` ledger movements and only when they resolve to exactly one existing balance. Ambiguous matches fail safely instead of guessing.
+- Added a regression test for an outward event without an explicit location when Master Data supplies `Rack-003`.
 
-OpenAPI JSON:
-
-```text
-http://localhost:8086/v3/api-docs
-```
-
-The Swagger UI includes a JWT **Authorize** button. Click **Authorize** and enter:
-
-```text
-Bearer <your-access-token>
-```
-
-Swagger UI then sends the token in the `Authorization` header for the documented Inventory APIs.
-
-The OpenAPI definition is configured in:
-
-```text
-src/main/java/com/recnaile/inventory/config/OpenApiConfig.java
-```
-
-The JWT security scheme is HTTP Bearer with `bearerFormat=JWT`.
-
-## REST API Documentation
-
-### 1. Get All Stock Balances
-
-```http
-GET /api/v1/inventory/stock
-```
-
-Returns all current stock balance projections across all inventory items. No query parameters are required. This endpoint is intended for inventory dashboards, admin views, and stock-overview screens.
-
-**Required role:** `EMPLOYEE`, `PROCUREMENT`, `TL`, or `MD`
-
-Example:
-
-```text
-GET /api/v1/inventory/stock
-```
-
----
-
-### 2. Get Stock Balances
-
-```http
-GET /api/v1/inventory/stock/{itemId}
-```
-
-Returns all balance projections for an item across the available department-name/project/location dimensions.
-
-**Required role:** `EMPLOYEE`, `PROCUREMENT`, `TL`, or `MD`
-
-Example:
-
-```text
-GET /api/v1/inventory/stock/ITEM-1001
-```
-
----
-
-### 3. Get Inventory Summary
-
-```http
-GET /api/v1/inventory/stock/{itemId}/summary
-```
-
-Returns the aggregated inventory view:
-
-- available quantity
-- defect quantity
-- total quantity
-- minimum stock
-- maximum stock
-- low-stock state
-- current stock status
-
-**Required role:** `EMPLOYEE`, `PROCUREMENT`, `TL`, or `MD`
-
-Example:
-
-```text
-GET /api/v1/inventory/stock/ITEM-1001/summary
-```
-
----
-
-### 4. Get Stock Movement History
-
-```http
-GET /api/v1/inventory/stock/{itemId}/movements
-```
-
-Returns all immutable stock movements for the item, newest movements first. No query parameters are required.
-
-Example:
-
-```text
-GET /api/v1/inventory/stock/ITEM-1001/movements
-```
-
-**Required role:** `EMPLOYEE`, `PROCUREMENT`, `TL`, or `MD`
-
----
-
-### 5. Update Stock Thresholds
-
-```http
-PUT /api/v1/inventory/stock/{itemId}/thresholds
-```
-
-Updates the minimum and maximum stock thresholds for an item balance.
-
-**Required role:** `PROCUREMENT` or `MD`
-
-Request:
-
-```json
-{
-  "departmentName": "IT",
-  "projectId": "PROJ-2001",
-  "location": "RACK-A01",
-  "minimumStock": 10,
-  "maximumStock": 50
-}
-```
-
-Validation:
-
-- `minimumStock >= 0`
-- `maximumStock >= 0`
-- `maximumStock >= minimumStock`
-- Available quantity and status are recalculated by the service.
-
----
-
-### 6. Reconcile Inventory
-
-```http
-GET /api/v1/inventory/reconciliation/{itemId}
-```
-
-Compares projected stock balances against the immutable movement ledger for the item.
-
-**Required role:** `EMPLOYEE`, `PROCUREMENT`, `TL`, or `MD`
-
-Example:
-
-```text
-GET /api/v1/inventory/reconciliation/ITEM-1001
-```
-
-## Authentication and Authorization
-
-Inventory APIs use the same JWT resource-server model as the Procurement Platform.
-
-- Algorithm: HS256
-- Header: `Authorization: Bearer <JWT>`
-- Roles are read from the JWT `roles` claim.
-- Stateless authentication.
-- GET inventory APIs: `EMPLOYEE`, `PROCUREMENT`, `TL`, `MD`
-- Threshold update: `PROCUREMENT`, `MD`
-
-Swagger/OpenAPI and health endpoints are public so that documentation and health probes can be accessed without a business JWT.
-
-## Standard Error Envelope
-
-Business/security errors follow this general structure:
-
-```json
-{
-  "success": false,
-  "data": null,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid min/max stock thresholds",
-    "traceId": "..."
-  }
-}
-```
-
-Common codes include:
-
-| HTTP | Code | Meaning |
-|---:|---|---|
-| 400 | `VALIDATION_ERROR` | Invalid request/threshold values |
-| 401 | `AUTHENTICATION_REQUIRED` | Missing or invalid JWT |
-| 403 | `ACCESS_DENIED` | Authenticated user lacks the required role |
-| 409 | `BUSINESS_ERROR` | Business conflict such as insufficient available stock |
-
-## Event Contracts
-
-The service consumes:
-
-- `GOODS_RECEIVED`
-- `OUTWARD_ISSUED`
-- `RETURN_RECORDED`
-
-It publishes:
-
-- `LOW_STOCK_ALERT`
-
-Low-stock alerts are persisted through the transactional outbox before publication.
-
-## Important Contract Limitation
-
-The current inbound event schemas do not provide a location on `GOODS_RECEIVED` or `RETURN_RECORDED`. The Inventory API exposes the department as `departmentName`; the event consumer accepts `departmentName` and temporarily falls back to an upstream `departmentId` for compatibility until the producer contracts are aligned.
-
-Therefore, the service supports department-name/project/location dimensions in its balance model, but it cannot infer a distinct physical rack/location from those events unless the producing contract supplies that dimension. Missing dimensions are kept as the default/null dimension rather than invented.
-
-## Verification Checklist
-
-After starting the service through Docker Compose:
+Validation note: the source environment used to prepare this ZIP did not have Gradle or Docker installed, so the Gradle test/build has not been executed here. Run the test/build commands below in your project environment before deploying.
 
 ```powershell
-docker compose up -d inventory-service
-docker compose ps inventory-service
-curl.exe http://localhost:8086/actuator/health
+.\gradlew.bat test
+.\gradlew.bat clean build
 ```
-
-Then open:
-
-```text
-http://localhost:8086/swagger-ui.html
-```
-
-Verify each documented operation with a valid JWT:
-
-1. Get stock balances
-2. Get inventory summary
-3. Get movement history
-4. Update thresholds using `PROCUREMENT` or `MD`
-5. Reconcile inventory
-6. Verify movement history is returned newest first without pagination parameters
-
-Also verify:
-
-- `401` without a JWT
-- `403` with an insufficient role
-- `400` for invalid threshold values
-- `409` for insufficient-stock business conflicts where applicable
-
-## Configuration
-
-SpringDoc configuration is in `src/main/resources/application.yml`.
-
-The service uses:
-
-```yaml
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html
-    operations-sorter: method
-    tags-sorter: alpha
-    try-it-out-enabled: true
-    display-request-duration: true
-    deep-linking: true
-```
-
-No credentials or secrets are stored in this project. Runtime secrets such as `JWT_SECRET_KEY` and MongoDB connection information must be supplied through the environment/.env configuration.
-
-## Build
-
-The service uses Spring Boot, Java 21, Gradle, SpringDoc OpenAPI, MongoDB, Kafka, Micrometer, and OpenTelemetry.
-
-From the procurement-backend root:
-
-```powershell
-.\gradlew :services:inventory-service:clean :services:inventory-service:test
-.\gradlew :services:inventory-service:build
-```
-
-## API Data Type and Naming Conventions
-
-- Inventory API resource identifiers are exposed as `id` instead of the generic `id`.
-- Department is exposed as `departmentName` instead of `departmentId`.
-- Stock quantities, thresholds, movement quantity and movement delta are integer values.
-- Stock values are system-derived; clients do not directly set available or defect stock.
-
-### Movement `delta`
-
-`delta` is the signed change applied to the stock balance by that movement. For example, a goods receipt of 50 has `quantity = 50` and `delta = +50`; an outward issue of 10 has `quantity = 10` and `delta = -10`. The movement `quantity` describes the movement size, while `delta` describes its effect on the balance.
-
-### Reconciliation result
-
-The reconciliation API compares the current projected balance with the sum of immutable movement deltas. It returns the balance value, ledger-derived value, their difference, match flags and an overall `reconciled` flag. This is useful for detecting stock projection/ledger inconsistencies without modifying historical movements.
-
-
-### Update available stock
-
-`PUT /api/v1/inventory/stock/{itemId}/available-quantity` is restricted to Procurement and MD and records the difference as an immutable manual adjustment movement.

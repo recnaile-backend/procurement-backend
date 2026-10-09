@@ -16,7 +16,7 @@ class GRNDomainModelTest {
     @Test
     void grnContainsReceiptHeaderAndLineLevelQuantities() {
         GRNLine line = new GRNLine(
-                "ITEM-001",
+                "Bolt",
                 new BigDecimal("10"),
                 new BigDecimal("8"),
                 new BigDecimal("2"),

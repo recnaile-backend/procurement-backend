@@ -181,7 +181,7 @@ public class GRNExceptionHandler {
     private String resolveCode(String message) {
         if (message == null) return "INVALID_GRN_REQUEST";
         if (message.contains("does not belong to PO")) return "ITEM_NOT_IN_PURCHASE_ORDER";
-        if (message.contains("contains duplicate itemId")) return "DUPLICATE_ITEM_IN_GRN";
+        if (message.contains("contains duplicate itemName")) return "DUPLICATE_ITEM_IN_GRN";
         if (message.contains("rejectionReason is required")) return "REJECTION_REASON_REQUIRED";
         if (message.contains("exceeds ordered quantity")) return "RECEIVED_QUANTITY_EXCEEDS_ORDERED";
         return "INVALID_GRN_REQUEST";

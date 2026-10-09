@@ -3,11 +3,12 @@ package com.recnaile.inventory.domain;
 import java.time.Instant;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.index.Indexed;
 
 @Document("processed_events")
 public class IdempotencyDocument {
     @Id private String id;
-    private String eventId;
+    @Indexed(unique = true) private String eventId;
     private String eventType;
     private Instant processedAt;
     public IdempotencyDocument() {}

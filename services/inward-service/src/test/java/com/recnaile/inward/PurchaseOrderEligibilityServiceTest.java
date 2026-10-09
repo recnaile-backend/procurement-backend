@@ -22,7 +22,7 @@ class PurchaseOrderEligibilityServiceTest {
                 "SUP-001",
                 List.of(new PurchaseOrderLineSummary(
                         "PO-LINE-001",
-                        "ITEM-001",
+                        "Bolt",
                         new BigDecimal("10")
                 ))
         );

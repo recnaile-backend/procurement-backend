@@ -2,15 +2,17 @@ package com.recnaile.outward.service;
 
 import com.recnaile.outward.domain.enums.OutwardStatus;
 import com.recnaile.outward.domain.model.OutwardRequest;
-import com.recnaile.outward.dto.OutwardResponse;
 import com.recnaile.outward.dto.OutwardItemResponse;
+import com.recnaile.outward.dto.OutwardResponse;
 import com.recnaile.outward.dto.RecipientResponse;
 import com.recnaile.outward.exception.OutwardException;
+import com.recnaile.outward.outbox.AuditEventService;
+import com.recnaile.outward.outbox.NotificationEventService;
 import com.recnaile.outward.repository.OutwardRequestRepository;
+import io.micrometer.observation.annotation.Observed;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
-import io.micrometer.observation.annotation.Observed;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.security.core.Authentication;
@@ -23,24 +25,25 @@ public class OutwardApprovalService {
     private final OutwardRequestRepository repository;
     private final OutwardStateMachine stateMachine;
     private final ApprovalPolicy approvalPolicy;
-    private final com.recnaile.outward.outbox.AuditEventService auditEventService;
-    private final com.recnaile.outward.outbox.NotificationEventService notificationEventService;
+    private final AuditEventService auditEventService;
+    private final NotificationEventService notificationEventService;
     private final Clock clock;
 
     @Autowired
     public OutwardApprovalService(OutwardRequestRepository repository,
                                   OutwardStateMachine stateMachine,
                                   ApprovalPolicy approvalPolicy,
-                                  com.recnaile.outward.outbox.AuditEventService auditEventService,
-                                  com.recnaile.outward.outbox.NotificationEventService notificationEventService) {
-        this(repository, stateMachine, approvalPolicy, auditEventService, notificationEventService, Clock.systemUTC());
+                                  AuditEventService auditEventService,
+                                  NotificationEventService notificationEventService) {
+        this(repository, stateMachine, approvalPolicy, auditEventService,
+                notificationEventService, Clock.systemUTC());
     }
 
     OutwardApprovalService(OutwardRequestRepository repository,
                            OutwardStateMachine stateMachine,
                            ApprovalPolicy approvalPolicy,
-                           com.recnaile.outward.outbox.AuditEventService auditEventService,
-                           com.recnaile.outward.outbox.NotificationEventService notificationEventService,
+                           AuditEventService auditEventService,
+                           NotificationEventService notificationEventService,
                            Clock clock) {
         this.repository = repository;
         this.stateMachine = stateMachine;
@@ -56,14 +59,18 @@ public class OutwardApprovalService {
         String actor = authenticatedName(authentication);
         OutwardRequest request = find(outwardNumber);
         approvalPolicy.validate(authentication, request);
+
+        Instant now = Instant.now(clock);
         OutwardStatus before = request.getStatus();
         request.setStatus(stateMachine.transition(before, OutwardStatus.APPROVED));
         request.setApprovedBy(actor);
-        request.setApprovedAt(Instant.now(clock));
+        request.setApprovedAt(now);
         request.setRejectedBy(null);
         request.setRejectedAt(null);
         request.setRejectionReason(null);
-        OutwardResponse response = save(request, Instant.now(clock));
+
+        OutwardResponse response = save(request, now);
+
         auditEventService.record("OUTWARD_REQUEST", request.getOutwardNumber(), "APPROVE",
                 authentication, before.name(), request.getStatus().name(), null);
         notificationEventService.notifyApproval(request.getOutwardNumber(), request.getRequestedBy(), authentication);
@@ -77,13 +84,14 @@ public class OutwardApprovalService {
         OutwardRequest request = find(outwardNumber);
         approvalPolicy.validate(authentication, request);
         OutwardStatus before = request.getStatus();
+        Instant now = Instant.now(clock);
         request.setStatus(stateMachine.transition(before, OutwardStatus.REJECTED));
         request.setRejectedBy(actor);
-        request.setRejectedAt(Instant.now(clock));
+        request.setRejectedAt(now);
         request.setRejectionReason(trimReason(reason));
         request.setApprovedBy(null);
         request.setApprovedAt(null);
-        OutwardResponse response = save(request, Instant.now(clock));
+        OutwardResponse response = save(request, now);
         auditEventService.record("OUTWARD_REQUEST", request.getOutwardNumber(), "REJECT",
                 authentication, before.name(), request.getStatus().name(), request.getRejectionReason());
         notificationEventService.notifyRejection(request.getOutwardNumber(), request.getRequestedBy(),

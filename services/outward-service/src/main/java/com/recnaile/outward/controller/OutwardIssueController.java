@@ -2,6 +2,7 @@ package com.recnaile.outward.controller;
 
 import com.recnaile.outward.dto.OutwardIssueTransactionResponse;
 import com.recnaile.outward.dto.ApiError;
+import com.recnaile.outward.service.IssuePolicy;
 import com.recnaile.outward.service.OutwardIssueService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,7 +28,12 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "bearerAuth")
 public class OutwardIssueController {
     private final OutwardIssueService service;
-    public OutwardIssueController(OutwardIssueService service) { this.service = service; }
+    private final IssuePolicy issuePolicy;
+
+    public OutwardIssueController(OutwardIssueService service, IssuePolicy issuePolicy) {
+        this.service = service;
+        this.issuePolicy = issuePolicy;
+    }
 
     @Operation(summary = "Issue an approved outward request", description = "Creates the issue transaction and changes the outward request from APPROVED to ISSUED. Idempotency-Key is optional; when supplied, retries with the same key are replay-safe for the same outward request.")
     @ApiResponses({
@@ -46,6 +52,7 @@ public class OutwardIssueController {
         if (authentication == null || !authentication.isAuthenticated() || authentication instanceof AnonymousAuthenticationToken) {
             return ResponseEntity.status(401).build();
         }
+        issuePolicy.validate(authentication);
         return ResponseEntity.ok(service.issue(OutwardNumberPath.normalize(outwardNumber), idempotencyKey, authentication));
     }
 }

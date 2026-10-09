@@ -6,10 +6,21 @@ import com.recnaile.returns.model.enums.ReturnCondition;
 import com.recnaile.returns.model.enums.ReturnStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.Instant;
 
 @Service
 public class ReturnStateMachine {
+
+    private final Clock clock;
+
+    public ReturnStateMachine() {
+        this(Clock.systemUTC());
+    }
+
+    ReturnStateMachine(Clock clock) {
+        this.clock = clock;
+    }
 
     public ReturnRequest verify(ReturnRequest returnRequest) {
         if (returnRequest == null) {
@@ -52,7 +63,7 @@ public class ReturnStateMachine {
             throw new InvalidReturnStateTransitionException(currentStatus, targetStatus);
         }
         returnRequest.setStatus(targetStatus);
-        returnRequest.setUpdatedAt(Instant.now());
+        returnRequest.setUpdatedAt(Instant.now(clock));
         return returnRequest;
     }
 

@@ -1,17 +1,22 @@
 spring:
   application:
-    name: return-service
-
+    name: ${APP_SERVICE_NAME:return-service}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      retries: 10
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        compression.type: gzip
+        delivery.timeout.ms: 120000
+        request.timeout.ms: 30000
+        max.in.flight.requests.per.connection: 5
   data:
     mongodb:
-      uri: ${MONGODB_BASE_URI:mongodb://localhost:27017}/${MONGODB_DATABASE:return}?retryWrites=true&w=majority&appName=recnaile
-
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
-    template:
-      observation-enabled: true
-    listener:
-      observation-enabled: true
+      uri: ${MONGODB_BASE_URI:mongodb://localhost:27017}/${MONGODB_DATABASE:returndb}?retryWrites=true&w=majority&appName=recnaile
 
 server:
   port: ${SERVICE_PORT:8088}
@@ -21,65 +26,65 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,metrics
-
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       probes:
         enabled: true
       show-details: never
-      group:
-        liveness:
-          include: livenessState,ping
-        readiness:
-          include: readinessState,mongo
-
+  metrics:
+    tags:
+      application: ${spring.application.name}
   tracing:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
-    propagation:
-      type: w3c
-
   otlp:
     tracing:
-      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4318/v1/traces}
-
-info:
-  app:
-    name: ${spring.application.name}
-    description: "Returns, condition verification and stock adjustment"
-    version: "0.1.0-SNAPSHOT"
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4317}
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 app:
   security:
     jwt:
-      # Local/dev Auth Service signs access tokens with HS256.
+      mode: ${JWT_MODE:hs256}
       secret: ${JWT_SECRET_KEY:}
-      mode: ${JWT_VALIDATION_MODE:hs256}
       issuer: ${JWT_ISSUER:auth-service}
-
-      # Use JWT_VALIDATION_MODE=jwk only in deployments that use asymmetric JWT signing.
-      jwk-set-uri: ${AUTH_JWK_SET_URI:http://auth-service:8081/oauth2/jwks}
-
-  service-name: ${spring.application.name}
-
+      jwk-set-uri: ${JWT_JWK_SET_URI:http://auth-service:8081/oauth2/jwks}
   integrations:
     outward-service:
-      base-url: ${OUTWARD_SERVICE_URL:http://outward-service:8087}
-
+      base-url: ${OUTWARD_SERVICE_BASE_URL:http://outward-service:8087}
+      connect-timeout-ms: ${OUTWARD_CONNECT_TIMEOUT_MS:3000}
+      read-timeout-ms: ${OUTWARD_READ_TIMEOUT_MS:5000}
+  kafka:
+    topics:
+      return-recorded: ${KAFKA_RETURN_RECORDED_TOPIC:return.recorded}
+      audit: ${KAFKA_AUDIT_TOPIC:audit.events}
+      notification: ${KAFKA_NOTIFICATION_TOPIC:notification.events}
   outbox:
     dispatch-enabled: ${RETURN_OUTBOX_DISPATCH_ENABLED:true}
     dispatch-interval-ms: ${RETURN_OUTBOX_DISPATCH_INTERVAL_MS:5000}
-
   integration-outbox:
     dispatch-enabled: ${RETURN_INTEGRATION_OUTBOX_DISPATCH_ENABLED:true}
     dispatch-interval-ms: ${RETURN_INTEGRATION_OUTBOX_DISPATCH_INTERVAL_MS:5000}
 
-  kafka:
-    topics:
-      audit: ${AUDIT_TOPIC:audit.events}
-      notification: ${NOTIFICATION_TOPIC:notification.events}
-
 logging:
-  pattern:
-    level: "%5p [corr=%X{correlationId:-} trace=%X{traceId:-} span=%X{spanId:-}]"
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        name: ${spring.application.name}
+        version: ${PLATFORM_VERSION:1.0.0}
+        environment: ${SPRING_PROFILES_ACTIVE:dev}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  packages-to-scan: com.recnaile.returns.controller
+  paths-to-match: /api/v1/**

@@ -109,7 +109,11 @@ public class SecurityConfig {
         }
 
         if ("jwk".equalsIgnoreCase(mode)) {
-            return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+            NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+            decoder.setJwtValidator(
+                    org.springframework.security.oauth2.jwt.JwtValidators
+                            .createDefaultWithIssuer(issuer));
+            return decoder;
         }
 
         throw new IllegalStateException(

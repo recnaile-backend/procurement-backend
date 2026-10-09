@@ -16,6 +16,9 @@ import java.util.List;
 /**
  * Manual/direct PO creation request. Use only when the procurement process
  * permits a PO to be raised without converting an approved indent.
+ *
+ * A PO line is identified by the business item name. An Inventory item identity is deliberately not required because the purchased
+ * item may not exist in Inventory yet.
  */
 public record CreatePurchaseOrderRequest(
         @NotBlank String vendorName,
@@ -26,7 +29,6 @@ public record CreatePurchaseOrderRequest(
         @NotEmpty List<@Valid Item> items) {
 
     public record Item(
-            @NotBlank String itemId,
             @NotBlank String itemName,
             @NotNull @Positive BigDecimal quantity,
             @NotNull @DecimalMin(value = "0.0", inclusive = true) BigDecimal unitPrice,

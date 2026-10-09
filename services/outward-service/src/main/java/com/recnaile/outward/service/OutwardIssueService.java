@@ -1,5 +1,6 @@
 package com.recnaile.outward.service;
 
+import com.recnaile.outward.client.inventory.InventoryStockClient;
 import com.recnaile.outward.domain.enums.OutwardStatus;
 import com.recnaile.outward.domain.model.OutwardIssueTransaction;
 import com.recnaile.outward.domain.model.OutwardItem;
@@ -28,6 +29,7 @@ public class OutwardIssueService {
     private final OutwardRequestRepository requestRepository;
     private final OutwardIssueTransactionRepository issueRepository;
     private final OutwardStateMachine stateMachine;
+    private final InventoryStockClient inventoryStockClient;
     private final TransactionalOutboxService outboxService;
     private final com.recnaile.outward.outbox.AuditEventService auditEventService;
     private final Clock clock;
@@ -36,20 +38,23 @@ public class OutwardIssueService {
     public OutwardIssueService(OutwardRequestRepository requestRepository,
                                OutwardIssueTransactionRepository issueRepository,
                                OutwardStateMachine stateMachine,
+                               InventoryStockClient inventoryStockClient,
                                TransactionalOutboxService outboxService,
                                com.recnaile.outward.outbox.AuditEventService auditEventService) {
-        this(requestRepository, issueRepository, stateMachine, outboxService, auditEventService, Clock.systemUTC());
+        this(requestRepository, issueRepository, stateMachine, inventoryStockClient, outboxService, auditEventService, Clock.systemUTC());
     }
 
     OutwardIssueService(OutwardRequestRepository requestRepository,
                         OutwardIssueTransactionRepository issueRepository,
                         OutwardStateMachine stateMachine,
+                        InventoryStockClient inventoryStockClient,
                         TransactionalOutboxService outboxService,
                         com.recnaile.outward.outbox.AuditEventService auditEventService,
                         Clock clock) {
         this.requestRepository = requestRepository;
         this.issueRepository = issueRepository;
         this.stateMachine = stateMachine;
+        this.inventoryStockClient = inventoryStockClient;
         this.outboxService = outboxService;
         this.auditEventService = auditEventService;
         this.clock = clock;
@@ -93,6 +98,10 @@ public class OutwardIssueService {
                     "An issue transaction already exists for this outward request");
         }
 
+        // Inventory is the authoritative stock owner. Re-check availability at the
+        // actual issue boundary because stock may have changed after approval.
+        validateInventoryAvailability(request);
+
         Instant now = Instant.now(clock);
         OutwardIssueTransaction transaction = new OutwardIssueTransaction();
         transaction.setOutwardNumber(request.getOutwardNumber());
@@ -115,6 +124,13 @@ public class OutwardIssueService {
             request.setStatus(stateMachine.transition(before, OutwardStatus.ISSUED));
             request.setUpdatedAt(now);
             requestRepository.save(request);
+
+            // StockIssueApproved is emitted only when the approved outward is actually
+            // issued. Inventory consumes this durable outbox event and performs the
+            // authoritative, idempotent stock deduction.
+            for (OutwardItem item : request.getItems()) {
+                outboxService.enqueueStockIssueApproved(request, item, request.getApprovedBy(), now);
+            }
             outboxService.enqueueOutwardIssued(saved);
             auditEventService.record("OUTWARD_REQUEST", request.getOutwardNumber(), "ISSUE",
                     authentication, before.name(), request.getStatus().name(), null);
@@ -158,10 +174,29 @@ public class OutwardIssueService {
         try {
             int quantity = matched.getQuantity().intValueExact();
             return new com.recnaile.outward.dto.IssuedReturnValidation(
-                    issued.getOutwardNumber(), matched.getItemId(), quantity, 0);
+                    issued.getOutwardNumber(), matched.getItemId(), quantity, 0, matched.isAssetTracked());
         } catch (ArithmeticException ex) {
             throw new OutwardException("OUTWARD_NON_INTEGER_ISSUED_QUANTITY",
                     "Issued quantity is not an integer and cannot be returned through the Return Service");
+        }
+    }
+
+    private void validateInventoryAvailability(OutwardRequest request) {
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new OutwardException("OUTWARD_ITEMS_REQUIRED", "At least one item is required to issue stock");
+        }
+        for (OutwardItem item : request.getItems()) {
+            if (item == null || item.getItemId() == null || item.getItemId().isBlank()
+                    || item.getQuantity() == null || item.getQuantity().signum() <= 0) {
+                throw new OutwardException("OUTWARD_INVALID_ITEM",
+                        "Issue transaction contains an invalid item or quantity");
+            }
+            var available = inventoryStockClient.getAvailableQuantity(item.getItemId().trim());
+            if (item.getQuantity().compareTo(available) > 0) {
+                throw new OutwardException(
+                        "OUTWARD_INSUFFICIENT_STOCK",
+                        "Requested quantity exceeds Inventory available stock for item: " + item.getItemId());
+            }
         }
     }
 
@@ -176,7 +211,7 @@ public class OutwardIssueService {
                 throw new OutwardException("OUTWARD_INVALID_ITEM",
                         "Issue transaction contains an invalid item or quantity");
             }
-            copy.add(new OutwardItem(item.getItemId(), item.getQuantity()));
+            copy.add(new OutwardItem(item.getItemId(), item.getQuantity(), item.isAssetTracked()));
         }
         return copy;
     }

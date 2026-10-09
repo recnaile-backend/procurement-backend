@@ -17,6 +17,7 @@ public class StockBalanceDocument {
     private int defectQuantity;
     private int minimumStock;
     private int maximumStock;
+    private boolean thresholdsOverridden;
     private boolean lowStock;
     private StockStatus status;
     @Version private Long version;
@@ -32,7 +33,8 @@ public class StockBalanceDocument {
     public void setAvailableQuantity(int v){availableQuantity=v;} public int getDefectQuantity(){return defectQuantity;}
     public void setDefectQuantity(int v){defectQuantity=v;} public int getMinimumStock(){return minimumStock;}
     public void setMinimumStock(int v){minimumStock=v;} public int getMaximumStock(){return maximumStock;}
-    public void setMaximumStock(int v){maximumStock=v;} public boolean isLowStock(){return lowStock;}
+    public void setMaximumStock(int v){maximumStock=v;} public boolean isThresholdsOverridden(){return thresholdsOverridden;}
+    public void setThresholdsOverridden(boolean v){thresholdsOverridden=v;} public boolean isLowStock(){return lowStock;}
     public void setLowStock(boolean v){lowStock=v;} public StockStatus getStatus(){return status;}
     public void setStatus(StockStatus v){status=v;} public Long getVersion(){return version;}
     public Instant getUpdatedAt(){return updatedAt;} public void setUpdatedAt(Instant v){updatedAt=v;}

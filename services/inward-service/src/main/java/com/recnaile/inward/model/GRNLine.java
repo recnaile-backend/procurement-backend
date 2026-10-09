@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 /** One received item row from a Purchase Order. */
 public record GRNLine(
-        String itemId,
+        String itemName,
         BigDecimal orderedQuantity,
         BigDecimal acceptedQuantity,
         BigDecimal rejectedQuantity,

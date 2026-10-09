@@ -1,11 +1,10 @@
 package com.recnaile.returns.outbox;
 
 import com.recnaile.returns.event.KafkaReturnEventPublisher;
-import com.recnaile.returns.event.ReturnRecordedEvent;
 import com.recnaile.returns.model.enums.OutboxStatus;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
@@ -14,7 +13,10 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Component
-@ConditionalOnProperty(name = "app.outbox.dispatch-enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(
+        name = "app.outbox.dispatch-enabled",
+        havingValue = "true",
+        matchIfMissing = true)
 public class ReturnEventOutboxDispatcher {
 
     private final ReturnEventOutboxRepository repository;
@@ -39,31 +41,29 @@ public class ReturnEventOutboxDispatcher {
 
     @Scheduled(fixedDelayString = "${app.outbox.dispatch-interval-ms:5000}")
     public void dispatchPending() {
-        List<ReturnEventOutbox> pending = repository
-                .findTop50ByStatusOrderByCreatedAtAsc(OutboxStatus.PENDING);
+        List<ReturnEventOutbox> pending =
+                repository.findTop50ByStatusOrderByCreatedAtAsc(OutboxStatus.PENDING);
         pending.forEach(this::dispatchOne);
     }
 
     void dispatchOne(ReturnEventOutbox outbox) {
         try {
-            ReturnRecordedEvent event = new ReturnRecordedEvent(
-                    outbox.getEventId(),
-                    outbox.getEventType(),
-                    outbox.getOccurredAt(),
-                    outbox.getReturnId(),
-                    outbox.getItemId(),
-                    outbox.getQty(),
-                    outbox.getCondition());
-            publisher.publish(outbox.getTopic(), outbox.getAggregateId(), event).get(10, TimeUnit.SECONDS);
+            publisher.publish(
+                    outbox.getTopic(),
+                    outbox.getAggregateId(),
+                    outbox.getPayload())
+                    .get(10, TimeUnit.SECONDS);
             outbox.markSent(Instant.now(clock));
-        } catch (Exception ex) {
-            outbox.markAttemptFailed(safeMessage(ex));
+        } catch (Exception exception) {
+            outbox.markAttemptFailed(safeMessage(exception));
         }
         repository.save(outbox);
     }
 
-    private String safeMessage(Exception ex) {
-        String message = ex.getMessage();
-        return message == null || message.isBlank() ? ex.getClass().getSimpleName() : message;
+    private String safeMessage(Exception exception) {
+        String message = exception.getMessage();
+        return message == null || message.isBlank()
+                ? exception.getClass().getSimpleName()
+                : message;
     }
 }

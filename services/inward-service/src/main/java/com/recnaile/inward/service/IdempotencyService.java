@@ -24,10 +24,14 @@ public class IdempotencyService {
     }
 
     public IdempotencyRecord reserve(String key, String principal, CreateGRNRequest request) {
+        return reserveAction(key, principal, ENDPOINT, request.toString());
+    }
+
+    public IdempotencyRecord reserveAction(String key, String principal, String endpoint, String fingerprintInput) {
         String normalizedKey = key.trim();
         String normalizedPrincipal = principal == null || principal.isBlank() ? "UNKNOWN" : principal;
-        String scopeKey = ENDPOINT + "|" + normalizedPrincipal + "|" + normalizedKey;
-        String fingerprint = sha256(request.toString());
+        String scopeKey = endpoint + "|" + normalizedPrincipal + "|" + normalizedKey;
+        String fingerprint = sha256(fingerprintInput);
 
         return repository.findByScopeKey(scopeKey).map(existing -> {
             if (!existing.getRequestFingerprint().equals(fingerprint)) {

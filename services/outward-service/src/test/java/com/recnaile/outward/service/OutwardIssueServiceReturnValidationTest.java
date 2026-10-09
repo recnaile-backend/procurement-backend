@@ -1,5 +1,6 @@
 package com.recnaile.outward.service;
 
+import com.recnaile.outward.client.inventory.InventoryStockClient;
 import com.recnaile.outward.domain.enums.OutwardStatus;
 import com.recnaile.outward.domain.model.OutwardIssueTransaction;
 import com.recnaile.outward.domain.model.OutwardItem;
@@ -26,11 +27,12 @@ class OutwardIssueServiceReturnValidationTest {
     private final OutwardRequestRepository requestRepository = mock(OutwardRequestRepository.class);
     private final OutwardIssueTransactionRepository issueRepository = mock(OutwardIssueTransactionRepository.class);
     private final OutwardStateMachine stateMachine = mock(OutwardStateMachine.class);
+    private final InventoryStockClient inventoryStockClient = mock(InventoryStockClient.class);
     private final TransactionalOutboxService outboxService = mock(TransactionalOutboxService.class);
     private final AuditEventService auditEventService = mock(AuditEventService.class);
 
     private final OutwardIssueService service = new OutwardIssueService(
-            requestRepository, issueRepository, stateMachine, outboxService, auditEventService);
+            requestRepository, issueRepository, stateMachine, inventoryStockClient, outboxService, auditEventService);
 
     @Test
     void validatesIssuedItem() {
@@ -51,6 +53,7 @@ class OutwardIssueServiceReturnValidationTest {
         assertThat(result.itemId()).isEqualTo("Item-2");
         assertThat(result.issuedQuantity()).isEqualTo(2);
         assertThat(result.alreadyReturnedQuantity()).isZero();
+        assertThat(result.assetTracked()).isFalse();
     }
 
     @Test

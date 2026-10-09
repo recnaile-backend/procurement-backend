@@ -34,10 +34,10 @@ class ReturnProcessingEventTest {
                 "OUT-1", "ITEM-1", 2,
                 "USER-1", ReturnCondition.GOOD, "ok",
                 Instant.parse("2026-09-30T05:00:00Z"));
-        request.setReturnId("RET-1");
+        request.setReturnId("RETURN%2F26-27%2F001");
         request.setStatus(ReturnStatus.VERIFIED);
 
-        when(repository.findByReturnId("RET-1")).thenReturn(Optional.of(request));
+        when(repository.findByReturnId("RETURN%2F26-27%2F001")).thenReturn(Optional.of(request));
         when(repository.save(request)).thenReturn(request);
 
         ReturnProcessingService service = new ReturnProcessingService(
@@ -46,7 +46,7 @@ class ReturnProcessingEventTest {
                 Clock.fixed(now, ZoneOffset.UTC),
                 outboxService);
 
-        service.process("RET-1");
+        service.process("RETURN%2F26-27%2F001");
 
         verify(repository).save(request);
         verify(outboxService).enqueue(request);

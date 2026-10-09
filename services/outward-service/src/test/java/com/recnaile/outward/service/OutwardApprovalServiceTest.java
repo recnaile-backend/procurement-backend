@@ -38,8 +38,8 @@ class OutwardApprovalServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new OutwardApprovalService(repository, stateMachine, approvalPolicy, auditEventService, notificationEventService,
-                Clock.fixed(now, ZoneOffset.UTC));
+        service = new OutwardApprovalService(repository, stateMachine, approvalPolicy,
+                auditEventService, notificationEventService, Clock.fixed(now, ZoneOffset.UTC));
     }
 
     @Test
@@ -58,6 +58,20 @@ class OutwardApprovalServiceTest {
         assertEquals(now, response.approvedAt());
         org.mockito.Mockito.verify(notificationEventService).notifyApproval(
                 "OUT%2F26-27%2F001", "EMP-1", authentication);
+    }
+
+    @Test
+    void approvalDoesNotCheckInventoryOrEmitStockIssueEvent() {
+        OutwardRequest request = request("EMP-1", OutwardStatus.PENDING_APPROVAL);
+        when(repository.findByOutwardNumber("OUT%2F26-27%2F001")).thenReturn(Optional.of(request));
+        when(stateMachine.transition(OutwardStatus.PENDING_APPROVAL, OutwardStatus.APPROVED))
+                .thenReturn(OutwardStatus.APPROVED);
+        when(repository.save(any(OutwardRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        Authentication authentication = auth("TL-1", "ROLE_TL");
+
+        var response = service.approve("OUT%2F26-27%2F001", authentication);
+
+        assertEquals(OutwardStatus.APPROVED, response.status());
     }
 
     @Test

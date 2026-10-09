@@ -151,7 +151,7 @@ Returned by the issue endpoint. It represents the persisted issue transaction sn
 ### Create outward
 `POST /api/v1/outward`
 
-**Success:** `201 Created` → `OutwardResponse` with initial `status = PENDING_APPROVAL`. The create operation immediately submits the request for approval; no separate submit API is required.
+**Success:** `201 Created` → `OutwardResponse` with initial `status = PENDING_APPROVAL`. The create operation immediately submits the request for approval; no separate submit API is required. Master Data validates item identity/metadata, department, project and recipient information. No Inventory stock is deducted or validated at creation.
 
 **Documented errors:**
 - `400` → validation/Master Data business error.
@@ -161,7 +161,7 @@ Returned by the issue endpoint. It represents the persisted issue transaction sn
 ### Approve
 `POST /api/v1/outward/{outwardNumber}/approve`
 
-**Success:** `200 OK` → `OutwardResponse` with `status = APPROVED`.
+**Success:** `200 OK` → `OutwardResponse` with `status = APPROVED`. Approval changes workflow state only; it does not deduct Inventory stock or create the Inventory stock-issue event.
 
 **Documented errors:**
 - `401` → authentication required.
@@ -186,15 +186,17 @@ Returned by the issue endpoint. It represents the persisted issue transaction sn
 ### Issue
 `POST /api/v1/outward/{outwardNumber}/issue`
 
-**Success:** `200 OK` → `OutwardIssueTransactionResponse`.
+**Success:** `200 OK` → `OutwardIssueTransactionResponse`. The issue operation re-checks Inventory availability, changes the outward from `APPROVED` to `ISSUED`, and writes the durable `StockIssueApproved` Inventory command to the transactional outbox. Inventory remains the authoritative stock owner and performs the actual idempotent deduction. `OUTWARD_ISSUED` is also written for downstream lifecycle consumers such as Asset.
 
 `Idempotency-Key` is optional. When supplied, repeating the same key for the same outward request returns the existing issue transaction; reusing the key for another outward is rejected.
 
 **Documented errors:**
-- `400` → invalid outward number, invalid idempotency key, invalid item/quantity, or invalid request.
+- `400` → invalid outward number, invalid idempotency key, invalid item/quantity, or insufficient Inventory stock.
 - `401` → authentication required.
 - `404` → outward does not exist.
+- `403` → authenticated role is not configured to issue stock.
 - `409` → not approved, already issued, concurrent modification, or idempotency key reused.
+- `503` → Inventory service unavailable or returned an invalid stock response.
 
 ## 5. Error-code catalogue
 
@@ -209,14 +211,14 @@ Returned by the issue endpoint. It represents the persisted issue transaction sn
 | 400 | `OUTWARD_DUPLICATE_ITEM` | Same item appears more than once in the create request. |
 | 400 | `OUTWARD_ITEM_NOT_FOUND` | Requested item does not exist in Master Data. |
 | 400 | `OUTWARD_ITEM_INACTIVE` | Requested item is not active. |
-| 400 | `OUTWARD_ITEM_STOCK_UNAVAILABLE` | Master Data did not provide available stock. |
-| 400 | `OUTWARD_INSUFFICIENT_STOCK` | Requested quantity exceeds available stock. |
+| 400 | `OUTWARD_INSUFFICIENT_STOCK` | Requested quantity exceeds Inventory available stock. |
 | 400 | `OUTWARD_DEPARTMENT_NOT_FOUND` | Active department was not found. |
 | 400 | `OUTWARD_PROJECT_NOT_FOUND` | Supplied project was not found. |
 | 400 | `OUTWARD_PROJECT_INACTIVE` | Supplied project is not active. |
 | 400 | `OUTWARD_INVALID_STATE_TRANSITION` | Requested workflow transition is not allowed from the current state. |
 | 401 | `AUTHENTICATION_REQUIRED` | A valid authenticated identity is required. |
 | 403 | `OUTWARD_APPROVAL_ROLE_NOT_ALLOWED` | Caller does not have a configured approval role. |
+| 403 | `OUTWARD_ISSUE_ROLE_NOT_ALLOWED` | Caller does not have a configured physical-issue role. |
 | 403 | `ACCESS_DENIED` | Security filter denied the operation. |
 | 404 | `OUTWARD_NOT_FOUND` | Outward request does not exist. |
 | 409 | `OUTWARD_NOT_APPROVED` | Only an approved outward can be issued. |
@@ -224,6 +226,8 @@ Returned by the issue endpoint. It represents the persisted issue transaction sn
 | 409 | `OUTWARD_CONCURRENT_MODIFICATION` | Optimistic-lock conflict; retry after refreshing state. |
 | 409 | `OUTWARD_IDEMPOTENCY_KEY_REUSED` | Key belongs to another outward request. Use a new key. |
 | 503 | `MASTER_DATA_SERVICE_UNAVAILABLE` | Master Data could not be reached; retry according to client policy. |
+| 503 | `INVENTORY_SERVICE_UNAVAILABLE` | Inventory could not be reached during the actual outward issue stock check. |
+| 503 | `INVENTORY_RESPONSE_INVALID` | Inventory returned a response without a supported available-quantity field. |
 
 ## 6. Client handling rules
 
@@ -231,9 +235,10 @@ Returned by the issue endpoint. It represents the persisted issue transaction sn
 2. Do not parse the human-readable `message` to determine behavior.
 3. Treat `409 OUTWARD_CONCURRENT_MODIFICATION` as retryable after refreshing the outward state.
 4. Treat `503 MASTER_DATA_SERVICE_UNAVAILABLE` as a downstream availability failure; retry with bounded backoff.
-5. For `OUTWARD_IDEMPOTENCY_KEY_REUSED`, generate a new key rather than retrying with the conflicting key.
-6. Propagate/capture `traceId` for support and distributed-tracing investigation.
-7. Do not expose JWTs, secrets or sensitive authentication data in client error messages.
+5. Treat `503 INVENTORY_SERVICE_UNAVAILABLE` and `503 INVENTORY_RESPONSE_INVALID` from the issue endpoint as downstream availability/contract failures; do not assume stock was deducted unless the issue flow succeeds and the Inventory consumer processes the event.
+6. For `OUTWARD_IDEMPOTENCY_KEY_REUSED`, generate a new key rather than retrying with the conflicting key.
+7. Propagate/capture `traceId` for support and distributed-tracing investigation.
+8. Do not expose JWTs, secrets or sensitive authentication data in client error messages.
 
 ## 7. Swagger/OpenAPI
 

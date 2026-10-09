@@ -35,8 +35,8 @@ class OutboxServiceTest {
                 Instant.parse("2026-09-24T09:00:00Z"),
                 Instant.parse("2026-09-24T10:00:00Z"), "Rajesh", GRNStatus.DRAFT,
                 List.of(
-                        new GRNLine("ITEM-1", new BigDecimal("10"), new BigDecimal("9"), BigDecimal.ONE, "PCS", "Damaged"),
-                        new GRNLine("ITEM-2", new BigDecimal("5"), new BigDecimal("5"), BigDecimal.ZERO, "PCS", null)
+                        new GRNLine("Bolt", new BigDecimal("10"), new BigDecimal("9"), BigDecimal.ONE, "PCS", "Damaged"),
+                        new GRNLine("Nut", new BigDecimal("5"), new BigDecimal("5"), BigDecimal.ZERO, "PCS", null)
                 ), 0L, null, null);
 
         when(repository.save(any(OutboxEvent.class))).thenAnswer(i -> i.getArgument(0));

@@ -67,13 +67,13 @@ class ReturnRequestControllerTest {
                 "OUT-100", "ITEM-10", 2,
                 "user-1", ReturnCondition.GOOD, "return",
                 Instant.parse("2026-09-30T05:00:00Z"));
-        result.setReturnId("RET-1");
-        when(returnRequestService.getAll("RET-1")).thenReturn(java.util.List.of(result));
+        result.setReturnId("RETURN%2F26-27%2F001");
+        when(returnRequestService.getAll("RETURN%2F26-27%2F001")).thenReturn(java.util.List.of(result));
 
-        mockMvc.perform(get("/api/v1/returns").param("returnId", "RET-1"))
+        mockMvc.perform(get("/api/v1/returns").param("returnId", "RETURN%2F26-27%2F001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data[0].returnId").value("RET-1"));
+                .andExpect(jsonPath("$.data[0].returnId").value("RETURN%2F26-27%2F001"));
     }
 
     @Test
@@ -115,10 +115,10 @@ class ReturnRequestControllerTest {
         verified.setVerifiedBy("verifier-1");
         verified.setVerifiedAt(Instant.parse("2026-09-30T05:30:00Z"));
 
-        when(returnVerificationService.verify(eq("RET-1"), any(VerifyReturnRequest.class), eq("verifier-1"), eq("verify-1")))
+        when(returnVerificationService.verify(eq("RETURN%2F26-27%2F001"), any(VerifyReturnRequest.class), eq("verifier-1"), eq("verify-1")))
                 .thenReturn(verified);
 
-        mockMvc.perform(post("/api/v1/returns/RET-1/verify")
+        mockMvc.perform(post("/api/v1/returns/RETURN%2F26-27%2F001/verify")
                         .header("Idempotency-Key", "verify-1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -137,9 +137,9 @@ class ReturnRequestControllerTest {
                 Instant.parse("2026-09-30T05:00:00Z"));
         processed.setStatus(com.recnaile.returns.model.enums.ReturnStatus.ACCEPTED_GOOD);
 
-        when(returnProcessingService.process(eq("RET-1"), eq("procurement-1"), eq("process-1"))).thenReturn(processed);
+        when(returnProcessingService.process(eq("RETURN%2F26-27%2F001"), eq("procurement-1"), eq("process-1"))).thenReturn(processed);
 
-        mockMvc.perform(post("/api/v1/returns/RET-1/process")
+        mockMvc.perform(post("/api/v1/returns/RETURN%2F26-27%2F001/process")
                         .header("Idempotency-Key", "process-1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -215,10 +215,10 @@ class ReturnRequestControllerTest {
                 Instant.parse("2026-09-30T05:00:00Z"));
         verified.setStatus(com.recnaile.returns.model.enums.ReturnStatus.VERIFIED);
 
-        when(returnVerificationService.verify(eq("RET-1"), any(VerifyReturnRequest.class),
+        when(returnVerificationService.verify(eq("RETURN%2F26-27%2F001"), any(VerifyReturnRequest.class),
                 eq("verifier-1"), eq(null))).thenReturn(verified);
 
-        mockMvc.perform(post("/api/v1/returns/RET-1/verify")
+        mockMvc.perform(post("/api/v1/returns/RETURN%2F26-27%2F001/verify")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -234,10 +234,10 @@ class ReturnRequestControllerTest {
                 Instant.parse("2026-09-30T05:00:00Z"));
         processed.setStatus(com.recnaile.returns.model.enums.ReturnStatus.ACCEPTED_GOOD);
 
-        when(returnProcessingService.process(eq("RET-1"), eq("procurement-1"), eq(null)))
+        when(returnProcessingService.process(eq("RETURN%2F26-27%2F001"), eq("procurement-1"), eq(null)))
                 .thenReturn(processed);
 
-        mockMvc.perform(post("/api/v1/returns/RET-1/process"))
+        mockMvc.perform(post("/api/v1/returns/RETURN%2F26-27%2F001/process"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }
@@ -253,10 +253,10 @@ class ReturnRequestControllerTest {
         verified.setVerifiedBy("EMP002");
         verified.setVerifiedAt(Instant.parse("2026-09-30T05:30:00Z"));
 
-        when(returnVerificationService.verify(eq("RET-1"), any(VerifyReturnRequest.class), eq("EMP002"), eq(null)))
+        when(returnVerificationService.verify(eq("RETURN%2F26-27%2F001"), any(VerifyReturnRequest.class), eq("EMP002"), eq(null)))
                 .thenReturn(verified);
 
-        mockMvc.perform(post("/api/v1/returns/RET-1/verify")
+        mockMvc.perform(post("/api/v1/returns/RETURN%2F26-27%2F001/verify")
                         .with(jwt().jwt(jwt -> jwt
                                 .subject("auth-user-id")
                                 .claim("employeeId", "EMP002")
@@ -276,9 +276,9 @@ class ReturnRequestControllerTest {
                 Instant.parse("2026-09-30T05:00:00Z"));
         processed.setStatus(com.recnaile.returns.model.enums.ReturnStatus.ACCEPTED_GOOD);
 
-        when(returnProcessingService.process(eq("RET-1"), eq("EMP002"), eq(null))).thenReturn(processed);
+        when(returnProcessingService.process(eq("RETURN%2F26-27%2F001"), eq("EMP002"), eq(null))).thenReturn(processed);
 
-        mockMvc.perform(post("/api/v1/returns/RET-1/process")
+        mockMvc.perform(post("/api/v1/returns/RETURN%2F26-27%2F001/process")
                         .with(jwt().jwt(jwt -> jwt
                                 .subject("auth-user-id")
                                 .claim("employeeId", "EMP002")

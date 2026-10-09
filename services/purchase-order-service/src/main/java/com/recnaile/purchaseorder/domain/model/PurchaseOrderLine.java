@@ -9,9 +9,8 @@ import java.math.BigDecimal;
 
 public class PurchaseOrderLine {
 
+    /** Business identity of the item being purchased. An Inventory item identity is not known yet. */
     @NotBlank
-    private String itemId;
-
     private String itemName;
 
     @NotNull
@@ -45,9 +44,6 @@ public class PurchaseOrderLine {
     @NotNull
     @DecimalMin(value = "0.0", inclusive = true)
     private BigDecimal lineTotal;
-
-    public String getItemId() { return itemId; }
-    public void setItemId(String itemId) { this.itemId = itemId; }
 
     public String getItemName() { return itemName; }
     public void setItemName(String itemName) { this.itemName = itemName; }

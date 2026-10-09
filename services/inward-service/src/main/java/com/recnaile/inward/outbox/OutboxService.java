@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recnaile.inward.dto.GRNResponse;
 import com.recnaile.inward.model.GRNLine;
+import com.recnaile.inward.model.GRNStatus;
 import com.recnaile.inward.model.OutboxEvent;
 import com.recnaile.inward.repository.OutboxEventRepository;
 import com.recnaile.inward.observability.InwardMetrics;
@@ -145,6 +146,39 @@ public class OutboxService {
         }
     }
 
+    public void enqueueGRNReceiptAuditEvent(GRNResponse grn) {
+        Instant occurredAt = grn.receivedAt() == null ? Instant.now(clock) : grn.receivedAt();
+        String eventId = UUID.randomUUID().toString();
+
+        Map<String, Object> envelope = new LinkedHashMap<>();
+        envelope.put("eventId", eventId);
+        envelope.put("eventType", AUDIT_EVENT_TYPE);
+        envelope.put("eventVersion", EVENT_VERSION);
+        envelope.put("occurredAt", occurredAt);
+        envelope.put("producer", PRODUCER);
+        envelope.put("correlationId", currentHeader("X-Correlation-Id"));
+        envelope.put("traceId", traceIdFromTraceparent(currentHeader("traceparent")));
+
+        Map<String, Object> payload = auditPayload(grn, occurredAt);
+        payload.put("action", "GRN_RECEIVED");
+        payload.put("beforeStatus", GRNStatus.DRAFT.name());
+        payload.put("afterStatus", grn.grnStatus() == null ? null : grn.grnStatus().name());
+        envelope.put("payload", payload);
+
+        try {
+            String serialized = objectMapper.writeValueAsString(envelope);
+            repository.save(new OutboxEvent(
+                    eventId, "GRN", grn.grnId(), AUDIT_EVENT_TYPE, EVENT_VERSION,
+                    topic, grn.grnId(), serialized, Instant.now(clock)));
+            if (metrics != null) {
+                metrics.outboxCreated();
+                metrics.auditEventCreated();
+            }
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("Unable to serialize GRN receipt audit event", ex);
+        }
+    }
+
     private Map<String, Object> auditPayload(GRNResponse grn, Instant occurredAt) {
         Map<String, Object> payload = new LinkedHashMap<>();
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -181,7 +215,7 @@ public class OutboxService {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("grnId", grn.grnId());
         payload.put("poId", grn.poId());
-        payload.put("itemId", line.itemId());
+        payload.put("itemName", line.itemName());
         payload.put("orderedQuantity", line.orderedQuantity());
         payload.put("acceptedQuantity", line.acceptedQuantity());
         payload.put("rejectedQuantity", line.rejectedQuantity());

@@ -85,16 +85,19 @@ app:
   authorization:
     department-claim: ${OUTWARD_APPROVAL_DEPARTMENT_CLAIM:departmentName}
     approval-roles: ${OUTWARD_APPROVAL_ROLES:TL,MD}
+    issue-roles: ${OUTWARD_ISSUE_ROLES:WAREHOUSE,INVENTORY_OPERATOR,TL,MD}
   observability:
     correlation-header: ${CORRELATION_HEADER:X-Correlation-Id}
   clients:
     master-data-base-url: ${MASTER_DATA_SERVICE_URL:${MASTER_DATA_BASE_URL:http://master-data-service:8082}}
+    inventory-base-url: ${INVENTORY_SERVICE_URL:http://inventory-service:8086}
     auth-base-url: ${AUTH_SERVICE_URL:http://auth-service:8081}
     connect-timeout-ms: ${MASTER_DATA_CONNECT_TIMEOUT_MS:2000}
     read-timeout-ms: ${MASTER_DATA_READ_TIMEOUT_MS:3000}
   kafka:
     topics:
       outward-issued: ${OUTWARD_ISSUED_TOPIC:outward.events}
+      stock-issue-approved: ${STOCK_ISSUE_APPROVED_TOPIC:inventory.events}
       audit: ${AUDIT_EVENTS_TOPIC:audit.events}
       notification: ${NOTIFICATION_EVENTS_TOPIC:notification.events}
     publisher:
