@@ -34,8 +34,13 @@ otel:
     otlp:
       endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://otel-collector:4317}
 app:
+  security:
+    jwt:
+      # Matches Auth Service HS256 signing and JWT_ISSUER configuration.
+      secret-key: ${JWT_SECRET_KEY}
+      issuer: ${JWT_ISSUER:auth-service}
   service-name: notification-service
-  description: "Event-driven in-app/email notification orchestration"
+  description: "Event-driven in-app notification orchestration"
   kafka:
     topics:
       indent: ${KAFKA_INDENT_TOPIC:procurement.indent.events}
