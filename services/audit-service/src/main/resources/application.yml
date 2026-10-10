@@ -35,3 +35,8 @@ app:
   description: "Immutable audit trail for create/edit/approve/reject operations"
   kafka:
     audit-topic: ${KAFKA_AUDIT_TOPIC:procurement.audit.events}
+
+  security:
+    # Must match Auth Service JwtKeyConfig: UTF-8 secret bytes and HS256.
+    jwt-secret-key: ${JWT_SECRET_KEY}
+    issuer: ${JWT_ISSUER:auth-service}

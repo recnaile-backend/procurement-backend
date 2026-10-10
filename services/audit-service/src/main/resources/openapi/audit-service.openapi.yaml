@@ -8,6 +8,9 @@ servers:
 tags:
   - name: Audit Events
     description: Read-only audit history queries
+security:
+  - bearerAuth: []
+
 paths:
   /api/v1/audit-events/{eventId}:
     get:
@@ -80,6 +83,11 @@ paths:
         '200': { description: Paginated service/action history }
         '400': { description: Invalid pagination parameters }
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     ApiError:
       type: object

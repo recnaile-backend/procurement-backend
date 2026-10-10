@@ -3,6 +3,7 @@ package com.recnaile.audit.api;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -17,6 +18,11 @@ public class ApiExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiResponse<Void>> invalidParameter(MethodArgumentTypeMismatchException exception, HttpServletRequest request) {
         return ResponseEntity.badRequest().body(ApiResponse.failure("VALIDATION_ERROR", "Invalid value for parameter: " + exception.getName(), traceId(request)));
+    }
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> forbidden(AccessDeniedException exception, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                ApiResponse.failure("FORBIDDEN", "You are not authorized to access this audit data", traceId(request)));
     }
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> internalError(Exception exception, HttpServletRequest request) {

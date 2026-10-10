@@ -2,6 +2,8 @@ package com.recnaile.audit.api;
 
 import com.recnaile.audit.application.AuditEventQueryService;
 import com.recnaile.audit.persistence.AuditEventDocument;
+import com.recnaile.audit.security.AuditAccessPolicy;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -19,7 +21,7 @@ class AuditEventControllerTest {
     void missingEventReturnsNotFoundEnvelope() {
         AuditEventQueryService service = mock(AuditEventQueryService.class);
         when(service.findByEventId(any(UUID.class))).thenReturn(Optional.empty());
-        var response = new AuditEventController(service).getById(UUID.randomUUID());
+        var response = new AuditEventController(service, new AuditAccessPolicy()).getById(UUID.randomUUID(), jwt("EMPLOYEE", "user-1"));
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
         assertFalse(response.getBody().success());
         assertEquals("NOT_FOUND", response.getBody().error().code());
@@ -30,7 +32,7 @@ class AuditEventControllerTest {
         AuditEventQueryService service = mock(AuditEventQueryService.class);
         when(service.findEntityHistory(eq("INDENT"), eq("IND-1"), any()))
                 .thenReturn(new PageImpl<>(List.<AuditEventDocument>of(), PageRequest.of(1, 10), 0));
-        var response = new AuditEventController(service).entityHistory("INDENT", "IND-1", 1, 10);
+        var response = new AuditEventController(service, new AuditAccessPolicy()).entityHistory("INDENT", "IND-1", 1, 10, jwt("PROCUREMENT", "user-1"));
         assertTrue(response.success());
         assertEquals(1, response.data().page());
         assertEquals(10, response.data().size());
@@ -42,9 +44,13 @@ class AuditEventControllerTest {
     @Test
     void invalidPageSizeIsRejectedBeforeQuery() {
         AuditEventQueryService service = mock(AuditEventQueryService.class);
-        var controller = new AuditEventController(service);
-        assertThrows(IllegalArgumentException.class, () -> controller.actorHistory("user-1", 0, 101));
-        assertThrows(IllegalArgumentException.class, () -> controller.actorHistory("user-1", -1, 20));
+        var controller = new AuditEventController(service, new AuditAccessPolicy());
+        assertThrows(IllegalArgumentException.class, () -> controller.actorHistory("user-1", 0, 101, jwt("EMPLOYEE", "user-1")));
+        assertThrows(IllegalArgumentException.class, () -> controller.actorHistory("user-1", -1, 20, jwt("EMPLOYEE", "user-1")));
         verifyNoInteractions(service);
+    }
+    private static Jwt jwt(String role, String subject) {
+        return Jwt.withTokenValue("test-token").header("alg", "HS256")
+                .claim("sub", subject).claim("employeeId", subject).claim("roles", List.of(role)).build();
     }
 }
