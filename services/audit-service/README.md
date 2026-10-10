@@ -1,25 +1,41 @@
 # Audit Service
 
-Spring Boot service module for the RECNAILE Procurement Platform. Java 21; Spring Boot version is managed by the repository root build.
+RECNAILE Audit Service module. This ZIP contains the module folder intended to be placed at `services/audit-service` in the existing Gradle multi-project repository. Keep the repository root `settings.gradle`, root `build.gradle`, version catalog/conventions, contracts, and Compose file from the full repository.
 
-## Phase 01
+## Phase status
+- Phase 01: typed `AUDIT_EVENT` domain envelope and payload.
+- Phase 02: MongoDB persistence document, append-only insert service, repository query methods, and documented indexes.
 
-See [PHASE-01-DOMAIN-MODEL.md](PHASE-01-DOMAIN-MODEL.md) for the typed audit event model and verification steps. The canonical event contracts are maintained in the repository root under `contracts/events/`.
+## Configuration
+- Service port: `SERVICE_PORT` (default `8091`).
+- Mongo URI base: `MONGODB_BASE_URI`; database name: `MONGODB_DATABASE` (default `audit`).
+- Kafka bootstrap configuration remains present for later consumer integration.
 
-## Commands (run from repository root)
+## Commands (PowerShell, from repository root)
+Delete existing module before replacing it with the ZIP contents:
 
 ```powershell
-# Delete the existing service folder before extracting the updated service ZIP
 Remove-Item -Recurse -Force .\services\audit-service
+Expand-Archive .\audit-service-phase-02.zip -DestinationPath .\services -Force
+```
 
-# Run service tests
+Run module tests and build using the repository wrapper:
+
+```powershell
 .\gradlew.bat :services:audit-service:test
-
-# Build service
 .\gradlew.bat :services:audit-service:build
+```
 
-# Start the configured platform stack (requires the root compose file and environment configuration)
+Start the Compose stack:
+
+```powershell
 docker compose up --build -d
 ```
 
-This is the Phase 01 domain-model update only. Kafka ingestion, persistence, idempotency, API redesign and RBAC remain for subsequent phases. Do not interpret the legacy CRUD API as a production-ready audit interface.
+**Compose note:** if the audit-service block is still commented out in your root Compose file, Docker Compose will not start it until that block is enabled and its environment/network settings are checked. This ZIP does not silently rewrite the root Compose file.
+
+## Git summary — Phase 02
+```powershell
+git add services/audit-service
+git commit -m "feat(audit-service): add MongoDB audit persistence"
+```
