@@ -3,7 +3,7 @@ package com.recnaile.audit.messaging;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recnaile.audit.model.AuditEvent;
-import com.recnaile.audit.persistence.AuditEventPersistenceService;
+import com.recnaile.audit.application.AuditEventIngestionService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
@@ -18,13 +18,13 @@ import java.util.Set;
 public class AuditEventKafkaConsumer {
     private final ObjectMapper objectMapper;
     private final Validator validator;
-    private final AuditEventPersistenceService persistenceService;
+    private final AuditEventIngestionService ingestionService;
 
     public AuditEventKafkaConsumer(ObjectMapper objectMapper, Validator validator,
-                                   AuditEventPersistenceService persistenceService) {
+                                   AuditEventIngestionService ingestionService) {
         this.objectMapper = objectMapper;
         this.validator = validator;
-        this.persistenceService = persistenceService;
+        this.ingestionService = ingestionService;
     }
 
     @KafkaListener(topics = "${app.kafka.audit-topic:procurement.audit.events}",
@@ -46,7 +46,7 @@ public class AuditEventKafkaConsumer {
         if (!violations.isEmpty()) {
             throw new ConstraintViolationException("AUDIT_EVENT contract validation failed", violations);
         }
-        persistenceService.append(event);
+        ingestionService.ingest(event);
         // Never acknowledge until durable MongoDB insertion succeeds.
         acknowledgment.acknowledge();
     }
