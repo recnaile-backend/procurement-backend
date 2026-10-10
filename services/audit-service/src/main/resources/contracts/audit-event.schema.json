@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://recnaile.com/contracts/events/AUDIT_EVENT.schema.json",
+  "title": "RECNAILE AUDIT_EVENT envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "eventType", "eventVersion", "occurredAt", "producer", "payload"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "eventType": { "const": "AUDIT_EVENT" },
+    "eventVersion": { "type": "integer", "minimum": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "producer": { "type": "string", "minLength": 1 },
+    "correlationId": { "type": ["string", "null"] },
+    "traceId": { "type": ["string", "null"] },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actorId", "actorRoles", "service", "entityType", "entityId", "action", "timestamp"],
+      "properties": {
+        "actorId": { "type": "string", "minLength": 1 },
+        "actorRoles": { "type": "array", "items": { "type": "string" } },
+        "service": { "type": "string", "minLength": 1 },
+        "entityType": { "type": "string", "minLength": 1 },
+        "entityId": { "type": "string", "minLength": 1 },
+        "action": { "type": "string", "minLength": 1 },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "beforeStatus": { "type": ["string", "null"] },
+        "afterStatus": { "type": ["string", "null"] },
+        "poId": { "type": ["string", "null"] },
+        "deliveryNoteNumber": { "type": ["string", "null"] },
+        "receivedBy": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
