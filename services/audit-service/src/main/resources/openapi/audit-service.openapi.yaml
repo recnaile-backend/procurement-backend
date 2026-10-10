@@ -1,0 +1,99 @@
+openapi: 3.0.3
+info:
+  title: RECNAILE Audit Service API
+  version: 1.0.0
+  description: Read-only access to immutable audit event history. Authentication and authorization must be enabled before production exposure (Phase 7).
+servers:
+  - url: /
+tags:
+  - name: Audit Events
+    description: Read-only audit history queries
+paths:
+  /api/v1/audit-events/{eventId}:
+    get:
+      tags: [Audit Events]
+      summary: Get one audit event by UUID
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Event found }
+        '400': { description: Invalid UUID }
+        '404': { description: Event not found }
+  /api/v1/audit-events/entities/{entityType}/{entityId}:
+    get:
+      tags: [Audit Events]
+      summary: Get entity history
+      parameters:
+        - { name: entityType, in: path, required: true, schema: { type: string } }
+        - { name: entityId, in: path, required: true, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200': { description: Paginated entity audit history }
+        '400': { description: Invalid pagination parameters }
+  /api/v1/audit-events/actors/{actorId}:
+    get:
+      tags: [Audit Events]
+      summary: Get actor history
+      parameters:
+        - { name: actorId, in: path, required: true, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200': { description: Paginated actor audit history }
+        '400': { description: Invalid pagination parameters }
+  /api/v1/audit-events/correlations/{correlationId}:
+    get:
+      tags: [Audit Events]
+      summary: Find events by correlation ID
+      parameters:
+        - { name: correlationId, in: path, required: true, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200': { description: Paginated correlation history }
+        '400': { description: Invalid pagination parameters }
+  /api/v1/audit-events/traces/{traceId}:
+    get:
+      tags: [Audit Events]
+      summary: Find events by trace ID
+      parameters:
+        - { name: traceId, in: path, required: true, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200': { description: Paginated trace history }
+        '400': { description: Invalid pagination parameters }
+  /api/v1/audit-events/services/{service}/actions/{action}:
+    get:
+      tags: [Audit Events]
+      summary: Find events by service and action
+      parameters:
+        - { name: service, in: path, required: true, schema: { type: string } }
+        - { name: action, in: path, required: true, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200': { description: Paginated service/action history }
+        '400': { description: Invalid pagination parameters }
+components:
+  schemas:
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, example: VALIDATION_ERROR }
+        message: { type: string }
+        traceId: { type: string, nullable: true }
+    PaginatedData:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content: { type: array, items: { type: object } }
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1 }
+        totalElements: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
