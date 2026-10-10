@@ -6,6 +6,7 @@ RECNAILE Audit Service module. This ZIP contains the module folder intended to b
 - Phase 01: typed `AUDIT_EVENT` domain envelope and payload.
 - Phase 02: MongoDB persistence document, append-only insert service, repository query methods, and documented indexes.
 - Phase 03: Kafka consumer for the canonical `AUDIT_EVENT` envelope, validation, manual acknowledgement after persistence, bounded retries, and `.dlt` publishing.
+- Phase 04: idempotent duplicate handling using MongoDB event identity; exact replays are accepted, conflicting reuse of an event ID is rejected.
 
 ## Configuration
 - Service port: `SERVICE_PORT` (default `8091`).
@@ -17,7 +18,7 @@ Delete existing module before replacing it with the ZIP contents:
 
 ```powershell
 Remove-Item -Recurse -Force .\services\audit-service
-Expand-Archive .\audit-service-phase-03.zip -DestinationPath .\services -Force
+Expand-Archive .\audit-service-phase-04.zip -DestinationPath .\services -Force
 ```
 
 Run module tests and build using the repository wrapper:
@@ -38,5 +39,16 @@ docker compose up --build -d
 ## Git summary
 ```powershell
 git add services/audit-service
-git commit -m "feat(audit-service): consume audit events from Kafka"
+git commit -m "feat(audit-service): handle duplicate audit events idempotently"
 ```
+
+
+## Phase 04 — Idempotent event processing
+
+- MongoDB's unique event ID (`_id`) is the durable idempotency key.
+- A replay with the same ID and identical stored content is treated as already processed; the Kafka listener can safely acknowledge it.
+- Reuse of an event ID with different content raises `AuditEventIdentityConflictException`; it is not silently accepted and is eligible for the configured retry/DLT policy.
+- Audit records remain append-only: no `save()` or update path is used.
+- A crash after Mongo insert but before Kafka acknowledgement is safe: redelivery is recognized as an exact duplicate.
+
+See `PHASE-04-IDEMPOTENCY.md` for behavior and verification steps.
