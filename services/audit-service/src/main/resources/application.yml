@@ -40,3 +40,7 @@ app:
     # Must match Auth Service JwtKeyConfig: UTF-8 secret bytes and HS256.
     jwt-secret-key: ${JWT_SECRET_KEY}
     issuer: ${JWT_ISSUER:auth-service}
+
+  audit:
+    # Zero disables retention candidate reporting. Preview never deletes records.
+    retention-days: ${AUDIT_RETENTION_DAYS:0}

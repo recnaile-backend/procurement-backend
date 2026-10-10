@@ -1,6 +1,8 @@
 package com.recnaile.audit.api;
 
 import com.recnaile.audit.application.AuditEventQueryService;
+import com.recnaile.audit.application.AuditIntegrityService;
+import com.recnaile.audit.application.AuditRetentionService;
 import com.recnaile.audit.persistence.AuditEventDocument;
 import com.recnaile.audit.security.AuditAccessPolicy;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,10 +25,33 @@ public class AuditEventController {
     private static final int MAX_PAGE_SIZE = 100;
     private final AuditEventQueryService queryService;
     private final AuditAccessPolicy accessPolicy;
+    private final AuditIntegrityService integrityService;
+    private final AuditRetentionService retentionService;
 
-    public AuditEventController(AuditEventQueryService queryService, AuditAccessPolicy accessPolicy) {
+    public AuditEventController(AuditEventQueryService queryService, AuditAccessPolicy accessPolicy,
+            AuditIntegrityService integrityService, AuditRetentionService retentionService) {
         this.queryService = queryService;
         this.accessPolicy = accessPolicy;
+        this.integrityService = integrityService;
+        this.retentionService = retentionService;
+    }
+
+    @GetMapping("/operations/integrity/{eventId}")
+    @Operation(summary = "Verify stored audit event integrity; MD only")
+    public ResponseEntity<ApiResponse<AuditIntegrityService.IntegrityReport>> verifyIntegrity(
+            @PathVariable UUID eventId, @AuthenticationPrincipal Jwt jwt) {
+        accessPolicy.requireMdOperations(jwt);
+        var report = integrityService.verify(eventId);
+        if (report.isEmpty()) return ResponseEntity.status(404).body(
+                ApiResponse.failure("NOT_FOUND", "Audit event was not found", null));
+        return ResponseEntity.ok(ApiResponse.success(report.get()));
+    }
+
+    @GetMapping("/operations/retention-preview")
+    @Operation(summary = "Preview records older than configured retention; MD only; no deletion")
+    public ApiResponse<AuditRetentionService.RetentionPreview> retentionPreview(@AuthenticationPrincipal Jwt jwt) {
+        accessPolicy.requireMdOperations(jwt);
+        return ApiResponse.success(retentionService.preview());
     }
 
     @GetMapping("/{eventId}")

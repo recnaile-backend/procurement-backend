@@ -1,0 +1,20 @@
+rootProject.name = 'procurement-platform-foundation'
+
+include 'gateway:api-gateway'
+
+file('libs').eachDir { dir ->
+    include "libs:${dir.name}"
+}
+
+include 'services:auth-service'
+include 'services:master-data-service'
+include 'services:indent-service'
+include 'services:purchase-order-service'
+include 'services:inward-service'
+include 'services:inventory-service'
+include 'services:outward-service'
+include 'services:return-service'
+include 'services:asset-service'
+include 'services:notification-service'
+include 'services:audit-service'
+include 'services:reporting-service'

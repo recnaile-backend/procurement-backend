@@ -39,19 +39,37 @@ public record AuditEventDocument(
     String afterStatus,
     String poId,
     String deliveryNoteNumber,
-    String receivedBy
+    String receivedBy,
+    String integrityHash
 ) {
+    /** Compatibility constructor for existing tests/callers; new events should use from(event). */
+    public AuditEventDocument(UUID eventId, String eventType, int eventVersion, Instant occurredAt,
+            String producer, String correlationId, String traceId, String actorId, List<String> actorRoles,
+            String service, String entityType, String entityId, String action, Instant timestamp,
+            String beforeStatus, String afterStatus, String poId, String deliveryNoteNumber, String receivedBy) {
+        this(eventId, eventType, eventVersion, occurredAt, producer, correlationId, traceId, actorId,
+                actorRoles, service, entityType, entityId, action, timestamp, beforeStatus, afterStatus,
+                poId, deliveryNoteNumber, receivedBy, null);
+    }
+
     public static AuditEventDocument from(AuditEvent event) {
         if (event == null || event.payload() == null) {
             throw new IllegalArgumentException("Audit event and payload are required");
         }
         AuditEventPayload payload = event.payload();
-        return new AuditEventDocument(
+        AuditEventDocument mapped = new AuditEventDocument(
             event.eventId(), event.eventType(), event.eventVersion(), event.occurredAt(),
             event.producer(), event.correlationId(), event.traceId(), payload.actorId(),
             payload.actorRoles(), payload.service(), payload.entityType(), payload.entityId(),
             payload.action(), payload.timestamp(), payload.beforeStatus(), payload.afterStatus(),
-            payload.poId(), payload.deliveryNoteNumber(), payload.receivedBy()
+            payload.poId(), payload.deliveryNoteNumber(), payload.receivedBy(), null
+        );
+        return new AuditEventDocument(
+            mapped.eventId(), mapped.eventType(), mapped.eventVersion(), mapped.occurredAt(), mapped.producer(),
+            mapped.correlationId(), mapped.traceId(), mapped.actorId(), mapped.actorRoles(), mapped.service(),
+            mapped.entityType(), mapped.entityId(), mapped.action(), mapped.timestamp(), mapped.beforeStatus(),
+            mapped.afterStatus(), mapped.poId(), mapped.deliveryNoteNumber(), mapped.receivedBy(),
+            AuditEventIntegrity.calculate(mapped)
         );
     }
 }

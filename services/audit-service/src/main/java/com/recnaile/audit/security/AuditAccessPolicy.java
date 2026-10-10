@@ -13,6 +13,12 @@ public class AuditAccessPolicy {
     private static final List<String> GLOBAL_READ_ROLES = List.of("PROCUREMENT", "MD");
     private static final List<String> SELF_READ_ROLES = List.of("EMPLOYEE", "TL");
 
+    public void requireMdOperations(Jwt jwt) {
+        if (jwt == null || !hasAnyRole(jwt, List.of("MD"))) {
+            throw new AccessDeniedException("Audit operations require MD role");
+        }
+    }
+
     public void requireGlobalAuditRead(Jwt jwt) {
         if (jwt == null || !hasAnyRole(jwt, GLOBAL_READ_ROLES)) {
             throw new AccessDeniedException("Global audit access requires PROCUREMENT or MD role");

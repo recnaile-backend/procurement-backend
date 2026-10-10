@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.Instant;
 
 /** Mongo persistence access. The event UUID is the Mongo _id and is inherently unique. */
 public interface AuditEventMongoRepository extends MongoRepository<AuditEventDocument, UUID> {
@@ -19,4 +20,5 @@ public interface AuditEventMongoRepository extends MongoRepository<AuditEventDoc
     Page<AuditEventDocument> findByTraceId(String traceId, Pageable pageable);
     List<AuditEventDocument> findByServiceAndActionOrderByTimestampDesc(String service, String action);
     Page<AuditEventDocument> findByServiceAndAction(String service, String action, Pageable pageable);
+    long countByTimestampBefore(Instant cutoff);
 }
