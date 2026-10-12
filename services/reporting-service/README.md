@@ -117,3 +117,8 @@ The approval-aging metrics use the projection's `updatedAt` as the current aging
 ## Phase 9–11 operational notes
 
 The report boundary is eventually consistent. Period summaries describe retained event facts, while dashboards describe the current projections; these are different views and should not be expected to reconcile instantaneously. A scheduled daily snapshot captures the platform-wide scope. Scope-specific snapshots can be captured by an authorized reporting administrator. Snapshot uniqueness is date + department + project; startup index setup removes the old single-field `snapshotDate_1` index when present and installs the scope-aware compound index. Back up the reporting database before first deployment of this schema change.
+
+
+## Indexes and query performance
+
+Reporting indexes are explicitly managed by `MongoIndexConfiguration`. Automatic annotation-driven index creation is disabled to avoid duplicate/conflicting definitions. See `PHASE-12-INDEXES-PERFORMANCE.md` for index coverage, safe rollout checks, and MongoDB execution-plan commands.

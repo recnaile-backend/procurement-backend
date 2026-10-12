@@ -15,7 +15,7 @@
 | 9 | Time-period reports and snapshots | Implemented; verify |
 | 10 | Reporting APIs | Implemented; verify |
 | 11 | Security and scope enforcement | Implemented; verify |
-| 12 | Indexes and performance | Remaining |
+| 12 | Indexes and performance | Implemented; local verification pending |
 | 13 | Rebuild and recovery | Remaining |
 | 14 | Tests, documentation and observability | Remaining |
 | 15 | Platform integration and release | Remaining |

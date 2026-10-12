@@ -15,7 +15,7 @@
 | 9 | Time-period reports and snapshots | Implemented in this package; verification pending |
 | 10 | Reporting APIs | Implemented in this package; verification pending |
 | 11 | Security and scope enforcement | Implemented in this package; verification pending |
-| 12 | Indexes and performance | Remaining |
+| 12 | Indexes and performance | Implemented in this package; verification pending |
 | 13 | Rebuild and recovery | Remaining |
 | 14 | Tests, documentation and observability | Remaining |
 | 15 | Platform integration and release | Remaining |
@@ -53,3 +53,16 @@ The archive is packaged from the user's Phase 8 test-compile-fix ZIP. Source and
 - Approval aging uses projection `updatedAt` until an authoritative approval-start timestamp is available.
 - Low-stock metrics describe observed low-stock alerts, not a complete stock ledger.
 - Reporting must not query operational service databases directly.
+
+
+## Phase 12 — Indexes and performance
+
+- Centralized index creation in `MongoIndexConfiguration`; Spring Data automatic index creation is disabled so indexes are managed consistently by the service startup runner.
+- Added named indexes for event-type/time queries, event history, ingestion freshness, scoped time ranges, dashboard SLA counts, projection uniqueness, scoped projection listing/counting, aging queries, and snapshot scope/date lookups.
+- Kept indexes aligned to the current read paths and documented a verification procedure using MongoDB `explain("executionStats")`.
+- Startup index creation is idempotent by stable index names. The known legacy `snapshotDate_1` index is removed to support the date-plus-scope uniqueness key.
+- Unique index creation can fail if existing data contains duplicate projection keys or duplicate snapshot date/scope combinations; preflight checks are documented before production rollout.
+
+## Phase 12 verification status
+
+The ZIP has been structurally checked, but Gradle tests and MongoDB query-plan checks must be run in the full repository environment. Do not mark Phase 12 verified until the service builds, tests pass, startup indexes are confirmed in MongoDB, and representative scoped queries use the intended indexes.

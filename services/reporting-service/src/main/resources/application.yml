@@ -3,6 +3,7 @@ spring:
     name: reporting-service
   data:
     mongodb:
+      auto-index-creation: false
       uri: ${MONGODB_BASE_URI:mongodb://mongo:27017}/${MONGODB_DATABASE:reporting}?retryWrites=true&w=majority&appName=recnaile
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
