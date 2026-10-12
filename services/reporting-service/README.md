@@ -34,3 +34,10 @@ MongoDB indexes are ensured at startup for event type/time, entity/time, status/
 ## Important limitations before production
 
 The supplied event contracts are not all identical. This implementation uses explicit top-level projection fields and event facts but intentionally does not invent fields absent from contracts. Fine-grained department/project authorization must be aligned with the platform's JWT scope claims and policy before production. Period summaries use UTC calendar boundaries; financial-year-specific boundaries require the platform's approved financial-year rule. Configure Kafka error handling/dead-letter topics and a tested transactional or replay strategy according to the root platform's Kafka standards.
+
+
+## Phase 2 delivery notes
+
+- MongoDB indexes are created at startup using `createIndex`.
+- Environment-specific endpoints and credentials should be supplied through environment variables, not committed secrets.
+- Run the root Gradle test/build commands listed in `docs/reporting-service-roadmap.md` after extracting this ZIP.
