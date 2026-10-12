@@ -4,7 +4,7 @@ Read-optimized reporting boundary for the RECNAILE Procurement Platform. It cons
 
 ## APIs
 
-- `GET /api/v1/reporting/dashboard/summary` — operational KPI counts.
+- `GET /api/v1/reporting/dashboard/summary?departmentId=...&projectId=...` — operational KPI counts, aging, procurement/inventory activity, and applied scope filters. Department/project values are constrained by JWT reporting scope claims.
 - `GET /api/v1/reporting/dashboard/freshness` — latest observed event/update time and event count.
 - `GET /api/v1/reporting/reports/period-summary?period=DAILY|WEEKLY|MONTHLY|QUARTERLY|HALF_YEARLY|YEARLY&from=YYYY-MM-DD&to=YYYY-MM-DD` — event counts and quantity totals for UTC date boundaries.
 - `GET /api/v1/reporting/reports/projections?page=0&size=25&sort=updatedAt,desc` — pageable projection listing with entityType/status/departmentId/projectId filters.
@@ -68,3 +68,22 @@ docker compose up -d reporting-service
 Invoke-RestMethod http://localhost:8092/actuator/health
 ```
 
+
+
+## Phase 7 lifecycle projections
+
+The reporting projection processor handles GRN receipt/rejection events, low-stock alert snapshots, outward issue events, return events, and asset lifecycle events. `LOW_STOCK_ALERT` is only the latest quantity reported by that alert; it is not a substitute for an authoritative inventory ledger. Run the repository-level Gradle test and build commands before deployment.
+
+
+## Phase 8 — KPI and dashboard aggregation
+
+The dashboard summary aggregates KPI counts and quantities from `reporting_projections` and `reporting_event_facts` only. It supports optional department/project filters and applies the caller's JWT reporting scope before querying. KPIs include pending/aging indents, PO lifecycle counts, inward accepted/rejected quantities, latest observed low-stock alert quantities, outward issues, returns, assets and SLA breaches. The response includes applied filters and report freshness.
+
+**Interpretation note:** low-stock values summarize the latest low-stock alert projections; they are not a complete authoritative inventory ledger. Reporting is eventually consistent.
+
+
+## Phase 8 dashboard aggregation
+
+The dashboard response contains `generatedAt`, the applied `filters`, a `freshness` object and operational KPI fields. Optional department/project filters are constrained by JWT claims through `ReportingScopePolicy`; a caller cannot widen a department or project scope granted by the token. Aggregations execute only against this service's own `reporting_projections` and `reporting_event_facts` collections.
+
+The approval-aging metrics use the projection's `updatedAt` as the current aging reference because the projection currently does not expose a dedicated immutable approval-start timestamp. Treat these metrics as projection-update aging until an authoritative approval timestamp is included in the reporting read model. Low-stock KPIs describe items observed in low-stock alert events only; they are not a complete inventory balance. All dashboard figures are eventually consistent.

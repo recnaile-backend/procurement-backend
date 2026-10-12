@@ -48,11 +48,12 @@ public class ReportingEventProcessor {
             case "INDENT_SUBMITTED", "INDENT_VERIFIED", "INDENT_APPROVED", "INDENT_REJECTED" -> { entityType="INDENT"; entityId=text(p,"indentId"); }
             case "PO_CREATED", "PO_ISSUED", "PO_CLOSED" -> { entityType="PURCHASE_ORDER"; entityId=text(p,"poId"); related=text(p,"indentId"); }
             case "GOODS_RECEIVED", "REJECTION_FLAGGED" -> { entityType="INWARD"; entityId=text(p,"grnId"); related=text(p,"poId"); }
-            case "LOW_STOCK_ALERT" -> { entityType="STOCK"; entityId=text(p,"itemId"); }
+            case "LOW_STOCK_ALERT" -> { entityType="STOCK"; entityId=text(p,"itemId"); status="LOW_STOCK"; }
             case "OUTWARD_ISSUED" -> { entityType="OUTWARD"; entityId=text(p,"outwardId"); }
-            case "RETURN_RECORDED" -> { entityType="RETURN"; entityId=text(p,"returnId"); condition=text(p,"condition"); }
+            case "RETURN_RECORDED" -> { entityType="RETURN"; entityId=text(p,"returnId"); related=text(p,"assetId"); condition=text(p,"condition"); }
             case "ASSET_STATUS_CHANGED" -> { entityType="ASSET"; entityId=text(p,"assetId"); status=text(p,"newStatus"); }
-            case "ASSET_CLOSURE_REQUESTED", "ASSET_CREATION_REQUESTED" -> { entityType="ASSET_REQUEST"; entityId=eventId; related=text(p,"assetId"); }
+            case "ASSET_CREATION_REQUESTED" -> { entityType="ASSET_REQUEST"; entityId=eventId; related=text(p,"outwardId"); status="CREATION_REQUESTED"; }
+            case "ASSET_CLOSURE_REQUESTED" -> { entityType="ASSET"; entityId=text(p,"assetId"); related=text(p,"returnId"); status="CLOSURE_REQUESTED"; }
             case "SLA_BREACH" -> { entityType="SLA_BREACH"; entityId=eventId; related=text(p,"entityId"); status="BREACHED"; }
             case "AUDIT_EVENT" -> { entityType=text(p,"entityType"); entityId=text(p,"entityId"); actor=text(p,"actorId"); status=text(p,"afterStatus"); }
             default -> { entityType="UNMAPPED"; entityId=eventId; }
@@ -63,6 +64,8 @@ public class ReportingEventProcessor {
             case "PO_CREATED" -> "CREATED"; case "PO_ISSUED" -> "ISSUED"; case "PO_CLOSED" -> "CLOSED";
             case "GOODS_RECEIVED" -> "RECEIVED"; case "RETURN_RECORDED" -> condition; default -> null;
         };
+        Double quantity = number(p, "quantity");
+        if ("GOODS_RECEIVED".equals(type) && quantity == null) quantity = number(p, "acceptedQuantity");
         Double orderedQuantity = number(p, "orderedQuantity");
         Double estimatedValue = number(p, "estimatedValue");
         if ("PO_CREATED".equals(type)) {
@@ -70,7 +73,7 @@ public class ReportingEventProcessor {
             estimatedValue = sumItemValues(p.path("items"));
         }
         return new ReportingFact(eventId,type,occurred,producer,entityType,entityId,related,text(p,"departmentId"),text(p,"projectId"),text(p,"itemId"),text(p,"vendorId"),status,condition,actor,
-            number(p,"quantity"),orderedQuantity,number(p,"acceptedQuantity"),number(p,"rejectedQuantity"),estimatedValue,number(p,"unitPrice"),number(p,"slaWindowHours"),number(p,"overdueSinceHours"),correlation,trace,Instant.now());
+            quantity,orderedQuantity,number(p,"acceptedQuantity"),number(p,"rejectedQuantity"),estimatedValue,number(p,"unitPrice"),number(p,"slaWindowHours"),number(p,"overdueSinceHours"),correlation,trace,Instant.now());
     }
 
     private void updateProjection(ReportingFact f, JsonNode p) {
@@ -85,7 +88,7 @@ public class ReportingEventProcessor {
         String item = f.itemId()!=null ? f.itemId() : old==null ? null : old.itemId();
         String vendor = f.vendorId()!=null ? f.vendorId() : old==null ? null : old.vendorId();
         String related = f.relatedEntityId()!=null ? f.relatedEntityId() : old==null ? null : old.relatedEntityId();
-        Double qty = first(number(p,"quantity"), old==null?null:old.quantity());
+        Double qty = first(f.quantity(), number(p,"quantity"), old==null?null:old.quantity());
         Double est = first(f.estimatedValue(), number(p,"estimatedValue"), old==null?null:old.estimatedValue());
         Double ordered = first(f.orderedQuantity(), number(p,"orderedQuantity"), old==null?null:old.orderedQuantity());
         Double accepted = first(number(p,"acceptedQuantity"), old==null?null:old.acceptedQuantity());
@@ -93,7 +96,7 @@ public class ReportingEventProcessor {
         Double available = first(number(p,"availableQuantity"), old==null?null:old.availableQuantity());
         Double threshold = first(number(p,"reorderThreshold"), old==null?null:old.reorderThreshold());
         String condition = f.condition()!=null?f.condition():old==null?null:old.condition();
-        String actor = first(f.actorId(), text(p,"approvedBy"), text(p,"verifiedBy"), text(p,"issuedBy"), text(p,"receivedBy"), text(p,"returnedBy"), old==null?null:old.actorId());
+        String actor = first(f.actorId(), text(p,"approvedBy"), text(p,"verifiedBy"), text(p,"issuedBy"), text(p,"receivedBy"), text(p,"returnedBy"), text(p,"issuedTo"), text(p,"assignedTo"), text(p,"changedBy"), old==null?null:old.actorId());
         projections.save(new ReportingProjection(id,f.entityType(),f.entityId(),status,dept,project,item,vendor,related,condition,qty,est,ordered,accepted,rejected,available,threshold,actor,f.producer(),old==null?f.occurredAt():old.createdAt(),Instant.now(),f.occurredAt(),f.eventId(),f.eventType()));
     }
     private static Double sumItemQuantities(JsonNode items) {
