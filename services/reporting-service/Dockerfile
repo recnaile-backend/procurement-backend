@@ -14,5 +14,5 @@ WORKDIR /app
 COPY --from=build /workspace/services/reporting-service/build/libs/reporting-service.jar /app/app.jar
 USER 10001:10001
 EXPOSE 8092
-HEALTHCHECK --interval=20s --timeout=5s --start-period=40s --retries=5 CMD wget -qO- http://127.0.0.1:8092/actuator/health/liveness || exit 1
+HEALTHCHECK --interval=20s --timeout=5s --start-period=40s --retries=5 CMD wget -qO- http://127.0.0.1:8092/livez || exit 1
 ENTRYPOINT ["java","-XX:+UseContainerSupport","-XX:MaxRAMPercentage=75.0","-Djava.security.egd=file:/dev/./urandom","-jar","/app/app.jar"]
