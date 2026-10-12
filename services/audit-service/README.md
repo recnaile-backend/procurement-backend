@@ -6,10 +6,15 @@ This module belongs at `services/audit-service` in the existing RECNAILE Gradle 
 
 - **Phases 01–07:** Domain model, MongoDB append-only persistence, Kafka consumption, duplicate-event handling, application services, read-only APIs, and JWT authorization aligned to the Auth Service's HS256 token implementation.
 - **Phase 08 package:** Adds an event-schema reference and transactional-outbox producer integration template.
-- **Phase 09:** Adds SHA-256 integrity digests, an MD-only integrity verification endpoint, and a non-destructive retention preview. Existing records without a digest are reported as legacy/unverifiable; no records are automatically deleted. Duplicate event IDs remain idempotent only when content matches exactly.
-- **Phase 10:** Hardens query performance and API contract coverage. Correlation/trace history has compound indexes aligned with descending timestamp queries, with regression tests for index definitions and OpenAPI coverage for service/action, integrity, and retention-preview endpoints.
+- **Phase 09:** Adds SHA-256 digests to persisted audit records and a non-destructive retention preview. No public integrity-verification API is exposed, and no records are automatically deleted. Duplicate event IDs remain idempotent only when content matches exactly.
+- **Phase 10:** Hardens query performance and API contract coverage. Correlation/trace history has compound indexes aligned with descending timestamp queries, with regression tests for index definitions and OpenAPI coverage for service/action and retention-preview endpoints.
 - **Phase 11:** Centralizes actor identity resolution. The validated Auth Service JWT's `employeeId` is the preferred business actor identity; `sub` is used only as a compatibility fallback for older tokens. Regression tests cover both claims and missing identity. This is identity resolution for audit access, not notification-recipient delivery.
 - **Phase 12:** Hardens authorization regression coverage for employee self-history, global PROCUREMENT/MD access, MD-only operations, `ROLE_`-prefixed role claims, missing claims, and identity-claim precedence. The existing stateless HS256 resource-server validation, issuer validation, and JSON 401/403 handlers are preserved.
+- **Phase 13:** Configurable Kafka retry policy and dead-letter routing.
+- **Phase 14:** MD-only replay endpoint for a caller-supplied failed event envelope.
+- **Phase 15:** Micrometer ingestion outcome counters.
+- **Phase 16:** OpenAPI documentation and observability hardening.
+- **Phase 17:** Production verification checklist and final integration guidance.
 
 **Important scope note:** The available files do not contain the complete current source for every business service. Therefore this ZIP does not claim that producers have already been changed in all business services. Apply the template to each producer using that service's existing outbox implementation and reconcile the schema with the authoritative root `contracts/events/AUDIT_EVENT.schema.json` before rollout. This avoids inventing producer code or breaking service-specific transaction boundaries.
 
@@ -33,11 +38,47 @@ Audit Service validates HS256 tokens using `JWT_SECRET_KEY` as UTF-8 bytes and `
 ## Phase 09 integrity and retention controls
 
 - New audit events receive a SHA-256 digest over persisted event fields. The digest is intended to detect accidental or unauthorized field changes; it is not a digital signature and does not protect against an attacker who can rewrite both fields and digest.
-- `GET /api/v1/audit-events/operations/integrity/{eventId}` verifies one event. MD role required.
 - `GET /api/v1/audit-events/operations/retention-preview` reports eligible records only. MD role required; it never deletes or modifies records.
 - `AUDIT_RETENTION_DAYS` defaults to `0` (disabled). Set a positive value only after the platform retention policy is approved. No TTL index or destructive deletion job is created.
 - Kafka redelivery is controlled through the existing stable event ID and exact-content duplicate detection. A conflicting event ID is rejected, not overwritten.
 
+
+
+## Swagger UI and OpenAPI
+
+When the service is running locally on its default port, open:
+
+- **Swagger UI:** `http://localhost:8091/swagger-ui/index.html`
+- **OpenAPI JSON:** `http://localhost:8091/v3/api-docs`
+- **OpenAPI YAML:** `http://localhost:8091/v3/api-docs.yaml`
+
+Swagger UI is provided by `springdoc-openapi-starter-webmvc-ui`. The documentation endpoints are public so developers can inspect the contract; the actual audit APIs remain protected by JWT and role/entity authorization. In Swagger UI, use **Authorize** and enter `Bearer <access-token>` (or the token in the format requested by the UI) before trying protected endpoints. Do not paste tokens into screenshots or commit them.
+
+## API error response contract
+
+Errors use the standard envelope:
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "You are not authorized to access this audit data",
+    "traceId": null
+  }
+}
+```
+
+Common HTTP outcomes documented in Swagger UI:
+
+- `400 VALIDATION_ERROR`: invalid UUID, pagination values, request JSON, or request validation.
+- `401 UNAUTHENTICATED`: bearer token is missing or invalid (including issuer/signature validation).
+- `403 FORBIDDEN`: token is valid but its role or data scope does not permit the operation.
+- `404 NOT_FOUND`: the requested audit event does not exist, where applicable.
+- `500 INTERNAL_ERROR`: unexpected server error; the response avoids exposing internal exception details. Use `traceId` when available to correlate logs.
+
+Not every status applies to every endpoint; consult each endpoint’s response documentation in Swagger UI.
 
 ## Configuration
 
@@ -57,7 +98,7 @@ Run from repository root. Back up or commit current work before replacing the mo
 
 ```powershell
 Remove-Item -Recurse -Force .\services\audit-service
-Expand-Archive .\audit-service-phase-12-identity-and-authorization.zip -DestinationPath .\services -Force
+Expand-Archive .\audit-service-phase-17-no-integrity-api.zip -DestinationPath .\services -Force
 ```
 
 ## Test and build
@@ -77,16 +118,16 @@ Ensure the Audit Service block is enabled in root Compose and receives `JWT_SECR
 
 ## Git commit summary
 
-**Summary:** Built on Phase 10 with centralized employee/business actor identity resolution and expanded authorization regression tests through Phase 12. Preserved query-aligned indexes, OpenAPI coverage, Phase 9 integrity/retention safeguards, HS256 Auth Service compatibility, append-only persistence, and exactly one README. Producer integration remains a template until applied to each business service in the complete repository.
+**Summary:** Complete Audit Service update through Phase 17 with identity and authorization hardening, configurable Kafka retries/DLT, MD-only replay, ingestion metrics, Swagger/OpenAPI documentation, API error response documentation, retention safeguards, HS256 Auth Service compatibility, and append-only persistence. The integrity-verification HTTP endpoint has been removed. Producer integration remains a template until applied to each business service in the complete repository.
 
 ```powershell
 git add services/audit-service
-git commit -m "feat(audit-service): harden identity and authorization"
+git commit -m "feat(audit-service): remove integrity endpoint"
 ```
 
 ## Verification status
 
-The Phase 9 startup fix is preserved: `AuditRetentionService` uses an explicitly marked production constructor and retains its package-private clock constructor for unit tests. Packaging checks include ZIP integrity, exactly one README, JSON syntax, YAML parsing, and presence of Phase 10 indexes plus Phase 11/12 identity and authorization tests. Gradle compilation/tests and Docker startup could not be executed in this packaging environment; run the supplied Gradle commands in the full repository before deployment. Do not treat static packaging checks as proof that tests pass. Integrity digests detect changes to stored fields but are not a substitute for externally protected signatures or immutable storage. Retention remains preview-only and does not delete records.
+The Phase 9 startup fix is preserved: `AuditRetentionService` uses an explicitly marked production constructor and retains its package-private clock constructor for unit tests. Packaging checks include ZIP integrity, exactly one README, JSON syntax, YAML parsing, and presence of Phase 10 indexes plus Phase 11/12 identity and authorization tests. Gradle compilation/tests and Docker startup could not be executed in this packaging environment; run the supplied Gradle commands in the full repository before deployment. Do not treat static packaging checks as proof that tests pass. Persisted SHA-256 digests are internal metadata and no integrity-verification API is exposed. Retention remains preview-only and does not delete records.
 
 
 ## Phase 9 compilation fix

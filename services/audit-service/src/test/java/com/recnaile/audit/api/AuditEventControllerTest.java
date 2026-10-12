@@ -1,7 +1,6 @@
 package com.recnaile.audit.api;
 
 import com.recnaile.audit.application.AuditEventQueryService;
-import com.recnaile.audit.application.AuditIntegrityService;
 import com.recnaile.audit.application.AuditRetentionService;
 import com.recnaile.audit.persistence.AuditEventDocument;
 import com.recnaile.audit.security.AuditAccessPolicy;
@@ -54,7 +53,7 @@ class AuditEventControllerTest {
 
     private static AuditEventController controller(AuditEventQueryService service) {
         return new AuditEventController(service, new AuditAccessPolicy(),
-                mock(AuditIntegrityService.class), mock(AuditRetentionService.class));
+                mock(AuditRetentionService.class));
     }
 
     private static Jwt jwt(String role, String subject) {
