@@ -82,3 +82,16 @@ The ZIP has been structurally checked, but Gradle tests and MongoDB query-plan c
 - Updated log pattern for trace/span/correlation IDs and documented Actuator, Prometheus, OTLP, and operational checks.
 - Added focused correlation-ID filter tests.
 - Archive contents have not been Gradle-tested or integration-tested in the full repository environment. Keep Phase 14 verification pending until tests/build and container checks pass.
+
+
+## Phase 15 — Platform integration and release
+
+**Package status: implemented; platform release verification required.**
+
+- Dedicated liveness/readiness endpoints; readiness includes MongoDB.
+- Public health responses do not expose health details.
+- Docker healthcheck targets `/livez`; graceful shutdown is configured.
+- Actuator info exposes configurable version and release-track metadata.
+- Added release checklist and PowerShell verification script.
+
+Do not mark production release complete until the root-repository Gradle tests/build, container health, authenticated report API, Kafka event ingestion, and Prometheus scrape have been verified in the target environment.

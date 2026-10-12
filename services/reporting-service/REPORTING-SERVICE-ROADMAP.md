@@ -15,10 +15,10 @@
 | 9 | Time-period reports and snapshots | Implemented; verify |
 | 10 | Reporting APIs | Implemented; verify |
 | 11 | Security and scope enforcement | Implemented; verify |
-| 12 | Indexes and performance | Implemented; local verification pending |
-| 13 | Rebuild and recovery | Implemented in this package; verification pending |
-| 14 | Tests, documentation and observability | Implemented in this package; verification pending |
-| 15 | Platform integration and release | Remaining |
+| 12 | Indexes and performance | Complete; user-confirmed build/container healthy |
+| 13 | Rebuild and recovery | Complete; user-confirmed build/container healthy |
+| 14 | Tests, documentation and observability | Complete; user-confirmed build/container healthy |
+| 15 | Platform integration and release | Implemented in this package; final platform verification required |
 
 ## Verify from the procurement-backend repository root
 
@@ -68,3 +68,31 @@ All requests require a valid JWT. The snapshot capture route requires MD or REPO
 - Logging pattern includes trace/span/correlation IDs; OTLP exporter and tracing bridge are retained.
 - Focused filter tests and an operational metrics runbook are included.
 - Verify Gradle tests/build, `/actuator/health`, `/actuator/prometheus`, and a representative API request with a correlation ID before marking complete.
+
+
+## Phase 15 — Platform integration and release
+
+- Added `/livez` and `/readyz` probe paths on the application port. Liveness checks process state; readiness checks process readiness and MongoDB connectivity. Health details are not exposed publicly.
+- Docker health checks use `/livez`; Spring graceful shutdown allows active requests and lifecycle components up to 20 seconds to stop.
+- `/actuator/info` reports service name, description, release version (`REPORTING_SERVICE_VERSION`) and release track (`REPORTING_RELEASE_TRACK`).
+- Added a release verification script and a platform release checklist. This package does not include the root platform's Compose, gateway, Prometheus, or Grafana files; validate those against the actual repository before release.
+- Phase 15 is package-complete, but the final release remains subject to the root Gradle test/build, Docker health, authenticated API smoke test, Kafka event ingestion, and observability checks below.
+
+### Release verification
+
+From the repository root, run:
+
+```powershell
+.\gradlew :services:reporting-service:clean :services:reporting-service:test
+.\gradlew :services:reporting-service:build
+docker compose build reporting-service
+docker compose up -d reporting-service
+docker compose ps reporting-service
+Invoke-RestMethod http://localhost:8092/livez
+Invoke-RestMethod http://localhost:8092/readyz
+Invoke-RestMethod http://localhost:8092/actuator/info
+Invoke-WebRequest http://localhost:8092/actuator/prometheus
+docker compose logs --tail=200 reporting-service
+```
+
+`/livez` and `/readyz` should return HTTP 200; readiness should not pass while MongoDB is unavailable. The dashboard/report APIs require a valid JWT, so run at least one authenticated smoke test using a test token issued under the platform's current Auth Service policy. Publish or replay one representative event in a non-production environment and verify a corresponding reporting fact/projection and the ingestion metrics.

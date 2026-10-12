@@ -136,3 +136,11 @@ Admins with `MD` or `REPORTING` roles can inspect recovery counts at `GET /api/v
 - Actuator exposes health, metrics and Prometheus scrape endpoints. Reporting collection gauges expose fact, projection and snapshot counts. Kafka ingestion metrics track messages received, processing failures and processing duration.
 - Focused correlation-ID tests cover safe propagation, unsafe-header replacement and MDC cleanup.
 - See `PHASE-14-TESTS-DOCUMENTATION-OBSERVABILITY.md` for verification commands, metrics and operational guidance.
+
+
+## Phase 15 — Platform integration and release
+
+- Liveness: `GET /livez`; readiness: `GET /readyz` (includes MongoDB health). Health details remain hidden from unauthenticated callers.
+- Release metadata: `GET /actuator/info`, configured with `REPORTING_SERVICE_VERSION` and `REPORTING_RELEASE_TRACK`.
+- Graceful shutdown is enabled with a 20-second shutdown phase timeout; Docker health checks use `/livez`.
+- See `PHASE-15-PLATFORM-INTEGRATION-RELEASE.md` and `scripts/verify-reporting-release.ps1` for the release checklist.

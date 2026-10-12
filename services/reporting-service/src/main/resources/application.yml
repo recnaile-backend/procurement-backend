@@ -1,4 +1,6 @@
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
   application:
     name: reporting-service
   data:
@@ -21,6 +23,7 @@ spring:
       concurrency: ${KAFKA_CONSUMER_CONCURRENCY:1}
 server:
   port: ${SERVICE_PORT:8092}
+  shutdown: graceful
 logging:
   pattern:
     level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-},%X{correlationId:-}]"
@@ -33,6 +36,16 @@ management:
     health:
       probes:
         enabled: true
+        add-additional-paths: true
+      show-details: never
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,mongo
+  info:
+    env:
+      enabled: true
   tracing:
     sampling:
       probability: ${TRACING_SAMPLE_RATE:0.1}
@@ -43,6 +56,12 @@ otel:
 security:
   jwt:
     secret-key: ${JWT_SECRET_KEY:}
+info:
+  app:
+    name: ${spring.application.name}
+    description: Read-optimized procurement reporting boundary
+    version: ${REPORTING_SERVICE_VERSION:1.0.0}
+    release-track: ${REPORTING_RELEASE_TRACK:stable}
 app:
   service-name: reporting-service
   description: "Read-optimized procurement reporting boundary"

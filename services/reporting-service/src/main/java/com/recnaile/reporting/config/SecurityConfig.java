@@ -27,7 +27,7 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
-                .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info", "/actuator/prometheus", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/health/**", "/livez", "/readyz", "/actuator/info", "/actuator/prometheus", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/api/v1/reporting/dashboard/**").hasAnyRole("PROCUREMENT", "TL", "MD", "REPORTING")
                 .requestMatchers("/api/v1/reporting/reports/**").hasAnyRole("PROCUREMENT", "TL", "MD", "REPORTING", "AUDIT")
                 .requestMatchers("/api/v1/reporting/admin/**").hasAnyRole("MD", "REPORTING")
