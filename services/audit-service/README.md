@@ -7,6 +7,7 @@ This module belongs at `services/audit-service` in the existing RECNAILE Gradle 
 - **Phases 01–07:** Domain model, MongoDB append-only persistence, Kafka consumption, duplicate-event handling, application services, read-only APIs, and JWT authorization aligned to the Auth Service's HS256 token implementation.
 - **Phase 08 package:** Adds an event-schema reference and transactional-outbox producer integration template.
 - **Phase 09:** Adds SHA-256 integrity digests, an MD-only integrity verification endpoint, and a non-destructive retention preview. Existing records without a digest are reported as legacy/unverifiable; no records are automatically deleted. Duplicate event IDs remain idempotent only when content matches exactly.
+- **Phase 10:** Hardens query performance and API contract coverage. Correlation/trace history now has compound indexes aligned with descending timestamp queries, and regression tests assert these index definitions. OpenAPI documents the service/action, integrity, and retention-preview endpoints and their authorization responses.
 
 **Important scope note:** The available files do not contain the complete current source for every business service. Therefore this ZIP does not claim that producers have already been changed in all business services. Apply the template to each producer using that service's existing outbox implementation and reconcile the schema with the authoritative root `contracts/events/AUDIT_EVENT.schema.json` before rollout. This avoids inventing producer code or breaking service-specific transaction boundaries.
 
@@ -47,7 +48,6 @@ Audit Service validates HS256 tokens using `JWT_SECRET_KEY` as UTF-8 bytes and `
 - JWT signing secret: `JWT_SECRET_KEY` (required; do not commit `.env`).
 - JWT issuer: `JWT_ISSUER` (default `auth-service`).
 - Retention preview: `AUDIT_RETENTION_DAYS` (default `0`, disabled).
-- Retention preview: `AUDIT_RETENTION_DAYS` (default `0`, disabled).
 
 ## Replace module (PowerShell)
 
@@ -55,7 +55,7 @@ Run from repository root. Back up or commit current work before replacing the mo
 
 ```powershell
 Remove-Item -Recurse -Force .\services\audit-service
-Expand-Archive .\audit-service-phase-09-startup-fix-v2.zip -DestinationPath .\services -Force
+Expand-Archive .\audit-service-phase-10-query-hardening.zip -DestinationPath .\services -Force
 ```
 
 ## Test and build
@@ -75,16 +75,16 @@ Ensure the Audit Service block is enabled in root Compose and receives `JWT_SECR
 
 ## Git commit summary
 
-**Summary:** Added event integrity digests and MD-only verification, a non-destructive retention preview, and explicit replay/duplicate safeguards. Preserved HS256 Auth Service compatibility, append-only persistence, and exactly one README. Producer integration remains a template until applied to each business service in the complete repository.
+**Summary:** Added query-aligned compound indexes for correlation/trace history, regression coverage for the index definitions, and OpenAPI coverage for service/action, integrity, and retention-preview operations. Preserved Phase 9 integrity/retention safeguards, HS256 Auth Service compatibility, append-only persistence, and exactly one README. Producer integration remains a template until applied to each business service in the complete repository.
 
 ```powershell
 git add services/audit-service
-git commit -m "feat(audit-service): add integrity and retention controls"
+git commit -m "feat(audit-service): harden audit query indexes and API docs"
 ```
 
 ## Verification status
 
-The Spring startup failure reported for `AuditRetentionService` is fixed by explicitly marking its production constructor with `@Autowired`; the package-private clock constructor remains available to unit tests. ZIP structure, Java source patch, YAML duplicate-key count, and schema JSON syntax were checked during packaging. Gradle compilation/tests and Docker startup were not executable in this packaging environment; run both Gradle commands and verify the container health in the full repository before deploying. Integrity digests detect changes to stored fields but are not a substitute for externally protected signatures or immutable storage. The retention endpoint is preview-only and does not delete records.
+The Phase 9 startup fix is preserved: `AuditRetentionService` uses an explicitly marked production constructor and retains its package-private clock constructor for unit tests. Packaging checks include ZIP integrity, exactly one README, JSON syntax, YAML parsing, and the presence of the Phase 10 index definitions and OpenAPI paths. Gradle compilation/tests and Docker startup could not be executed in this packaging environment; run the supplied Gradle commands and verify container health in the full repository before deployment. Integrity digests detect changes to stored fields but are not a substitute for externally protected signatures or immutable storage. Retention remains preview-only and does not delete records.
 
 
 ## Phase 9 compilation fix

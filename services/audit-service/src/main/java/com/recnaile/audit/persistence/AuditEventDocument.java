@@ -17,8 +17,8 @@ import java.util.UUID;
     @CompoundIndex(name = "idx_audit_entity_history", def = "{'entityType': 1, 'entityId': 1, 'timestamp': -1}"),
     @CompoundIndex(name = "idx_audit_actor_history", def = "{'actorId': 1, 'timestamp': -1}"),
     @CompoundIndex(name = "idx_audit_service_action_time", def = "{'service': 1, 'action': 1, 'timestamp': -1}"),
-    @CompoundIndex(name = "idx_audit_correlation", def = "{'correlationId': 1}", sparse = true),
-    @CompoundIndex(name = "idx_audit_trace", def = "{'traceId': 1}", sparse = true)
+    @CompoundIndex(name = "idx_audit_correlation_time", def = "{'correlationId': 1, 'timestamp': -1}", sparse = true),
+    @CompoundIndex(name = "idx_audit_trace_time", def = "{'traceId': 1, 'timestamp': -1}", sparse = true)
 })
 public record AuditEventDocument(
     @Id UUID eventId,

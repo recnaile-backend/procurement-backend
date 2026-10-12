@@ -52,5 +52,10 @@ class AuditEventDocumentTest {
         CompoundIndexes indexes = AuditEventDocument.class.getAnnotation(CompoundIndexes.class);
         assertNotNull(indexes);
         assertTrue(indexes.value().length >= 5);
+        List<String> indexNames = java.util.Arrays.stream(indexes.value())
+            .map(org.springframework.data.mongodb.core.index.CompoundIndex::name)
+            .toList();
+        assertTrue(indexNames.contains("idx_audit_correlation_time"));
+        assertTrue(indexNames.contains("idx_audit_trace_time"));
     }
 }
