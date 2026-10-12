@@ -31,5 +31,34 @@ class AuditAccessPolicyTest {
         assertDoesNotThrow(() -> policy.requireEventAccess(event("u1"), jwt("EMPLOYEE", "u1")));
         assertThrows(AccessDeniedException.class, () -> policy.requireEventAccess(event("u2"), jwt("EMPLOYEE", "u1")));
     }
+    @Test void employeeIdTakesPrecedenceOverMongoSubject() {
+        Jwt token = Jwt.withTokenValue("token").header("alg", "HS256")
+                .claim("sub", "mongo-user-123").claim("employeeId", "EMP-007")
+                .claim("roles", List.of("EMPLOYEE")).build();
+        assertDoesNotThrow(() -> policy.requireActorHistoryAccess("EMP-007", token));
+        assertThrows(AccessDeniedException.class,
+                () -> policy.requireActorHistoryAccess("mongo-user-123", token));
+    }
+
+    @Test void subjectIsFallbackWhenEmployeeIdIsMissingOrBlank() {
+        Jwt withoutEmployeeId = Jwt.withTokenValue("token").header("alg", "HS256")
+                .claim("sub", "mongo-user-123").claim("roles", List.of("EMPLOYEE")).build();
+        Jwt blankEmployeeId = Jwt.withTokenValue("token").header("alg", "HS256")
+                .claim("sub", "mongo-user-123").claim("employeeId", "  ")
+                .claim("roles", List.of("EMPLOYEE")).build();
+        assertDoesNotThrow(() -> policy.requireActorHistoryAccess("mongo-user-123", withoutEmployeeId));
+        assertDoesNotThrow(() -> policy.requireActorHistoryAccess("mongo-user-123", blankEmployeeId));
+    }
+
+    @Test void mdOnlyOperationsRejectMissingOrNonMdRoles() {
+        assertThrows(AccessDeniedException.class, () -> policy.requireMdOperations(null));
+        assertThrows(AccessDeniedException.class, () -> policy.requireMdOperations(jwt("PROCUREMENT", "p1")));
+        assertDoesNotThrow(() -> policy.requireMdOperations(jwt("MD", "m1")));
+    }
+
+    @Test void rolePrefixIsNormalizedForSpringStyleRoleClaim() {
+        assertDoesNotThrow(() -> policy.requireGlobalAuditRead(jwt("ROLE_MD", "m1")));
+    }
+
     @Test void unknownAdminRoleDoesNotGrantGlobalAccess() { assertThrows(AccessDeniedException.class, () -> policy.requireGlobalAuditRead(jwt("ADMIN", "admin1"))); }
 }

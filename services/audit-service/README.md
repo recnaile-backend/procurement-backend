@@ -7,7 +7,9 @@ This module belongs at `services/audit-service` in the existing RECNAILE Gradle 
 - **Phases 01–07:** Domain model, MongoDB append-only persistence, Kafka consumption, duplicate-event handling, application services, read-only APIs, and JWT authorization aligned to the Auth Service's HS256 token implementation.
 - **Phase 08 package:** Adds an event-schema reference and transactional-outbox producer integration template.
 - **Phase 09:** Adds SHA-256 integrity digests, an MD-only integrity verification endpoint, and a non-destructive retention preview. Existing records without a digest are reported as legacy/unverifiable; no records are automatically deleted. Duplicate event IDs remain idempotent only when content matches exactly.
-- **Phase 10:** Hardens query performance and API contract coverage. Correlation/trace history now has compound indexes aligned with descending timestamp queries, and regression tests assert these index definitions. OpenAPI documents the service/action, integrity, and retention-preview endpoints and their authorization responses.
+- **Phase 10:** Hardens query performance and API contract coverage. Correlation/trace history has compound indexes aligned with descending timestamp queries, with regression tests for index definitions and OpenAPI coverage for service/action, integrity, and retention-preview endpoints.
+- **Phase 11:** Centralizes actor identity resolution. The validated Auth Service JWT's `employeeId` is the preferred business actor identity; `sub` is used only as a compatibility fallback for older tokens. Regression tests cover both claims and missing identity. This is identity resolution for audit access, not notification-recipient delivery.
+- **Phase 12:** Hardens authorization regression coverage for employee self-history, global PROCUREMENT/MD access, MD-only operations, `ROLE_`-prefixed role claims, missing claims, and identity-claim precedence. The existing stateless HS256 resource-server validation, issuer validation, and JSON 401/403 handlers are preserved.
 
 **Important scope note:** The available files do not contain the complete current source for every business service. Therefore this ZIP does not claim that producers have already been changed in all business services. Apply the template to each producer using that service's existing outbox implementation and reconcile the schema with the authoritative root `contracts/events/AUDIT_EVENT.schema.json` before rollout. This avoids inventing producer code or breaking service-specific transaction boundaries.
 
@@ -55,7 +57,7 @@ Run from repository root. Back up or commit current work before replacing the mo
 
 ```powershell
 Remove-Item -Recurse -Force .\services\audit-service
-Expand-Archive .\audit-service-phase-10-query-hardening.zip -DestinationPath .\services -Force
+Expand-Archive .\audit-service-phase-12-identity-and-authorization.zip -DestinationPath .\services -Force
 ```
 
 ## Test and build
@@ -75,16 +77,16 @@ Ensure the Audit Service block is enabled in root Compose and receives `JWT_SECR
 
 ## Git commit summary
 
-**Summary:** Added query-aligned compound indexes for correlation/trace history, regression coverage for the index definitions, and OpenAPI coverage for service/action, integrity, and retention-preview operations. Preserved Phase 9 integrity/retention safeguards, HS256 Auth Service compatibility, append-only persistence, and exactly one README. Producer integration remains a template until applied to each business service in the complete repository.
+**Summary:** Built on Phase 10 with centralized employee/business actor identity resolution and expanded authorization regression tests through Phase 12. Preserved query-aligned indexes, OpenAPI coverage, Phase 9 integrity/retention safeguards, HS256 Auth Service compatibility, append-only persistence, and exactly one README. Producer integration remains a template until applied to each business service in the complete repository.
 
 ```powershell
 git add services/audit-service
-git commit -m "feat(audit-service): harden audit query indexes and API docs"
+git commit -m "feat(audit-service): harden identity and authorization"
 ```
 
 ## Verification status
 
-The Phase 9 startup fix is preserved: `AuditRetentionService` uses an explicitly marked production constructor and retains its package-private clock constructor for unit tests. Packaging checks include ZIP integrity, exactly one README, JSON syntax, YAML parsing, and the presence of the Phase 10 index definitions and OpenAPI paths. Gradle compilation/tests and Docker startup could not be executed in this packaging environment; run the supplied Gradle commands and verify container health in the full repository before deployment. Integrity digests detect changes to stored fields but are not a substitute for externally protected signatures or immutable storage. Retention remains preview-only and does not delete records.
+The Phase 9 startup fix is preserved: `AuditRetentionService` uses an explicitly marked production constructor and retains its package-private clock constructor for unit tests. Packaging checks include ZIP integrity, exactly one README, JSON syntax, YAML parsing, and presence of Phase 10 indexes plus Phase 11/12 identity and authorization tests. Gradle compilation/tests and Docker startup could not be executed in this packaging environment; run the supplied Gradle commands in the full repository before deployment. Do not treat static packaging checks as proof that tests pass. Integrity digests detect changes to stored fields but are not a substitute for externally protected signatures or immutable storage. Retention remains preview-only and does not delete records.
 
 
 ## Phase 9 compilation fix
