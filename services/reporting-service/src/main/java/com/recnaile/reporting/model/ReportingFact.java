@@ -37,4 +37,18 @@ public record ReportingFact(
     String correlationId,
     String traceId,
     Instant ingestedAt
-) {}
+) {
+    public ReportingFact {
+        requireText(eventId, "eventId");
+        requireText(eventType, "eventType");
+        requireText(producer, "producer");
+        requireText(entityType, "entityType");
+        requireText(entityId, "entityId");
+        if (occurredAt == null) throw new IllegalArgumentException("occurredAt is required");
+        if (ingestedAt == null) throw new IllegalArgumentException("ingestedAt is required");
+    }
+
+    private static void requireText(String value, String field) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " is required");
+    }
+}

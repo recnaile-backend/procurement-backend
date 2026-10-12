@@ -68,7 +68,7 @@ public class ReportingEventProcessor {
 
     private void updateProjection(ReportingFact f, JsonNode p) {
         if ("UNMAPPED".equals(f.entityType())) return;
-        String id = f.entityType()+":"+f.entityId();
+        String id = ReportingProjection.keyFor(f.entityType(), f.entityId());
         Optional<ReportingProjection> existing = projections.findById(id);
         if (existing.isPresent() && existing.get().sourceOccurredAt()!=null && f.occurredAt()!=null && existing.get().sourceOccurredAt().isAfter(f.occurredAt())) return;
         ReportingProjection old = existing.orElse(null);

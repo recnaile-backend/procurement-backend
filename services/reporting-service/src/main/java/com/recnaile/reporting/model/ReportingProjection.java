@@ -36,4 +36,26 @@ public record ReportingProjection(
     Instant sourceOccurredAt,
     String sourceEventId,
     String sourceEventType
-) {}
+) {
+    public ReportingProjection {
+        requireText(id, "id");
+        requireText(entityType, "entityType");
+        requireText(entityId, "entityId");
+        if (!id.equals(entityType + ":" + entityId)) {
+            throw new IllegalArgumentException("id must be entityType + ':' + entityId");
+        }
+        if (createdAt == null) throw new IllegalArgumentException("createdAt is required");
+        if (updatedAt == null) throw new IllegalArgumentException("updatedAt is required");
+    }
+
+    /** Stable composite identity used by every event update for the same business entity. */
+    public static String keyFor(String entityType, String entityId) {
+        requireText(entityType, "entityType");
+        requireText(entityId, "entityId");
+        return entityType + ":" + entityId;
+    }
+
+    private static void requireText(String value, String field) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(field + " is required");
+    }
+}
