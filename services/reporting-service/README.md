@@ -9,7 +9,8 @@ Read-optimized reporting boundary for the RECNAILE Procurement Platform. It cons
 - `GET /api/v1/reporting/reports/period-summary?period=DAILY|WEEKLY|MONTHLY|QUARTERLY|HALF_YEARLY|YEARLY&from=YYYY-MM-DD&to=YYYY-MM-DD` — event counts and quantity totals for UTC date boundaries.
 - `GET /api/v1/reporting/reports/projections?page=0&size=25&sort=updatedAt,desc` — pageable projection listing with entityType/status/departmentId/projectId filters.
 - `GET /api/v1/reporting/reports/events` — pageable retained event facts; optional eventType/from/to/departmentId/projectId filters.
-- `GET /api/v1/reporting/reports/snapshots` — pageable historical daily KPI snapshots.
+- `GET /api/v1/reporting/reports/snapshots?departmentId=...&projectId=...&page=0&size=25&sort=snapshotDate,desc` — pageable historical KPI snapshots for exactly the caller's resolved scope.
+- `POST /api/v1/reporting/admin/snapshots?date=YYYY-MM-DD&departmentId=...&projectId=...` — capture a point-in-time snapshot; MD/REPORTING roles only. Omitting department/project captures a platform-wide snapshot for global roles.
 
 All API endpoints require a JWT. The service validates HS256 tokens using `JWT_SECRET_KEY`, matching the Auth Service and existing resource-server configuration in the supplied repository. The secret must be at least 32 UTF-8 bytes. Confirm the exact issuer/validator policy with the platform security standard before release. Role claims `roles` or `authorities` are mapped to `ROLE_*`. Dashboard and detailed-report role requirements are declared in `config/SecurityConfig.java`. Verify claim shape against the platform Auth Service before release.
 
@@ -87,3 +88,32 @@ The dashboard summary aggregates KPI counts and quantities from `reporting_proje
 The dashboard response contains `generatedAt`, the applied `filters`, a `freshness` object and operational KPI fields. Optional department/project filters are constrained by JWT claims through `ReportingScopePolicy`; a caller cannot widen a department or project scope granted by the token. Aggregations execute only against this service's own `reporting_projections` and `reporting_event_facts` collections.
 
 The approval-aging metrics use the projection's `updatedAt` as the current aging reference because the projection currently does not expose a dedicated immutable approval-start timestamp. Treat these metrics as projection-update aging until an authoritative approval timestamp is included in the reporting read model. Low-stock KPIs describe items observed in low-stock alert events only; they are not a complete inventory balance. All dashboard figures are eventually consistent.
+
+
+## Phase 9 — Time-period reports and historical snapshots
+
+- Period summaries support `DAILY`, `WEEKLY`, `MONTHLY`, `QUARTERLY`, `HALF_YEARLY`, and `YEARLY` UTC buckets.
+- Optional date bounds are validated; `to` cannot precede `from`, and a report range is limited to ten years to avoid accidental unbounded scans.
+- Period counts and quantity totals are derived from retained `reporting_event_facts`, filtered by the resolved department/project scope.
+- Daily snapshots retain point-in-time KPI values and freshness timestamps rather than recomputing past dashboard values from mutable current projections.
+- Snapshot identity includes date and scope. Global snapshots preserve the legacy date-based ID for compatibility; scoped snapshots use a deterministic date/department/project key.
+
+## Phase 10 — Reporting API contracts and query controls
+
+- Dashboard, freshness, period summary, projection, event-fact and snapshot endpoints expose stable JSON responses.
+- List endpoints support page/size/sort controls; page size is limited to 200 and sort fields/directions are allowlisted per endpoint.
+- Event date ranges and report date ranges are validated. Invalid filters and sort fields return HTTP 400 Problem Details.
+- `POST /api/v1/reporting/admin/snapshots` is restricted to the admin route's MD/REPORTING roles.
+- The reporting service only reads its own MongoDB database. It does not call operational services or their databases.
+
+## Phase 11 — Security and scope enforcement
+
+- Every dashboard and report query resolves its requested department/project filters through `ReportingScopePolicy` before accessing data.
+- Global reporting roles (`MD`, `REPORTING`, `PROCUREMENT`) can query platform-wide or explicitly filtered scope. Non-global roles must carry a department or project scope claim.
+- A requested department/project that conflicts with token claims is rejected. A multi-project token must select one allowed project rather than accidentally querying an unrestricted set.
+- Snapshot list queries match the exact resolved scope; a department/project user cannot read platform-wide snapshots.
+- The API gateway and identity provider must issue trusted, validated scope claims. Review the role matrix and JWT signing/issuer configuration against the platform security standard before production.
+
+## Phase 9–11 operational notes
+
+The report boundary is eventually consistent. Period summaries describe retained event facts, while dashboards describe the current projections; these are different views and should not be expected to reconcile instantaneously. A scheduled daily snapshot captures the platform-wide scope. Scope-specific snapshots can be captured by an authorized reporting administrator. Snapshot uniqueness is date + department + project; startup index setup removes the old single-field `snapshotDate_1` index when present and installs the scope-aware compound index. Back up the reporting database before first deployment of this schema change.

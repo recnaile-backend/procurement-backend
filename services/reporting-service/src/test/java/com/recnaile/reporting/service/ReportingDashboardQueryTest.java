@@ -3,6 +3,7 @@ package com.recnaile.reporting.service;
 import com.recnaile.reporting.model.ReportFreshness;
 import com.recnaile.reporting.model.ReportingFact;
 import com.recnaile.reporting.model.ReportingProjection;
+import com.recnaile.reporting.model.ReportPeriod;
 import com.recnaile.reporting.repository.ReportingFactRepository;
 import com.recnaile.reporting.repository.ReportingProjectionRepository;
 import org.bson.Document;
@@ -18,6 +19,8 @@ import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.query.Query;
 
 import java.util.Map;
+import java.time.LocalDate;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -35,16 +38,17 @@ class ReportingDashboardQueryTest {
     @BeforeEach
     void setUp() {
         service = new ReportingQueryService(projectionRepository, factRepository, mongo);
-        when(mongo.count(any(Query.class), eq(ReportingProjection.class))).thenReturn(0L);
-        when(mongo.count(any(Query.class), eq(ReportingFact.class))).thenReturn(0L);
+    }
+
+    private void stubDashboardAggregations() {
         when(mongo.aggregate(any(Aggregation.class), eq("reporting_projections"), eq(Document.class)))
             .thenReturn(aggregationResults);
         when(aggregationResults.getUniqueMappedResult()).thenReturn(null);
-        when(mongo.findOne(any(Query.class), eq(ReportingFact.class))).thenReturn(null);
     }
 
     @Test
     void dashboardReturnsCompleteKpiSetAndScopedFreshness() {
+        stubDashboardAggregations();
         Map<String, Object> result = service.dashboard("DEPT-7", "PROJECT-9");
 
         assertEquals(0L, result.get("pendingIndents"));
@@ -70,7 +74,29 @@ class ReportingDashboardQueryTest {
 
     @Test
     void dashboardWithNoScopeClearlyReportsAllScope() {
+        stubDashboardAggregations();
         Map<String, Object> result = service.dashboard(null, null);
         assertEquals(Map.of("departmentId", "ALL", "projectId", "ALL"), result.get("filters"));
     }
+    @Test
+    void periodSummaryAppliesScopeAndReturnsRequestedPeriodMetadata() {
+        when(mongo.find(any(Query.class), eq(ReportingFact.class))).thenReturn(List.of());
+        Map<String, Object> result = service.periodSummary(ReportPeriod.MONTHLY,
+            LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 12), "DEPT-7", "PROJECT-9");
+        assertEquals(ReportPeriod.MONTHLY, result.get("period"));
+        assertEquals(LocalDate.of(2026, 10, 1), result.get("from"));
+        assertEquals(LocalDate.of(2026, 10, 12), result.get("to"));
+        assertEquals(Map.of("departmentId", "DEPT-7", "projectId", "PROJECT-9"), result.get("filters"));
+        ArgumentCaptor<Query> factQueries = ArgumentCaptor.forClass(Query.class);
+        verify(mongo).find(factQueries.capture(), eq(ReportingFact.class));
+        assertEquals("DEPT-7", factQueries.getValue().getQueryObject().getString("departmentId"));
+        assertEquals("PROJECT-9", factQueries.getValue().getQueryObject().getString("projectId"));
+    }
+
+    @Test
+    void periodSummaryRejectsReversedDateRange() {
+        assertThrows(IllegalArgumentException.class, () -> service.periodSummary(ReportPeriod.DAILY,
+            java.time.LocalDate.of(2026, 10, 12), java.time.LocalDate.of(2026, 10, 11), null, null));
+    }
+
 }

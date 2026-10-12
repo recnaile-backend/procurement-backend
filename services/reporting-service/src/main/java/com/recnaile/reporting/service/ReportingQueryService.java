@@ -134,26 +134,55 @@ public class ReportingQueryService {
         long total=mongo.count(q,ReportingFact.class);q.with(pageable);
         return new PageImpl<>(mongo.find(q,ReportingFact.class),pageable,total);
     }
-    public Map<String,Object> periodSummary(ReportPeriod period,LocalDate from,LocalDate to){
-        LocalDate start=from==null?defaultStart(period,LocalDate.now()):from; LocalDate end=to==null?LocalDate.now():to;
-        if(end.isBefore(start))throw new IllegalArgumentException("to must be on or after from");
-        Instant startAt=start.atStartOfDay(ZoneOffset.UTC).toInstant(), endAt=end.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().minusNanos(1);
-        List<ReportingFact> data=facts.findByOccurredAtBetween(startAt,endAt); Map<String,Long> counts=new TreeMap<>(); Map<String,Double> quantities=new TreeMap<>();
-        Map<LocalDate,Map<String,Object>> buckets=new TreeMap<>();
-        for(ReportingFact f:data){
-            counts.merge(f.eventType(),1L,Long::sum);
-            if(f.quantity()!=null)quantities.merge(f.eventType(),f.quantity(),Double::sum);
-            if(f.acceptedQuantity()!=null)quantities.merge("GOODS_RECEIVED_ACCEPTED",f.acceptedQuantity(),Double::sum);
-            if(f.rejectedQuantity()!=null)quantities.merge("GOODS_RECEIVED_REJECTED",f.rejectedQuantity(),Double::sum);
-            LocalDate bucket=bucketStart(f.occurredAt().atZone(ZoneOffset.UTC).toLocalDate(),period);
-            @SuppressWarnings("unchecked") Map<String,Long> bucketCounts=(Map<String,Long>)buckets.computeIfAbsent(bucket,d->{Map<String,Object> b=new LinkedHashMap<>();b.put("eventCounts",new TreeMap<String,Long>());b.put("quantityTotals",new TreeMap<String,Double>());return b;}).get("eventCounts");
-            bucketCounts.merge(f.eventType(),1L,Long::sum);
-            @SuppressWarnings("unchecked") Map<String,Double> bucketQuantities=(Map<String,Double>)buckets.get(bucket).get("quantityTotals");
-            if(f.quantity()!=null)bucketQuantities.merge(f.eventType(),f.quantity(),Double::sum);
-            if(f.acceptedQuantity()!=null)bucketQuantities.merge("GOODS_RECEIVED_ACCEPTED",f.acceptedQuantity(),Double::sum);
-            if(f.rejectedQuantity()!=null)bucketQuantities.merge("GOODS_RECEIVED_REJECTED",f.rejectedQuantity(),Double::sum);
+    public Map<String,Object> periodSummary(ReportPeriod period, LocalDate from, LocalDate to) {
+        return periodSummary(period, from, to, null, null);
+    }
+
+    /** Period aggregation is restricted to reporting facts in the caller's resolved scope. */
+    public Map<String,Object> periodSummary(ReportPeriod period, LocalDate from, LocalDate to,
+                                            String departmentId, String projectId) {
+        if (period == null) throw new IllegalArgumentException("period is required");
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate start = from == null ? defaultStart(period, today) : from;
+        LocalDate end = to == null ? today : to;
+        if (end.isBefore(start)) throw new IllegalArgumentException("to must be on or after from");
+        long days = java.time.temporal.ChronoUnit.DAYS.between(start, end);
+        if (days > 3660) throw new IllegalArgumentException("Report range cannot exceed 10 years");
+        Instant startAt = start.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant endAt = end.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().minusNanos(1);
+        Criteria criteria = Criteria.where("occurredAt").gte(startAt).lte(endAt);
+        if (departmentId != null && !departmentId.isBlank()) criteria.and("departmentId").is(departmentId);
+        if (projectId != null && !projectId.isBlank()) criteria.and("projectId").is(projectId);
+        Query scopedFacts = new Query(criteria).with(Sort.by(Sort.Direction.ASC, "occurredAt"));
+        List<ReportingFact> data = mongo.find(scopedFacts, ReportingFact.class);
+        Map<String,Long> counts = new TreeMap<>();
+        Map<String,Double> quantities = new TreeMap<>();
+        Map<LocalDate,Map<String,Object>> buckets = new TreeMap<>();
+        for (ReportingFact f : data) {
+            counts.merge(f.eventType(), 1L, Long::sum);
+            if (f.quantity() != null) quantities.merge(f.eventType(), f.quantity(), Double::sum);
+            if (f.acceptedQuantity() != null) quantities.merge("GOODS_RECEIVED_ACCEPTED", f.acceptedQuantity(), Double::sum);
+            if (f.rejectedQuantity() != null) quantities.merge("GOODS_RECEIVED_REJECTED", f.rejectedQuantity(), Double::sum);
+            LocalDate bucket = bucketStart(f.occurredAt().atZone(ZoneOffset.UTC).toLocalDate(), period);
+            @SuppressWarnings("unchecked") Map<String,Long> bucketCounts = (Map<String,Long>) buckets.computeIfAbsent(bucket, d -> {
+                Map<String,Object> b = new LinkedHashMap<>();
+                b.put("eventCounts", new TreeMap<String,Long>());
+                b.put("quantityTotals", new TreeMap<String,Double>());
+                return b;
+            }).get("eventCounts");
+            bucketCounts.merge(f.eventType(), 1L, Long::sum);
+            @SuppressWarnings("unchecked") Map<String,Double> bucketQuantities = (Map<String,Double>) buckets.get(bucket).get("quantityTotals");
+            if (f.quantity() != null) bucketQuantities.merge(f.eventType(), f.quantity(), Double::sum);
+            if (f.acceptedQuantity() != null) bucketQuantities.merge("GOODS_RECEIVED_ACCEPTED", f.acceptedQuantity(), Double::sum);
+            if (f.rejectedQuantity() != null) bucketQuantities.merge("GOODS_RECEIVED_REJECTED", f.rejectedQuantity(), Double::sum);
         }
-        return Map.of("period",period,"from",start,"to",end,"timezone","UTC","eventCounts",counts,"quantityTotals",quantities,"buckets",buckets,"freshness",freshness());
+        Map<String,Object> response = new LinkedHashMap<>();
+        response.put("period", period); response.put("from", start); response.put("to", end); response.put("timezone", "UTC");
+        response.put("eventCounts", counts); response.put("quantityTotals", quantities); response.put("buckets", buckets);
+        response.put("filters", Map.of("departmentId", departmentId == null ? "ALL" : departmentId,
+            "projectId", projectId == null ? "ALL" : projectId));
+        response.put("generatedAt", Instant.now()); response.put("freshness", freshness(departmentId, projectId));
+        return response;
     }
     private LocalDate bucketStart(LocalDate date,ReportPeriod period){return switch(period){case DAILY->date;case WEEKLY->date.with(DayOfWeek.MONDAY);case MONTHLY->date.withDayOfMonth(1);case QUARTERLY->LocalDate.of(date.getYear(),((date.getMonthValue()-1)/3)*3+1,1);case HALF_YEARLY->LocalDate.of(date.getYear(),date.getMonthValue()<=6?1:7,1);case YEARLY->date.withDayOfYear(1);};}
     private LocalDate defaultStart(ReportPeriod p,LocalDate now){return bucketStart(now,p);}

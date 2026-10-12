@@ -1,73 +1,55 @@
-# Reporting Service — Phase 8 Delivery
+# Reporting Service — Implementation Status through Phase 11
 
-## Scope
+## Roadmap status
 
-Phase 3 strengthens the typed reporting read models and stable document identity while preserving the Phase 1–2 service foundation and APIs.
+| Phase | Area | Status |
+|---:|---|---|
+| 1 | Repository and contract audit | Complete |
+| 2 | Service foundation | Complete — previously verified |
+| 3 | Typed reporting read models | Complete — previously verified |
+| 4 | Event contract validation | Complete — previously verified |
+| 5 | Reliable Kafka consumers | Baseline present; integration verification pending |
+| 6 | Indent and purchase-order projections | Complete — previously verified |
+| 7 | Inward, inventory, outward, return and asset projections | Packaged; verify against full repository |
+| 8 | KPI and dashboard services | User-confirmed complete |
+| 9 | Time-period reports and snapshots | Implemented in this package; verification pending |
+| 10 | Reporting APIs | Implemented in this package; verification pending |
+| 11 | Security and scope enforcement | Implemented in this package; verification pending |
+| 12 | Indexes and performance | Remaining |
+| 13 | Rebuild and recovery | Remaining |
+| 14 | Tests, documentation and observability | Remaining |
+| 15 | Platform integration and release | Remaining |
 
-- `ReportingFact` validates required event identity, producer, entity identity and timestamps.
-- `ReportingProjection` validates required identity and timestamps and requires `id == entityType + ":" + entityId`.
-- `ReportingProjection.keyFor(...)` centralizes the composite key rule used by the event processor.
-- Added unit tests for required identity, deterministic keys, identity mismatch, and a valid projection.
-- Existing MongoDB document names, indexes, repository APIs, and endpoint contracts are retained.
+## Phase 9 — Time-period reports and snapshots
 
-## Validation status
+- Supports daily, weekly, monthly, quarterly, half-yearly and yearly UTC buckets.
+- Period summaries aggregate retained event facts with resolved department/project filters.
+- Validates range ordering and limits date ranges to ten years.
+- Captures point-in-time KPI values and freshness metadata in reporting snapshots.
+- Snapshot IDs distinguish date and scope while preserving the legacy global snapshot ID.
 
-Archive structure and source-level changes were inspected before packaging. This packaging environment does not have the user's root Gradle wrapper/dependency cache, so a fresh Gradle test/build could not be executed here. No ZIP can be honestly guaranteed error-free without running the exact archive against the root repository. Run the verification commands in the roadmap before deployment.
+## Phase 10 — Reporting APIs
 
-## Compatibility notes
+- Period-summary, snapshots, projections and events endpoints support filtering, pagination and endpoint-specific allowlisted sorting.
+- Page size is capped at 200. Invalid sort fields/directions and reversed date ranges return HTTP 400 Problem Details.
+- Added an admin snapshot capture endpoint for MD/REPORTING roles.
 
-- Projection IDs remain `ENTITY_TYPE:entityId` (for example, `INDENT:IND-42`).
-- A legacy projection whose stored `id` does not match its `entityType` and `entityId` will fail validation if reconstructed through this record constructor; inspect existing MongoDB data before deploying if such records may exist.
-- Reporting remains a read model and must not query operational service databases directly.
+## Phase 11 — Security and scope enforcement
 
+- All report/dashboard endpoints resolve JWT scope before querying.
+- Non-global callers without department/project scope claims are denied.
+- Conflicting department/project requests are denied; multi-project claims require a selected allowed project.
+- Snapshot reads are scoped to an exact department/project pair and do not expose global snapshots to scoped callers.
+- Role mapping and JWT secret configuration remain dependent on alignment with the platform Auth Service and production security standard.
 
-## Phase 4 — Event envelope and contract validation
+## Verification
 
-- Added `ReportingEventContractValidator` for envelope shape, event version, ISO-8601 timestamp, supported event type, and required payload-field checks.
-- Integrated validation before event mapping/persistence in `ReportingEventProcessor`.
-- Added focused tests for valid events, missing envelope fields, missing payload fields, unsupported types, and invalid timestamps.
-- Validation is contract-aligned required-field validation, not a full JSON Schema implementation; full enum/type/additional-property enforcement remains future hardening.
-- Run the root Gradle test and build commands before deploying this ZIP.
+The archive is packaged from the user's Phase 8 test-compile-fix ZIP. Source and archive structure are checked during packaging, but this environment does not contain the full root repository Gradle wrapper/dependency context or the user's MongoDB/Kafka services. Run the commands in `REPORTING-SERVICE-ROADMAP.md` from the repository root. Do not mark Phases 9–11 verified until Gradle tests/build and representative API/security integration checks pass.
 
-## Phase 6 — Indent and purchase-order projections
+## Important semantics
 
-- Purchase-order events (`PO_CREATED`, `PO_ISSUED`, `PO_CLOSED`) map to one stable `PURCHASE_ORDER:{poId}` read model.
-- `PO_CREATED` links the projection to its source indent and vendor, and aggregates line quantities and extended line values from the event's `items` array.
-- Later PO status events update status without dropping previously projected vendor, indent, quantity, or estimated-value data.
-- Added tests for multi-line order aggregation and preservation of totals when a PO is issued.
-- The event contract remains the source of truth: quantity and unit price must be numeric; no additional non-negative business constraint is introduced beyond the supplied schema.
-- Verification status: source and ZIP integrity checked here; run the root Gradle test/build commands before release because this environment does not contain the repository Gradle wrapper.
-
-
-## Phase 7 — Inward, inventory, outward, return and asset projections
-
-- `GOODS_RECEIVED` projects accepted quantity as the inward receipt quantity and preserves ordered, accepted, rejected, GRN and PO references.
-- `REJECTION_FLAGGED` updates the same GRN projection and preserves previously projected receipt details instead of creating a second inward entity.
-- `LOW_STOCK_ALERT` creates/updates a `STOCK:{itemId}` projection with `LOW_STOCK`, reported available quantity and reorder threshold. This is the latest alert snapshot, not a complete authoritative stock ledger.
-- `OUTWARD_ISSUED` projects issued quantity, item, department and recipient.
-- `RETURN_RECORDED` projects return quantity, condition, item, actor and optional asset reference.
-- `ASSET_STATUS_CHANGED` projects asset lifecycle status; `ASSET_CLOSURE_REQUESTED` updates the same asset projection with `CLOSURE_REQUESTED`; `ASSET_CREATION_REQUESTED` is linked to its originating outward request.
-- Added focused regression tests for inward receipts, rejection updates, stock alerts, outward issues, returns, asset status, asset closure and asset creation linkage.
-- Verification status: source changes and ZIP structure are checked; this environment does not have the repository's Gradle wrapper/dependency cache, so run the Gradle test/build commands in the root repository before deployment.
-
-
-## Phase 8 — KPI/dashboard aggregation
-
-- Expanded dashboard aggregation across indent status and approval aging, purchase-order lifecycle, inward accepted/rejected quantities, low-stock alert observations, outward activity, returns, assets and SLA breaches.
-- Added optional department/project filtering to dashboard KPIs. The controller resolves requested filters through `ReportingScopePolicy`, so non-global callers cannot widen their JWT-defined reporting scope.
-- Included the applied filters and freshness metadata in the dashboard response.
-- KPI queries use only reporting-service projections/facts; no operational service database calls were added.
-- Low-stock values are explicitly limited to latest observed alert projections and must not be treated as a complete stock ledger.
-
-## Verification status
-
-Archive integrity and source edits were checked while packaging. This delivery environment does not contain the root Gradle wrapper/build files or a Gradle executable, so Gradle tests/build and Docker health could not be run here. Run the commands below from the full repository root before deployment.
-
-
-## Phase 8 — KPI and dashboard services
-
-- Added scoped KPI aggregation for indent lifecycle and aging, purchase-order lifecycle and values, inward quantities, low-stock alert observations, outward activity, returns, assets, and SLA breaches.
-- Applied the same JWT-resolved department/project scope to dashboard summary and freshness queries.
-- Added dashboard generation time, applied filters, scoped event count and freshness metadata.
-- Added unit tests for dashboard output/scope and reporting-scope policy.
-- Phase status: implementation packaged; Gradle and representative fixture verification must pass in the full repository before this phase is marked complete.
+- Reporting is eventually consistent.
+- Period reports summarize retained immutable event facts; dashboards summarize current denormalized projections.
+- Approval aging uses projection `updatedAt` until an authoritative approval-start timestamp is available.
+- Low-stock metrics describe observed low-stock alerts, not a complete stock ledger.
+- Reporting must not query operational service databases directly.

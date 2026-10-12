@@ -34,4 +34,12 @@ class ReportingReadModelTest {
         assertEquals("INDENT:IND-1", projection.id());
         assertEquals("IND-1", projection.entityId());
     }
+    @Test void snapshotIdentitySeparatesScopesAndPreservesLegacyGlobalKey() {
+        java.time.LocalDate date = java.time.LocalDate.of(2026, 10, 12);
+        assertEquals("2026-10-12", ReportingSnapshot.keyFor(date, null, null));
+        assertEquals("2026-10-12|D-1|P-1", ReportingSnapshot.keyFor(date, "D-1", "P-1"));
+        assertNotEquals(ReportingSnapshot.keyFor(date, "D-1", "P-1"),
+            ReportingSnapshot.keyFor(date, "D-1", "P-2"));
+    }
+
 }
