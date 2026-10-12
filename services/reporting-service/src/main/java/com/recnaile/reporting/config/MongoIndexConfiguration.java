@@ -41,11 +41,11 @@ public class MongoIndexConfiguration {
             ensure(mongo, ReportingFact.class, new Index()
                 .named("fact_occurred_at").on("occurredAt", Sort.Direction.DESC));
             ensure(mongo, ReportingFact.class, new Index()
-                .named("fact_scope_occurred").on("departmentId", Sort.Direction.ASC)
+                .named("fact_scope_occurred").on("departmentName", Sort.Direction.ASC)
                 .on("projectId", Sort.Direction.ASC).on("occurredAt", Sort.Direction.DESC));
             ensure(mongo, ReportingFact.class, new Index()
                 .named("fact_type_scope_occurred").on("eventType", Sort.Direction.ASC)
-                .on("departmentId", Sort.Direction.ASC).on("projectId", Sort.Direction.ASC)
+                .on("departmentName", Sort.Direction.ASC).on("projectId", Sort.Direction.ASC)
                 .on("occurredAt", Sort.Direction.DESC));
 
             // Current projections: idempotent entity upserts, scoped dashboard counts and aging queries.
@@ -56,15 +56,15 @@ public class MongoIndexConfiguration {
                 .named("projection_type_status_updated").on("entityType", Sort.Direction.ASC)
                 .on("status", Sort.Direction.ASC).on("updatedAt", Sort.Direction.DESC));
             ensure(mongo, ReportingProjection.class, new Index()
-                .named("projection_department_updated").on("departmentId", Sort.Direction.ASC)
+                .named("projection_department_updated").on("departmentName", Sort.Direction.ASC)
                 .on("updatedAt", Sort.Direction.DESC));
             ensure(mongo, ReportingProjection.class, new Index()
                 .named("projection_type_scope_updated").on("entityType", Sort.Direction.ASC)
-                .on("departmentId", Sort.Direction.ASC).on("projectId", Sort.Direction.ASC)
+                .on("departmentName", Sort.Direction.ASC).on("projectId", Sort.Direction.ASC)
                 .on("updatedAt", Sort.Direction.DESC));
             ensure(mongo, ReportingProjection.class, new Index()
                 .named("projection_type_status_scope_updated").on("entityType", Sort.Direction.ASC)
-                .on("status", Sort.Direction.ASC).on("departmentId", Sort.Direction.ASC)
+                .on("status", Sort.Direction.ASC).on("departmentName", Sort.Direction.ASC)
                 .on("projectId", Sort.Direction.ASC).on("updatedAt", Sort.Direction.DESC));
 
             // Snapshots: one snapshot per UTC date and exact scope; efficient newest-first history.
@@ -77,9 +77,9 @@ public class MongoIndexConfiguration {
                 });
             ensure(mongo, ReportingSnapshot.class, new Index()
                 .named("snapshot_date_scope_unique").on("snapshotDate", Sort.Direction.ASC)
-                .on("departmentId", Sort.Direction.ASC).on("projectId", Sort.Direction.ASC).unique());
+                .on("departmentName", Sort.Direction.ASC).on("projectId", Sort.Direction.ASC).unique());
             ensure(mongo, ReportingSnapshot.class, new Index()
-                .named("snapshot_scope_date").on("departmentId", Sort.Direction.ASC)
+                .named("snapshot_scope_date").on("departmentName", Sort.Direction.ASC)
                 .on("projectId", Sort.Direction.ASC).on("snapshotDate", Sort.Direction.DESC));
 
             log.info("Reporting indexes ensured for facts, projections and snapshots");
@@ -91,10 +91,26 @@ public class MongoIndexConfiguration {
         Document desiredOptions = index.getIndexOptions();
         String collectionName = mongo.getCollectionName(type);
 
-        // A previous deployment or Spring Data's annotation index creation may have
-        // created the same key pattern using MongoDB's generated name. MongoDB rejects
-        // creating the same keys again under a different name (IndexOptionsConflict).
-        // Reuse an equivalent existing index instead of dropping live indexes.
+        // If an explicitly managed index keeps its name but its key fields changed
+        // (for example departmentId -> departmentName), MongoDB raises IndexKeySpecsConflict.
+        // Replace only that named index; do not drop collections or unrelated indexes.
+        String desiredName = desiredOptions.getString("name");
+        if (desiredName != null) {
+            for (Document existing : mongo.getCollection(collectionName).listIndexes(Document.class)) {
+                if (desiredName.equals(existing.getString("name"))) {
+                    Document existingKeys = existing.get("key", Document.class);
+                    if (!sameOrderedKeys(existingKeys, desiredKeys)) {
+                        log.warn("Replacing outdated reporting index {} on {} because its key fields changed",
+                            desiredName, collectionName);
+                        mongo.indexOps(type).dropIndex(desiredName);
+                    }
+                    break;
+                }
+            }
+        }
+
+        // MongoDB may already have an equivalent index under a generated/different name.
+        // Reuse it rather than creating a duplicate index.
         for (Document existing : mongo.getCollection(collectionName).listIndexes(Document.class)) {
             Document existingKeys = existing.get("key", Document.class);
             if (sameOrderedKeys(existingKeys, desiredKeys)) {

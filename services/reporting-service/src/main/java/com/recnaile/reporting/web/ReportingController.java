@@ -49,36 +49,36 @@ public class ReportingController {
 
     @GetMapping("/dashboard/summary")
     public Map<String,Object> dashboard(@AuthenticationPrincipal Jwt jwt,
-        @RequestParam(required=false) String departmentId, @RequestParam(required=false) String projectId) {
-        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentId, projectId);
-        return query.dashboard(scope.departmentId(), scope.projectId());
+        @RequestParam(required=false) String departmentName, @RequestParam(required=false) String projectId) {
+        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentName, projectId);
+        return query.dashboard(scope.departmentName(), scope.projectId());
     }
 
     @GetMapping("/dashboard/freshness")
     public ReportFreshness freshness(@AuthenticationPrincipal Jwt jwt,
-        @RequestParam(required=false) String departmentId, @RequestParam(required=false) String projectId) {
-        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentId, projectId);
-        return query.freshness(scope.departmentId(), scope.projectId());
+        @RequestParam(required=false) String departmentName, @RequestParam(required=false) String projectId) {
+        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentName, projectId);
+        return query.freshness(scope.departmentName(), scope.projectId());
     }
 
     @GetMapping("/reports/snapshots")
     public Page<ReportingSnapshot> snapshots(@AuthenticationPrincipal Jwt jwt,
-        @RequestParam(required=false) String departmentId, @RequestParam(required=false) String projectId,
+        @RequestParam(required=false) String departmentName, @RequestParam(required=false) String projectId,
         @RequestParam(defaultValue="0") @Min(0) int page,
         @RequestParam(defaultValue="25") @Min(1) @Max(200) int size,
         @RequestParam(defaultValue="snapshotDate,desc") String sort) {
-        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentId, projectId);
-        return snapshots.findSnapshots(scope.departmentId(), scope.projectId(), PageRequest.of(page, size,
+        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentName, projectId);
+        return snapshots.findSnapshots(scope.departmentName(), scope.projectId(), PageRequest.of(page, size,
             parseSort(sort, Set.of("snapshotDate", "capturedAt"))));
     }
 
     @PostMapping("/admin/snapshots")
     public ReportingSnapshot captureSnapshot(@AuthenticationPrincipal Jwt jwt,
         @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate date,
-        @RequestParam(required=false) String departmentId, @RequestParam(required=false) String projectId) {
-        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentId, projectId);
+        @RequestParam(required=false) String departmentName, @RequestParam(required=false) String projectId) {
+        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentName, projectId);
         return snapshots.capture(date == null ? LocalDate.now(java.time.ZoneOffset.UTC) : date,
-            scope.departmentId(), scope.projectId());
+            scope.departmentName(), scope.projectId());
     }
 
     @GetMapping("/reports/period-summary")
@@ -86,20 +86,20 @@ public class ReportingController {
         @RequestParam ReportPeriod period,
         @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate from,
         @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate to,
-        @RequestParam(required=false) String departmentId, @RequestParam(required=false) String projectId) {
-        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentId, projectId);
-        return query.periodSummary(period, from, to, scope.departmentId(), scope.projectId());
+        @RequestParam(required=false) String departmentName, @RequestParam(required=false) String projectId) {
+        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentName, projectId);
+        return query.periodSummary(period, from, to, scope.departmentName(), scope.projectId());
     }
 
     @GetMapping("/reports/projections")
     public Page<ReportingProjection> projections(@AuthenticationPrincipal Jwt jwt,
         @RequestParam(required=false) String entityType, @RequestParam(required=false) String status,
-        @RequestParam(required=false) String departmentId, @RequestParam(required=false) String projectId,
+        @RequestParam(required=false) String departmentName, @RequestParam(required=false) String projectId,
         @RequestParam(defaultValue="0") @Min(0) int page,
         @RequestParam(defaultValue="25") @Min(1) @Max(200) int size,
         @RequestParam(defaultValue="updatedAt,desc") String sort) {
-        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentId, projectId);
-        return query.projections(entityType, status, scope.departmentId(), scope.projectId(),
+        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentName, projectId);
+        return query.projections(entityType, status, scope.departmentName(), scope.projectId(),
             PageRequest.of(page, size, parseSort(sort, Set.of("updatedAt", "createdAt", "entityType", "status"))));
     }
 
@@ -108,13 +108,13 @@ public class ReportingController {
         @RequestParam(required=false) String eventType,
         @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE_TIME) Instant from,
         @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE_TIME) Instant to,
-        @RequestParam(required=false) String departmentId, @RequestParam(required=false) String projectId,
+        @RequestParam(required=false) String departmentName, @RequestParam(required=false) String projectId,
         @RequestParam(defaultValue="0") @Min(0) int page,
         @RequestParam(defaultValue="25") @Min(1) @Max(200) int size,
         @RequestParam(defaultValue="occurredAt,desc") String sort) {
         if (from != null && to != null && to.isBefore(from)) throw new IllegalArgumentException("to must not be before from");
-        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentId, projectId);
-        return query.facts(eventType, from, to, scope.departmentId(), scope.projectId(),
+        ReportingScopePolicy.Scope scope = scopePolicy.resolve(jwt, departmentName, projectId);
+        return query.facts(eventType, from, to, scope.departmentName(), scope.projectId(),
             PageRequest.of(page, size, parseSort(sort, Set.of("occurredAt", "ingestedAt", "eventType", "entityType", "status"))));
     }
 

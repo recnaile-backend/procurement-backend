@@ -62,13 +62,13 @@ class ReportingDashboardQueryTest {
         assertTrue(result.containsKey("returnedQuantity"));
         assertTrue(result.containsKey("slaBreaches"));
         assertTrue(result.get("generatedAt") instanceof java.time.Instant);
-        assertEquals(Map.of("departmentId", "DEPT-7", "projectId", "PROJECT-9"), result.get("filters"));
+        assertEquals(Map.of("departmentName", "DEPT-7", "projectId", "PROJECT-9"), result.get("filters"));
         assertTrue(result.get("freshness") instanceof ReportFreshness);
 
         ArgumentCaptor<Query> projectionQueries = ArgumentCaptor.forClass(Query.class);
         verify(mongo, atLeastOnce()).count(projectionQueries.capture(), eq(ReportingProjection.class));
         assertTrue(projectionQueries.getAllValues().stream().anyMatch(q ->
-            "DEPT-7".equals(q.getQueryObject().getString("departmentId"))
+            "DEPT-7".equals(q.getQueryObject().getString("departmentName"))
                 && "PROJECT-9".equals(q.getQueryObject().getString("projectId"))));
     }
 
@@ -76,7 +76,7 @@ class ReportingDashboardQueryTest {
     void dashboardWithNoScopeClearlyReportsAllScope() {
         stubDashboardAggregations();
         Map<String, Object> result = service.dashboard(null, null);
-        assertEquals(Map.of("departmentId", "ALL", "projectId", "ALL"), result.get("filters"));
+        assertEquals(Map.of("departmentName", "ALL", "projectId", "ALL"), result.get("filters"));
     }
     @Test
     void periodSummaryAppliesScopeAndReturnsRequestedPeriodMetadata() {
@@ -86,10 +86,10 @@ class ReportingDashboardQueryTest {
         assertEquals(ReportPeriod.MONTHLY, result.get("period"));
         assertEquals(LocalDate.of(2026, 10, 1), result.get("from"));
         assertEquals(LocalDate.of(2026, 10, 12), result.get("to"));
-        assertEquals(Map.of("departmentId", "DEPT-7", "projectId", "PROJECT-9"), result.get("filters"));
+        assertEquals(Map.of("departmentName", "DEPT-7", "projectId", "PROJECT-9"), result.get("filters"));
         ArgumentCaptor<Query> factQueries = ArgumentCaptor.forClass(Query.class);
         verify(mongo).find(factQueries.capture(), eq(ReportingFact.class));
-        assertEquals("DEPT-7", factQueries.getValue().getQueryObject().getString("departmentId"));
+        assertEquals("DEPT-7", factQueries.getValue().getQueryObject().getString("departmentName"));
         assertEquals("PROJECT-9", factQueries.getValue().getQueryObject().getString("projectId"));
     }
 

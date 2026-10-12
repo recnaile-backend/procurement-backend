@@ -14,13 +14,13 @@ Errors use a consistent RFC 7807-style `ApiProblem` body with `status`, `code`, 
 
 ## APIs
 
-- `GET /api/v1/reporting/dashboard/summary?departmentId=...&projectId=...` — operational KPI counts, aging, procurement/inventory activity, and applied scope filters. Department/project values are constrained by JWT reporting scope claims.
+- `GET /api/v1/reporting/dashboard/summary?departmentName=...&projectId=...` — operational KPI counts, aging, procurement/inventory activity, and applied scope filters. Department/project values are constrained by JWT reporting scope claims.
 - `GET /api/v1/reporting/dashboard/freshness` — latest observed event/update time and event count.
 - `GET /api/v1/reporting/reports/period-summary?period=DAILY|WEEKLY|MONTHLY|QUARTERLY|HALF_YEARLY|YEARLY&from=YYYY-MM-DD&to=YYYY-MM-DD` — event counts and quantity totals for UTC date boundaries.
-- `GET /api/v1/reporting/reports/projections?page=0&size=25&sort=updatedAt,desc` — pageable projection listing with entityType/status/departmentId/projectId filters.
-- `GET /api/v1/reporting/reports/events` — pageable retained event facts; optional eventType/from/to/departmentId/projectId filters.
-- `GET /api/v1/reporting/reports/snapshots?departmentId=...&projectId=...&page=0&size=25&sort=snapshotDate,desc` — pageable historical KPI snapshots for exactly the caller's resolved scope.
-- `POST /api/v1/reporting/admin/snapshots?date=YYYY-MM-DD&departmentId=...&projectId=...` — capture a point-in-time snapshot; MD role only. Omitting department/project captures a platform-wide snapshot for global roles.
+- `GET /api/v1/reporting/reports/projections?page=0&size=25&sort=updatedAt,desc` — pageable projection listing with entityType/status/departmentName/projectId filters.
+- `GET /api/v1/reporting/reports/events` — pageable retained event facts; optional eventType/from/to/departmentName/projectId filters.
+- `GET /api/v1/reporting/reports/snapshots?departmentName=...&projectId=...&page=0&size=25&sort=snapshotDate,desc` — pageable historical KPI snapshots for exactly the caller's resolved scope.
+- `POST /api/v1/reporting/admin/snapshots?date=YYYY-MM-DD&departmentName=...&projectId=...` — capture a point-in-time snapshot; MD role only. Omitting department/project captures a platform-wide snapshot for global roles.
 
 All API endpoints require a JWT. The service validates HS256 tokens using `JWT_SECRET_KEY`, matching the Auth Service and existing resource-server configuration in the supplied repository. The secret must be at least 32 UTF-8 bytes. Confirm the exact issuer/validator policy with the platform security standard before release. Role claims `roles` or `authorities` are mapped to `ROLE_*`. Dashboard and detailed-report role requirements are declared in `config/SecurityConfig.java`. Verify claim shape against the platform Auth Service before release.
 

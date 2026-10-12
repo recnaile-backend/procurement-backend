@@ -37,9 +37,9 @@ If using `compose-debug.yml`, add `-f compose-debug.yml` to every Docker Compose
 ## API examples
 
 ```text
-GET  /api/v1/reporting/reports/period-summary?period=MONTHLY&from=2026-01-01&to=2026-10-12&departmentId=DEPT-7
-GET  /api/v1/reporting/reports/snapshots?page=0&size=25&sort=snapshotDate,desc&departmentId=DEPT-7
-POST /api/v1/reporting/admin/snapshots?date=2026-10-12&departmentId=DEPT-7&projectId=PROJECT-9
+GET  /api/v1/reporting/reports/period-summary?period=MONTHLY&from=2026-01-01&to=2026-10-12&departmentName=DEPT-7
+GET  /api/v1/reporting/reports/snapshots?page=0&size=25&sort=snapshotDate,desc&departmentName=DEPT-7
+POST /api/v1/reporting/admin/snapshots?date=2026-10-12&departmentName=DEPT-7&projectId=PROJECT-9
 ```
 
 All requests require a valid JWT. The snapshot capture route requires the MD role. Department/project filters are constrained by token scope; a multi-project caller must choose one allowed project. Confirm the role claims and HS256 secret configuration match the Auth Service before release.

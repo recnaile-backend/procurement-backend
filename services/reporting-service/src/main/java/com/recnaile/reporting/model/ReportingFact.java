@@ -19,7 +19,7 @@ public record ReportingFact(
     String entityType,
     String entityId,
     String relatedEntityId,
-    String departmentId,
+    String departmentName,
     String projectId,
     String itemId,
     String vendorId,

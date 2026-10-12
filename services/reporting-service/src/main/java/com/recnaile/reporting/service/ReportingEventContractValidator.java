@@ -19,7 +19,7 @@ public class ReportingEventContractValidator {
         Map.entry("GOODS_RECEIVED", Set.of("grnId", "poId", "itemName", "orderedQuantity", "acceptedQuantity", "rejectedQuantity", "unitOfMeasure", "rejectionReason", "deliveryNoteNumber", "deliveryDate", "receivedAt", "receivedBy", "vendorName")),
         Map.entry("INDENT_APPROVED", Set.of("indentId", "approvedBy", "approverRole")),
         Map.entry("INDENT_REJECTED", Set.of("indentId", "rejectedBy", "reason")),
-        Map.entry("INDENT_SUBMITTED", Set.of("indentId", "departmentId", "projectId", "requestedBy", "items", "estimatedValue")),
+        Map.entry("INDENT_SUBMITTED", Set.of("indentId", "departmentName", "projectId", "requestedBy", "items", "estimatedValue")),
         Map.entry("INDENT_VERIFIED", Set.of("indentId", "verifiedBy")),
         Map.entry("LOW_STOCK_ALERT", Set.of("itemId", "availableQuantity", "reorderThreshold")),
         Map.entry("OUTWARD_ISSUED", Set.of("outwardId", "itemId", "quantity", "issuedTo", "reusable")),

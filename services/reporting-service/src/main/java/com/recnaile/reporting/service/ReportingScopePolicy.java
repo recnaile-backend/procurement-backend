@@ -23,7 +23,7 @@ public class ReportingScopePolicy {
             .collect(java.util.stream.Collectors.toSet());
         boolean global = normalizedRoles.stream().anyMatch(GLOBAL_ROLES::contains);
 
-        String tokenDepartment = clean(jwt.getClaimAsString("departmentId"));
+        String tokenDepartment = clean(jwt.getClaimAsString("departmentName"));
         String tokenProject = clean(jwt.getClaimAsString("projectId"));
         List<String> projectIds = jwt.getClaimAsStringList("projectIds");
         if (projectIds != null) projectIds = projectIds.stream().filter(v -> v != null && !v.isBlank()).distinct().toList();
@@ -56,5 +56,5 @@ public class ReportingScopePolicy {
 
     private String clean(String value) { return value == null || value.isBlank() ? null : value.trim(); }
 
-    public record Scope(String departmentId, String projectId, boolean global) { }
+    public record Scope(String departmentName, String projectId, boolean global) { }
 }

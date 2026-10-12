@@ -9,12 +9,12 @@ import java.time.LocalDate;
 
 /** Immutable point-in-time KPI snapshot, keyed by date and reporting scope. */
 @Document("reporting_snapshots")
-@CompoundIndex(name = "snapshot_date_scope_unique", def = "{'snapshotDate':1,'departmentId':1,'projectId':1}", unique = true)
-@CompoundIndex(name = "snapshot_scope_date", def = "{'departmentId':1,'projectId':1,'snapshotDate':-1}")
+@CompoundIndex(name = "snapshot_date_scope_unique", def = "{'snapshotDate':1,'departmentName':1,'projectId':1}", unique = true)
+@CompoundIndex(name = "snapshot_scope_date", def = "{'departmentName':1,'projectId':1,'snapshotDate':-1}")
 public record ReportingSnapshot(
     @Id String id,
     @Indexed LocalDate snapshotDate,
-    String departmentId,
+    String departmentName,
     String projectId,
     Instant capturedAt,
     long pendingIndents,
@@ -40,7 +40,7 @@ public record ReportingSnapshot(
     Instant lastEventOccurredAt,
     Instant lastUpdatedAt
 ) {
-    public static String keyFor(LocalDate date, String departmentId, String projectId) {
-        return departmentId == null && projectId == null ? date.toString() : date + "|" + (departmentId == null ? "ALL" : departmentId) + "|" + (projectId == null ? "ALL" : projectId);
+    public static String keyFor(LocalDate date, String departmentName, String projectId) {
+        return departmentName == null && projectId == null ? date.toString() : date + "|" + (departmentName == null ? "ALL" : departmentName) + "|" + (projectId == null ? "ALL" : projectId);
     }
 }

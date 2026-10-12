@@ -10,13 +10,13 @@ import java.time.Instant;
 @Document("reporting_projections")
 @CompoundIndex(name="projection_entity_unique", def="{'entityType':1,'entityId':1}", unique=true)
 @CompoundIndex(name="projection_type_status_updated", def="{'entityType':1,'status':1,'updatedAt':-1}")
-@CompoundIndex(name="projection_department_updated", def="{'departmentId':1,'updatedAt':-1}")
+@CompoundIndex(name="projection_department_updated", def="{'departmentName':1,'updatedAt':-1}")
 public record ReportingProjection(
     @Id String id,
     @Indexed String entityType,
     @Indexed String entityId,
     String status,
-    String departmentId,
+    String departmentName,
     String projectId,
     String itemId,
     String vendorId,

@@ -73,7 +73,7 @@ public class ReportingEventProcessor {
             orderedQuantity = sumItemQuantities(p.path("items"));
             estimatedValue = sumItemValues(p.path("items"));
         }
-        return new ReportingFact(eventId,type,occurred,producer,entityType,entityId,related,text(p,"departmentId"),text(p,"projectId"),text(p,"itemId"),text(p,"vendorId"),status,condition,actor,
+        return new ReportingFact(eventId,type,occurred,producer,entityType,entityId,related,text(p,"departmentName"),text(p,"projectId"),text(p,"itemId"),text(p,"vendorId"),status,condition,actor,
             quantity,orderedQuantity,number(p,"acceptedQuantity"),number(p,"rejectedQuantity"),estimatedValue,number(p,"unitPrice"),number(p,"slaWindowHours"),number(p,"overdueSinceHours"),correlation,trace,Instant.now());
     }
 
@@ -87,7 +87,7 @@ public class ReportingEventProcessor {
         put(payload, "orderedQuantity", fact.orderedQuantity());
         put(payload, "estimatedValue", fact.estimatedValue());
         put(payload, "unitPrice", fact.unitPrice());
-        put(payload, "departmentId", fact.departmentId());
+        put(payload, "departmentName", fact.departmentName());
         put(payload, "projectId", fact.projectId());
         put(payload, "itemId", fact.itemId());
         put(payload, "vendorId", fact.vendorId());
@@ -109,7 +109,7 @@ public class ReportingEventProcessor {
         if (existing.isPresent() && existing.get().sourceOccurredAt()!=null && f.occurredAt()!=null && existing.get().sourceOccurredAt().isAfter(f.occurredAt())) return;
         ReportingProjection old = existing.orElse(null);
         String status = f.status()!=null ? f.status() : old==null ? null : old.status();
-        String dept = f.departmentId()!=null ? f.departmentId() : old==null ? null : old.departmentId();
+        String dept = f.departmentName()!=null ? f.departmentName() : old==null ? null : old.departmentName();
         String project = f.projectId()!=null ? f.projectId() : old==null ? null : old.projectId();
         String item = f.itemId()!=null ? f.itemId() : old==null ? null : old.itemId();
         String vendor = f.vendorId()!=null ? f.vendorId() : old==null ? null : old.vendorId();

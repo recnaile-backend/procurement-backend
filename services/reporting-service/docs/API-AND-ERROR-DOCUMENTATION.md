@@ -21,7 +21,7 @@ All endpoints are relative to `/api/v1/reporting`. Responses are JSON unless an 
 
 | Method | Path | Purpose | Access intent |
 |---|---|---|---|
-| GET | `/dashboard/summary` | KPI dashboard summary; optional `departmentId`, `projectId` | PROCUREMENT, TL, MD, REPORTING |
+| GET | `/dashboard/summary` | KPI dashboard summary; optional `departmentName`, `projectId` | PROCUREMENT, TL, MD, REPORTING |
 | GET | `/dashboard/freshness` | Latest observed event and ingestion freshness | PROCUREMENT, TL, MD, REPORTING |
 | GET | `/reports/period-summary` | Aggregates for `period` and optional `from`, `to`, scope filters | Reporting roles permitted by security/scope policy |
 | GET | `/reports/projections` | Pageable current projections; optional `entityType`, `status`, scope filters | Reporting roles permitted by security/scope policy |

@@ -14,7 +14,7 @@ class ReportingEventContractValidatorTest {
         JsonNode event = mapper.readTree("""
             {"eventId":"evt-1","eventType":"INDENT_SUBMITTED","eventVersion":1,
              "occurredAt":"2026-10-12T10:00:00Z","producer":"indent-service",
-             "payload":{"indentId":"IND-1","departmentId":"D-1","projectId":"P-1",
+             "payload":{"indentId":"IND-1","departmentName":"D-1","projectId":"P-1",
              "requestedBy":"U-1","items":[],"estimatedValue":100}}
             """);
         assertDoesNotThrow(() -> validator.validate(event));

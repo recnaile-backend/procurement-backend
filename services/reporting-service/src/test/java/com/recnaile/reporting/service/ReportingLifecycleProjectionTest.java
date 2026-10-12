@@ -51,11 +51,11 @@ class ReportingLifecycleProjectionTest {
 
     @Test void outwardIssueProjectionIncludesIssuedQuantityItemAndDepartment() {
         processor.process("""
-          {"eventId":"out-event-1","eventType":"OUTWARD_ISSUED","eventVersion":1,"occurredAt":"2026-10-12T10:00:00Z","producer":"outward-service","payload":{"outwardId":"OUT-1","itemId":"ITEM-2","quantity":3,"issuedTo":"U-2","departmentId":"D-2","reusable":false}}
+          {"eventId":"out-event-1","eventType":"OUTWARD_ISSUED","eventVersion":1,"occurredAt":"2026-10-12T10:00:00Z","producer":"outward-service","payload":{"outwardId":"OUT-1","itemId":"ITEM-2","quantity":3,"issuedTo":"U-2","departmentName":"D-2","reusable":false}}
           """);
         verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p ->
             p.id().equals("OUTWARD:OUT-1") && p.itemId().equals("ITEM-2") &&
-            p.quantity().equals(3L) && p.departmentId().equals("D-2") && p.actorId().equals("U-2")));
+            p.quantity().equals(3L) && p.departmentName().equals("D-2") && p.actorId().equals("U-2")));
     }
 
     @Test void returnProjectionKeepsConditionQuantityAndOptionalAssetReference() {
@@ -105,12 +105,12 @@ class ReportingLifecycleProjectionTest {
 
     @Test void assetCreationRequestIsLinkedToTheOutwardRequest() {
         processor.process("""
-          {"eventId":"asset-create-event-1","eventType":"ASSET_CREATION_REQUESTED","eventVersion":1,"occurredAt":"2026-10-12T10:00:00Z","producer":"outward-service","payload":{"outwardId":"OUT-8","itemId":"ITEM-8","assignedTo":"U-8","departmentId":"D-8"}}
+          {"eventId":"asset-create-event-1","eventType":"ASSET_CREATION_REQUESTED","eventVersion":1,"occurredAt":"2026-10-12T10:00:00Z","producer":"outward-service","payload":{"outwardId":"OUT-8","itemId":"ITEM-8","assignedTo":"U-8","departmentName":"D-8"}}
           """);
         verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p ->
             p.id().equals("ASSET_REQUEST:asset-create-event-1") &&
             p.relatedEntityId().equals("OUT-8") && p.status().equals("CREATION_REQUESTED") &&
-            p.itemId().equals("ITEM-8") && p.departmentId().equals("D-8") && p.actorId().equals("U-8")));
+            p.itemId().equals("ITEM-8") && p.departmentName().equals("D-8") && p.actorId().equals("U-8")));
     }
 
 }

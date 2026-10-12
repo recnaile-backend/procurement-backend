@@ -31,12 +31,12 @@ public class ReportingSnapshotService {
 
     public ReportingSnapshot capture(LocalDate date) { return capture(date, null, null); }
 
-    public ReportingSnapshot capture(LocalDate date, String departmentId, String projectId) {
+    public ReportingSnapshot capture(LocalDate date, String departmentName, String projectId) {
         if (date == null) throw new IllegalArgumentException("snapshot date is required");
-        Map<String,Object> k = query.dashboard(departmentId, projectId);
+        Map<String,Object> k = query.dashboard(departmentName, projectId);
         ReportFreshness freshness = (ReportFreshness) k.get("freshness");
-        String id = ReportingSnapshot.keyFor(date, departmentId, projectId);
-        ReportingSnapshot snapshot = new ReportingSnapshot(id, date, departmentId, projectId, Instant.now(),
+        String id = ReportingSnapshot.keyFor(date, departmentName, projectId);
+        ReportingSnapshot snapshot = new ReportingSnapshot(id, date, departmentName, projectId, Instant.now(),
             number(k,"pendingIndents").longValue(), number(k,"indentsPendingVerification").longValue(),
             number(k,"indentsPendingApproval").longValue(), number(k,"approvedIndents").longValue(),
             number(k,"rejectedIndents").longValue(), number(k,"purchaseOrdersCreated").longValue(),
@@ -52,9 +52,9 @@ public class ReportingSnapshotService {
     }
 
     /** Returns snapshots for exactly the caller's resolved scope; unscoped snapshots are never mixed with scoped ones. */
-    public Page<ReportingSnapshot> findSnapshots(String departmentId, String projectId, Pageable pageable) {
+    public Page<ReportingSnapshot> findSnapshots(String departmentName, String projectId, Pageable pageable) {
         Query q = new Query();
-        q.addCriteria(Criteria.where("departmentId").is(departmentId));
+        q.addCriteria(Criteria.where("departmentName").is(departmentName));
         q.addCriteria(Criteria.where("projectId").is(projectId));
         long total = mongo.count(q, ReportingSnapshot.class);
         q.with(pageable);
