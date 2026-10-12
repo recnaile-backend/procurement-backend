@@ -1,4 +1,4 @@
-# Reporting Service — Implementation Status through Phase 11
+# Reporting Service — Implementation Status through Phase 13
 
 ## Roadmap status
 
@@ -16,7 +16,7 @@
 | 10 | Reporting APIs | Implemented in this package; verification pending |
 | 11 | Security and scope enforcement | Implemented in this package; verification pending |
 | 12 | Indexes and performance | Implemented in this package; verification pending |
-| 13 | Rebuild and recovery | Remaining |
+| 13 | Rebuild and recovery | Implemented in this package; verification pending |
 | 14 | Tests, documentation and observability | Remaining |
 | 15 | Platform integration and release | Remaining |
 
@@ -42,9 +42,16 @@
 - Snapshot reads are scoped to an exact department/project pair and do not expose global snapshots to scoped callers.
 - Role mapping and JWT secret configuration remain dependent on alignment with the platform Auth Service and production security standard.
 
+## Phase 13 — Rebuild and recovery
+
+- Added an admin recovery status endpoint reporting retained fact, derived projection, and snapshot counts.
+- Added a confirmed projection rebuild operation that pauses the Kafka listener, clears only derived projections, replays retained facts in deterministic order, preserves snapshots/facts, and restores the listener state.
+- Added a focused unit test for rebuild replay and preservation behavior.
+- Recovery cannot reconstruct fields absent from the retained fact model; this limitation is documented in the roadmap and API result.
+
 ## Verification
 
-The archive is packaged from the user's Phase 8 test-compile-fix ZIP. Source and archive structure are checked during packaging, but this environment does not contain the full root repository Gradle wrapper/dependency context or the user's MongoDB/Kafka services. Run the commands in `REPORTING-SERVICE-ROADMAP.md` from the repository root. Do not mark Phases 9–11 verified until Gradle tests/build and representative API/security integration checks pass.
+The archive is packaged from the user's Phase 8 test-compile-fix ZIP. Source and archive structure are checked during packaging, but this environment does not contain the full root repository Gradle wrapper/dependency context or the user's MongoDB/Kafka services. Run the commands in `REPORTING-SERVICE-ROADMAP.md` from the repository root. Do not mark Phases 9–13 verified until Gradle tests/build and representative API/security integration checks pass.
 
 ## Important semantics
 

@@ -2,6 +2,7 @@ package com.recnaile.reporting.web;
 
 import com.recnaile.reporting.model.*;
 import com.recnaile.reporting.service.ReportingQueryService;
+import com.recnaile.reporting.service.ReportingRecoveryService;
 import com.recnaile.reporting.service.ReportingScopePolicy;
 import com.recnaile.reporting.service.ReportingSnapshotService;
 import jakarta.validation.constraints.Max;
@@ -25,9 +26,22 @@ public class ReportingController {
     private final ReportingQueryService query;
     private final ReportingSnapshotService snapshots;
     private final ReportingScopePolicy scopePolicy;
+    private final ReportingRecoveryService recovery;
 
-    public ReportingController(ReportingQueryService query, ReportingSnapshotService snapshots, ReportingScopePolicy scopePolicy) {
-        this.query = query; this.snapshots = snapshots; this.scopePolicy = scopePolicy;
+    public ReportingController(ReportingQueryService query, ReportingSnapshotService snapshots, ReportingScopePolicy scopePolicy, ReportingRecoveryService recovery) {
+        this.query = query; this.snapshots = snapshots; this.scopePolicy = scopePolicy; this.recovery = recovery;
+    }
+
+    @GetMapping("/admin/recovery-status")
+    public Map<String,Object> recoveryStatus() {
+        return recovery.status();
+    }
+
+    /** Destructive only to derived projections; requires explicit confirmation and preserves facts/snapshots. */
+    @PostMapping("/admin/rebuild-projections")
+    public Map<String,Object> rebuildProjections(@RequestParam(defaultValue="false") boolean confirm) {
+        if (!confirm) throw new IllegalArgumentException("Set confirm=true to rebuild reporting projections from retained event facts");
+        return recovery.rebuildProjections();
     }
 
     @GetMapping("/dashboard/summary")

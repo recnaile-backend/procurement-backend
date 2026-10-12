@@ -122,3 +122,8 @@ The report boundary is eventually consistent. Period summaries describe retained
 ## Indexes and query performance
 
 Reporting indexes are explicitly managed by `MongoIndexConfiguration`. Automatic annotation-driven index creation is disabled to avoid duplicate/conflicting definitions. See `PHASE-12-INDEXES-PERFORMANCE.md` for index coverage, safe rollout checks, and MongoDB execution-plan commands.
+
+
+## Phase 13 — projection rebuild and recovery
+
+Admins with `MD` or `REPORTING` roles can inspect recovery counts at `GET /api/v1/reporting/admin/recovery-status`. To rebuild derived projections from retained event facts, call `POST /api/v1/reporting/admin/rebuild-projections?confirm=true`. The endpoint stops the Kafka listener while rebuilding, preserves event facts and historical snapshots, and restarts the listener if it was running. Back up MongoDB first and validate dashboards after a rebuild. Only data retained in the fact model can be reconstructed; omitted historical payload fields require replay from the authoritative source.

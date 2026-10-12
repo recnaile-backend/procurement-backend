@@ -1,6 +1,7 @@
 package com.recnaile.reporting.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recnaile.reporting.model.ReportingFact;
 import com.recnaile.reporting.model.ReportingProjection;
@@ -76,6 +77,31 @@ public class ReportingEventProcessor {
             quantity,orderedQuantity,number(p,"acceptedQuantity"),number(p,"rejectedQuantity"),estimatedValue,number(p,"unitPrice"),number(p,"slaWindowHours"),number(p,"overdueSinceHours"),correlation,trace,Instant.now());
     }
 
+    /** Rebuilds a projection from a retained immutable fact without reinserting the fact. */
+    public void rebuildProjectionFromFact(ReportingFact fact) {
+        if (fact == null || fact.entityType() == null || "UNMAPPED".equals(fact.entityType())) return;
+        ObjectNode payload = mapper.createObjectNode();
+        put(payload, "quantity", fact.quantity());
+        put(payload, "acceptedQuantity", fact.acceptedQuantity());
+        put(payload, "rejectedQuantity", fact.rejectedQuantity());
+        put(payload, "orderedQuantity", fact.orderedQuantity());
+        put(payload, "estimatedValue", fact.estimatedValue());
+        put(payload, "unitPrice", fact.unitPrice());
+        put(payload, "departmentId", fact.departmentId());
+        put(payload, "projectId", fact.projectId());
+        put(payload, "itemId", fact.itemId());
+        put(payload, "vendorId", fact.vendorId());
+        put(payload, "condition", fact.condition());
+        updateProjection(fact, payload);
+    }
+
+    private static void put(ObjectNode node, String field, String value) {
+        if (value != null) node.put(field, value);
+    }
+    private static void put(ObjectNode node, String field, Double value) {
+        if (value != null) node.put(field, value);
+    }
+
     private void updateProjection(ReportingFact f, JsonNode p) {
         if ("UNMAPPED".equals(f.entityType())) return;
         String id = ReportingProjection.keyFor(f.entityType(), f.entityId());
@@ -91,8 +117,8 @@ public class ReportingEventProcessor {
         Double qty = first(f.quantity(), number(p,"quantity"), old==null?null:old.quantity());
         Double est = first(f.estimatedValue(), number(p,"estimatedValue"), old==null?null:old.estimatedValue());
         Double ordered = first(f.orderedQuantity(), number(p,"orderedQuantity"), old==null?null:old.orderedQuantity());
-        Double accepted = first(number(p,"acceptedQuantity"), old==null?null:old.acceptedQuantity());
-        Double rejected = first(number(p,"rejectedQuantity"), old==null?null:old.rejectedQuantity());
+        Double accepted = first(f.acceptedQuantity(), number(p,"acceptedQuantity"), old==null?null:old.acceptedQuantity());
+        Double rejected = first(f.rejectedQuantity(), number(p,"rejectedQuantity"), old==null?null:old.rejectedQuantity());
         Double available = first(number(p,"availableQuantity"), old==null?null:old.availableQuantity());
         Double threshold = first(number(p,"reorderThreshold"), old==null?null:old.reorderThreshold());
         String condition = f.condition()!=null?f.condition():old==null?null:old.condition();
