@@ -40,7 +40,7 @@ class ReportingEventProcessorTest {
         processor.process("""
           {"eventId":"e-2","eventType":"OUTWARD_ISSUED","eventVersion":1,"occurredAt":"2026-10-12T10:00:00Z","producer":"outward-service","payload":{"outwardId":"OUT-1","itemId":"ITEM-1","quantity":3,"issuedTo":"U-1","departmentId":"D-1","reusable":false}}
           """);
-        verify(facts).insert(ArgumentMatchers.<ReportingFact>argThat(f -> f.entityType().equals("OUTWARD") && f.quantity().equals(3.0)));
+        verify(facts).insert(ArgumentMatchers.<ReportingFact>argThat(f -> f.entityType().equals("OUTWARD") && f.quantity().equals(3L)));
         verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p -> p.entityType().equals("OUTWARD") && p.itemId().equals("ITEM-1")));
     }
 
@@ -54,19 +54,19 @@ class ReportingEventProcessorTest {
             f.entityId().equals("PO-2026-0001") &&
             f.relatedEntityId().equals("IND-9") &&
             f.vendorId().equals("VEN-2") &&
-            f.orderedQuantity().equals(5.0) &&
-            f.estimatedValue().equals(80.0)));
+            f.orderedQuantity().equals(5L) &&
+            f.estimatedValue().equals(80L)));
         verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p ->
             p.id().equals("PURCHASE_ORDER:PO-2026-0001") &&
             p.status().equals("CREATED") &&
             p.relatedEntityId().equals("IND-9") &&
             p.vendorId().equals("VEN-2") &&
-            p.orderedQuantity().equals(5.0) &&
-            p.estimatedValue().equals(80.0)));
+            p.orderedQuantity().equals(5L) &&
+            p.estimatedValue().equals(80L)));
     }
 
     @Test void purchaseOrderIssuedUpdatesStatusWithoutLosingCreatedTotals() {
-        ReportingProjection current = new ReportingProjection("PURCHASE_ORDER:PO-2026-0002", "PURCHASE_ORDER", "PO-2026-0002", "CREATED", null, null, null, "VEN-3", "IND-10", null, null, 245.0, 7.0, null, null, null, null, null, "purchase-order-service", Instant.parse("2026-10-01T00:00:00Z"), Instant.parse("2026-10-01T00:00:00Z"), Instant.parse("2026-10-01T00:00:00Z"), "po-created-2", "PO_CREATED");
+        ReportingProjection current = new ReportingProjection("PURCHASE_ORDER:PO-2026-0002", "PURCHASE_ORDER", "PO-2026-0002", "CREATED", null, null, null, "VEN-3", "IND-10", null, null, 245L, 7L, null, null, null, null, null, "purchase-order-service", Instant.parse("2026-10-01T00:00:00Z"), Instant.parse("2026-10-01T00:00:00Z"), Instant.parse("2026-10-01T00:00:00Z"), "po-created-2", "PO_CREATED");
         when(projections.findById("PURCHASE_ORDER:PO-2026-0002")).thenReturn(Optional.of(current));
 
         processor.process("""
@@ -75,8 +75,8 @@ class ReportingEventProcessorTest {
 
         verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p ->
             p.status().equals("ISSUED") &&
-            p.orderedQuantity().equals(7.0) &&
-            p.estimatedValue().equals(245.0) &&
+            p.orderedQuantity().equals(7L) &&
+            p.estimatedValue().equals(245L) &&
             p.vendorId().equals("VEN-3") &&
             p.relatedEntityId().equals("IND-10")));
     }

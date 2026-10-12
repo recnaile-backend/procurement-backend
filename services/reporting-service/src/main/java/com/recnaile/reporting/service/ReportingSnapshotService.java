@@ -41,12 +41,12 @@ public class ReportingSnapshotService {
             number(k,"indentsPendingApproval").longValue(), number(k,"approvedIndents").longValue(),
             number(k,"rejectedIndents").longValue(), number(k,"purchaseOrdersCreated").longValue(),
             number(k,"purchaseOrdersIssued").longValue(), number(k,"purchaseOrdersClosed").longValue(),
-            number(k,"inwardReceipts").longValue(), number(k,"acceptedInwardQuantity").doubleValue(),
-            number(k,"rejectedInwardQuantity").doubleValue(), number(k,"lowStockItemsObserved").longValue(),
-            number(k,"availableQuantityAtLowStockAlerts").doubleValue(),
-            number(k,"reorderThresholdForObservedLowStockItems").doubleValue(), number(k,"outwardIssues").longValue(),
-            number(k,"outwardIssuedQuantity").doubleValue(), number(k,"returns").longValue(),
-            number(k,"returnedQuantity").doubleValue(), number(k,"assets").longValue(),
+            number(k,"inwardReceipts").longValue(), number(k,"acceptedInwardQuantity").longValue(),
+            number(k,"rejectedInwardQuantity").longValue(), number(k,"lowStockItemsObserved").longValue(),
+            number(k,"availableQuantityAtLowStockAlerts").longValue(),
+            number(k,"reorderThresholdForObservedLowStockItems").longValue(), number(k,"outwardIssues").longValue(),
+            number(k,"outwardIssuedQuantity").longValue(), number(k,"returns").longValue(),
+            number(k,"returnedQuantity").longValue(), number(k,"assets").longValue(),
             number(k,"slaBreaches").longValue(), freshness.lastEventOccurredAt(), freshness.lastUpdatedAt());
         return snapshots.save(snapshot);
     }

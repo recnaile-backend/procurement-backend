@@ -42,3 +42,8 @@ If using `compose-debug.yml`, add `-f compose-debug.yml` to each Docker Compose 
 - Do not add department IDs, project IDs, event IDs, or user identifiers as metric tags; that would create high-cardinality metrics and could expose sensitive operational identifiers.
 - Ensure the Prometheus endpoint is reachable only from the trusted monitoring network. Keep secrets in environment variables or a secrets manager, not source control or log output.
 - Kafka dead-letter topics must exist with compatible partitioning. Alert on processing failures and DLT growth; verify this in the deployment environment.
+
+
+### Numeric API values
+
+Reporting quantities, estimated values, unit prices, stock thresholds, and SLA hour values are exposed as whole-number integers. Incoming numeric values containing a fractional component are rounded to the nearest integer during event ingestion.

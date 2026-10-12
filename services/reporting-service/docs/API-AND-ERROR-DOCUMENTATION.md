@@ -78,3 +78,8 @@ Invoke-WebRequest http://localhost:8092/actuator/prometheus
 ```
 
 Swagger/OpenAPI access is intentionally permitted by `SecurityConfig`; keep the actual business APIs protected. Review endpoint access rules against the platform's Auth Service role and scope claims before production release.
+
+
+### Numeric API values
+
+Reporting quantities, estimated values, unit prices, stock thresholds, and SLA hour values are exposed as whole-number integers. Incoming numeric values containing a fractional component are rounded to the nearest integer during event ingestion.

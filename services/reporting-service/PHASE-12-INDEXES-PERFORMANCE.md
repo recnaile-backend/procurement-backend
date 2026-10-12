@@ -100,3 +100,8 @@ db.reporting_snapshots.find({ departmentId: 'DEPT-7', projectId: 'PROJECT-9' })
 ## Known performance boundary
 
 The period-summary implementation currently materializes matching facts to build period buckets in application memory. The indexes reduce scan work, but very large date ranges may still require a later server-side aggregation or bounded asynchronous report job. Do not silently truncate results. This is a measured follow-up, not a change in report semantics for this phase.
+
+
+### Numeric API values
+
+Reporting quantities, estimated values, unit prices, stock thresholds, and SLA hour values are exposed as whole-number integers. Incoming numeric values containing a fractional component are rounded to the nearest integer during event ingestion.

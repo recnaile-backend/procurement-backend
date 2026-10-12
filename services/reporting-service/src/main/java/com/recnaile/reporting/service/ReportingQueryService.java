@@ -77,7 +77,7 @@ public class ReportingQueryService {
         return q;
     }
     private long countPendingOlderThan(Instant cutoff,String status,String departmentId,String projectId){Query q=projectionScope("INDENT",departmentId,projectId);q.addCriteria(Criteria.where("status").is(status).and("updatedAt").lt(cutoff));return mongo.count(q,ReportingProjection.class);}
-    private double sumField(String entityType,String field,String departmentId,String projectId){
+    private long sumField(String entityType,String field,String departmentId,String projectId){
         // Build the aggregation match as Criteria. Aggregation.match does not accept
         // the org.bson.Document returned by Query.getQueryObject() in this Spring Data version.
         Criteria scope = Criteria.where("entityType").is(entityType);
@@ -86,8 +86,8 @@ public class ReportingQueryService {
         MatchOperation match=Aggregation.match(scope);
         GroupOperation group=Aggregation.group().sum(field).as("total");
         AggregationResults<org.bson.Document> result=mongo.aggregate(Aggregation.newAggregation(match,group),"reporting_projections",org.bson.Document.class);
-        org.bson.Document doc=result.getUniqueMappedResult(); if(doc==null||doc.get("total")==null)return 0d;
-        Object value=doc.get("total"); return value instanceof Number n?n.doubleValue():0d;
+        org.bson.Document doc=result.getUniqueMappedResult(); if(doc==null||doc.get("total")==null)return 0L;
+        Object value=doc.get("total"); return value instanceof Number n?Math.round(n.doubleValue()):0L;
     }
     public ReportFreshness freshness(){
         return freshness(null, null);
@@ -156,25 +156,25 @@ public class ReportingQueryService {
         Query scopedFacts = new Query(criteria).with(Sort.by(Sort.Direction.ASC, "occurredAt"));
         List<ReportingFact> data = mongo.find(scopedFacts, ReportingFact.class);
         Map<String,Long> counts = new TreeMap<>();
-        Map<String,Double> quantities = new TreeMap<>();
+        Map<String,Long> quantities = new TreeMap<>();
         Map<LocalDate,Map<String,Object>> buckets = new TreeMap<>();
         for (ReportingFact f : data) {
             counts.merge(f.eventType(), 1L, Long::sum);
-            if (f.quantity() != null) quantities.merge(f.eventType(), f.quantity(), Double::sum);
-            if (f.acceptedQuantity() != null) quantities.merge("GOODS_RECEIVED_ACCEPTED", f.acceptedQuantity(), Double::sum);
-            if (f.rejectedQuantity() != null) quantities.merge("GOODS_RECEIVED_REJECTED", f.rejectedQuantity(), Double::sum);
+            if (f.quantity() != null) quantities.merge(f.eventType(), f.quantity(), Long::sum);
+            if (f.acceptedQuantity() != null) quantities.merge("GOODS_RECEIVED_ACCEPTED", f.acceptedQuantity(), Long::sum);
+            if (f.rejectedQuantity() != null) quantities.merge("GOODS_RECEIVED_REJECTED", f.rejectedQuantity(), Long::sum);
             LocalDate bucket = bucketStart(f.occurredAt().atZone(ZoneOffset.UTC).toLocalDate(), period);
             @SuppressWarnings("unchecked") Map<String,Long> bucketCounts = (Map<String,Long>) buckets.computeIfAbsent(bucket, d -> {
                 Map<String,Object> b = new LinkedHashMap<>();
                 b.put("eventCounts", new TreeMap<String,Long>());
-                b.put("quantityTotals", new TreeMap<String,Double>());
+                b.put("quantityTotals", new TreeMap<String,Long>());
                 return b;
             }).get("eventCounts");
             bucketCounts.merge(f.eventType(), 1L, Long::sum);
-            @SuppressWarnings("unchecked") Map<String,Double> bucketQuantities = (Map<String,Double>) buckets.get(bucket).get("quantityTotals");
-            if (f.quantity() != null) bucketQuantities.merge(f.eventType(), f.quantity(), Double::sum);
-            if (f.acceptedQuantity() != null) bucketQuantities.merge("GOODS_RECEIVED_ACCEPTED", f.acceptedQuantity(), Double::sum);
-            if (f.rejectedQuantity() != null) bucketQuantities.merge("GOODS_RECEIVED_REJECTED", f.rejectedQuantity(), Double::sum);
+            @SuppressWarnings("unchecked") Map<String,Long> bucketQuantities = (Map<String,Long>) buckets.get(bucket).get("quantityTotals");
+            if (f.quantity() != null) bucketQuantities.merge(f.eventType(), f.quantity(), Long::sum);
+            if (f.acceptedQuantity() != null) bucketQuantities.merge("GOODS_RECEIVED_ACCEPTED", f.acceptedQuantity(), Long::sum);
+            if (f.rejectedQuantity() != null) bucketQuantities.merge("GOODS_RECEIVED_REJECTED", f.rejectedQuantity(), Long::sum);
         }
         Map<String,Object> response = new LinkedHashMap<>();
         response.put("period", period); response.put("from", start); response.put("to", end); response.put("timezone", "UTC");

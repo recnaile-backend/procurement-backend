@@ -29,7 +29,7 @@ class ReportingReadModelTest {
     @Test void projectionAcceptsConsistentTypedReadModel() {
         ReportingProjection projection = new ReportingProjection(
             ReportingProjection.keyFor("INDENT", "IND-1"), "INDENT", "IND-1", "APPROVED",
-            "D-1", "P-1", null, null, null, null, null, 1200.0, null, null, null,
+            "D-1", "P-1", null, null, null, null, null, 1200L, null, null, null,
             null, null, "U-1", "indent-service", NOW, NOW, NOW, "event-1", "INDENT_APPROVED");
         assertEquals("INDENT:IND-1", projection.id());
         assertEquals("IND-1", projection.entityId());

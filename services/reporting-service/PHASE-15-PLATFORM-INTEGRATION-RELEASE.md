@@ -46,3 +46,8 @@ If the project uses `compose-debug.yml`, add `-f compose-debug.yml` to each Dock
 - OpenAPI JSON: `http://localhost:8092/v3/api-docs`
 - Error contract and status mapping: `docs/API-AND-ERROR-DOCUMENTATION.md`
 - Business API errors and JWT 401/403 responses use `application/problem+json` with a stable `code` and correlation identifier.
+
+
+### Numeric API values
+
+Reporting quantities, estimated values, unit prices, stock thresholds, and SLA hour values are exposed as whole-number integers. Incoming numeric values containing a fractional component are rounded to the nearest integer during event ingestion.

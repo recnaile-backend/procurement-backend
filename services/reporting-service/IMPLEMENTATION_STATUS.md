@@ -95,3 +95,8 @@ The ZIP has been structurally checked, but Gradle tests and MongoDB query-plan c
 - Added release checklist and PowerShell verification script.
 
 Do not mark production release complete until the root-repository Gradle tests/build, container health, authenticated report API, Kafka event ingestion, and Prometheus scrape have been verified in the target environment.
+
+
+### Numeric API values
+
+Reporting quantities, estimated values, unit prices, stock thresholds, and SLA hour values are exposed as whole-number integers. Incoming numeric values containing a fractional component are rounded to the nearest integer during event ingestion.

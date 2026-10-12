@@ -96,3 +96,8 @@ docker compose logs --tail=200 reporting-service
 ```
 
 `/livez` and `/readyz` should return HTTP 200; readiness should not pass while MongoDB is unavailable. The dashboard/report APIs require a valid JWT, so run at least one authenticated smoke test using a test token issued under the platform's current Auth Service policy. Publish or replay one representative event in a non-production environment and verify a corresponding reporting fact/projection and the ingestion metrics.
+
+
+### Numeric API values
+
+Reporting quantities, estimated values, unit prices, stock thresholds, and SLA hour values are exposed as whole-number integers. Incoming numeric values containing a fractional component are rounded to the nearest integer during event ingestion.

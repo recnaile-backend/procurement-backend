@@ -32,12 +32,12 @@ class ReportingLifecycleProjectionTest {
           """);
         verify(facts).insert(ArgumentMatchers.<ReportingFact>argThat(f ->
             f.entityType().equals("INWARD") && f.entityId().equals("GRN-1") &&
-            f.relatedEntityId().equals("PO-1") && f.quantity().equals(8.0) &&
-            f.acceptedQuantity().equals(8.0) && f.rejectedQuantity().equals(2.0)));
+            f.relatedEntityId().equals("PO-1") && f.quantity().equals(8L) &&
+            f.acceptedQuantity().equals(8L) && f.rejectedQuantity().equals(2L)));
         verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p ->
             p.id().equals("INWARD:GRN-1") && p.relatedEntityId().equals("PO-1") &&
-            p.quantity().equals(8.0) && p.acceptedQuantity().equals(8.0) &&
-            p.rejectedQuantity().equals(2.0) && p.actorId().equals("U-1")));
+            p.quantity().equals(8L) && p.acceptedQuantity().equals(8L) &&
+            p.rejectedQuantity().equals(2L) && p.actorId().equals("U-1")));
     }
 
     @Test void lowStockAlertProjectsOnlyTheReportedAvailabilityAndThreshold() {
@@ -46,7 +46,7 @@ class ReportingLifecycleProjectionTest {
           """);
         verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p ->
             p.id().equals("STOCK:ITEM-1") && p.status().equals("LOW_STOCK") &&
-            p.availableQuantity().equals(4.0) && p.reorderThreshold().equals(10.0)));
+            p.availableQuantity().equals(4L) && p.reorderThreshold().equals(10L)));
     }
 
     @Test void outwardIssueProjectionIncludesIssuedQuantityItemAndDepartment() {
@@ -55,7 +55,7 @@ class ReportingLifecycleProjectionTest {
           """);
         verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p ->
             p.id().equals("OUTWARD:OUT-1") && p.itemId().equals("ITEM-2") &&
-            p.quantity().equals(3.0) && p.departmentId().equals("D-2") && p.actorId().equals("U-2")));
+            p.quantity().equals(3L) && p.departmentId().equals("D-2") && p.actorId().equals("U-2")));
     }
 
     @Test void returnProjectionKeepsConditionQuantityAndOptionalAssetReference() {
@@ -64,7 +64,7 @@ class ReportingLifecycleProjectionTest {
           """);
         verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p ->
             p.id().equals("RETURN:RETURN-1") && p.itemId().equals("ITEM-3") &&
-            p.quantity().equals(1.0) && p.condition().equals("DAMAGED") &&
+            p.quantity().equals(1L) && p.condition().equals("DAMAGED") &&
             p.relatedEntityId().equals("ASSET-3") && p.actorId().equals("U-3")));
     }
 
@@ -88,7 +88,7 @@ class ReportingLifecycleProjectionTest {
     @Test void rejectionFlaggedUpdatesTheExistingGrnProjectionWithoutLosingReceiptQuantities() {
         com.recnaile.reporting.model.ReportingProjection current = new com.recnaile.reporting.model.ReportingProjection(
             "INWARD:GRN-2", "INWARD", "GRN-2", "RECEIVED", null, null, "ITEM-6", null, "PO-2", null,
-            9.0, null, 10.0, 9.0, 1.0, null, null, "U-6", "inward-service",
+            9L, null, 10L, 9L, 1L, null, null, "U-6", "inward-service",
             java.time.Instant.parse("2026-10-10T00:00:00Z"), java.time.Instant.parse("2026-10-10T00:00:00Z"),
             java.time.Instant.parse("2026-10-10T00:00:00Z"), "grn-event-2", "GOODS_RECEIVED");
         when(projections.findById("INWARD:GRN-2")).thenReturn(Optional.of(current));
@@ -98,8 +98,8 @@ class ReportingLifecycleProjectionTest {
           """);
 
         verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p ->
-            p.id().equals("INWARD:GRN-2") && p.quantity().equals(9.0) &&
-            p.rejectedQuantity().equals(1.0) && p.acceptedQuantity().equals(9.0) &&
+            p.id().equals("INWARD:GRN-2") && p.quantity().equals(9L) &&
+            p.rejectedQuantity().equals(1L) && p.acceptedQuantity().equals(9L) &&
             p.relatedEntityId().equals("PO-2")));
     }
 

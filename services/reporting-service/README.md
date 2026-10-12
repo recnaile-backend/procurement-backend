@@ -154,3 +154,8 @@ Users with the `MD` role can inspect recovery counts at `GET /api/v1/reporting/a
 - Release metadata: `GET /actuator/info`, configured with `REPORTING_SERVICE_VERSION` and `REPORTING_RELEASE_TRACK`.
 - Graceful shutdown is enabled with a 20-second shutdown phase timeout; Docker health checks use `/livez`.
 - See `PHASE-15-PLATFORM-INTEGRATION-RELEASE.md` and `scripts/verify-reporting-release.ps1` for the release checklist.
+
+
+### Numeric API values
+
+Reporting quantities, estimated values, unit prices, stock thresholds, and SLA hour values are exposed as whole-number integers. Incoming numeric values containing a fractional component are rounded to the nearest integer during event ingestion.
