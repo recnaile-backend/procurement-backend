@@ -63,8 +63,14 @@ public class ReportingEventProcessor {
             case "PO_CREATED" -> "CREATED"; case "PO_ISSUED" -> "ISSUED"; case "PO_CLOSED" -> "CLOSED";
             case "GOODS_RECEIVED" -> "RECEIVED"; case "RETURN_RECORDED" -> condition; default -> null;
         };
+        Double orderedQuantity = number(p, "orderedQuantity");
+        Double estimatedValue = number(p, "estimatedValue");
+        if ("PO_CREATED".equals(type)) {
+            orderedQuantity = sumItemQuantities(p.path("items"));
+            estimatedValue = sumItemValues(p.path("items"));
+        }
         return new ReportingFact(eventId,type,occurred,producer,entityType,entityId,related,text(p,"departmentId"),text(p,"projectId"),text(p,"itemId"),text(p,"vendorId"),status,condition,actor,
-            number(p,"quantity"),number(p,"orderedQuantity"),number(p,"acceptedQuantity"),number(p,"rejectedQuantity"),number(p,"estimatedValue"),number(p,"unitPrice"),number(p,"slaWindowHours"),number(p,"overdueSinceHours"),correlation,trace,Instant.now());
+            number(p,"quantity"),orderedQuantity,number(p,"acceptedQuantity"),number(p,"rejectedQuantity"),estimatedValue,number(p,"unitPrice"),number(p,"slaWindowHours"),number(p,"overdueSinceHours"),correlation,trace,Instant.now());
     }
 
     private void updateProjection(ReportingFact f, JsonNode p) {
@@ -80,8 +86,8 @@ public class ReportingEventProcessor {
         String vendor = f.vendorId()!=null ? f.vendorId() : old==null ? null : old.vendorId();
         String related = f.relatedEntityId()!=null ? f.relatedEntityId() : old==null ? null : old.relatedEntityId();
         Double qty = first(number(p,"quantity"), old==null?null:old.quantity());
-        Double est = first(number(p,"estimatedValue"), old==null?null:old.estimatedValue());
-        Double ordered = first(number(p,"orderedQuantity"), old==null?null:old.orderedQuantity());
+        Double est = first(f.estimatedValue(), number(p,"estimatedValue"), old==null?null:old.estimatedValue());
+        Double ordered = first(f.orderedQuantity(), number(p,"orderedQuantity"), old==null?null:old.orderedQuantity());
         Double accepted = first(number(p,"acceptedQuantity"), old==null?null:old.acceptedQuantity());
         Double rejected = first(number(p,"rejectedQuantity"), old==null?null:old.rejectedQuantity());
         Double available = first(number(p,"availableQuantity"), old==null?null:old.availableQuantity());
@@ -90,9 +96,35 @@ public class ReportingEventProcessor {
         String actor = first(f.actorId(), text(p,"approvedBy"), text(p,"verifiedBy"), text(p,"issuedBy"), text(p,"receivedBy"), text(p,"returnedBy"), old==null?null:old.actorId());
         projections.save(new ReportingProjection(id,f.entityType(),f.entityId(),status,dept,project,item,vendor,related,condition,qty,est,ordered,accepted,rejected,available,threshold,actor,f.producer(),old==null?f.occurredAt():old.createdAt(),Instant.now(),f.occurredAt(),f.eventId(),f.eventType()));
     }
+    private static Double sumItemQuantities(JsonNode items) {
+        if (items == null || !items.isArray()) return null;
+        double total = 0d;
+        for (JsonNode item : items) {
+            JsonNode quantity = item.get("quantity");
+            if (quantity == null || !quantity.isNumber()) {
+                throw new IllegalArgumentException("PO_CREATED items[].quantity must be numeric");
+            }
+            total += quantity.doubleValue();
+        }
+        return total;
+    }
+    private static Double sumItemValues(JsonNode items) {
+        if (items == null || !items.isArray()) return null;
+        double total = 0d;
+        for (JsonNode item : items) {
+            JsonNode quantity = item.get("quantity");
+            JsonNode unitPrice = item.get("unitPrice");
+            if (quantity == null || !quantity.isNumber() || unitPrice == null || !unitPrice.isNumber()) {
+                throw new IllegalArgumentException("PO_CREATED items require numeric quantity and unitPrice");
+            }
+            total += quantity.doubleValue() * unitPrice.doubleValue();
+        }
+        return total;
+    }
     private static String text(JsonNode n,String k){JsonNode v=n==null?null:n.get(k);return v==null||v.isNull()?null:v.asText();}
     private static Double number(JsonNode n,String k){JsonNode v=n==null?null:n.get(k);return v==null||v.isNull()||!v.isNumber()?null:v.doubleValue();}
     private static Instant instant(String s){try{if(s==null||s.isBlank())throw new IllegalArgumentException("occurredAt is required");return Instant.parse(s);}catch(Exception e){throw new IllegalArgumentException("occurredAt must be an ISO-8601 instant",e);}}
     private static Double first(Double a,Double b){return a!=null?a:b;}
+    private static Double first(Double a,Double b,Double c){return a!=null?a:(b!=null?b:c);}
     private static String first(String... values){for(String v:values)if(v!=null&&!v.isBlank())return v;return null;}
 }

@@ -44,6 +44,43 @@ class ReportingEventProcessorTest {
         verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p -> p.entityType().equals("OUTWARD") && p.itemId().equals("ITEM-1")));
     }
 
+    @Test void purchaseOrderCreatedAggregatesLineQuantitiesAndExtendedValues() {
+        processor.process("""
+          {"eventId":"po-created-1","eventType":"PO_CREATED","eventVersion":1,"occurredAt":"2026-10-12T10:00:00Z","producer":"purchase-order-service","payload":{"poId":"PO-2026-0001","indentId":"IND-9","vendorId":"VEN-2","items":[{"itemId":"ITEM-A","quantity":2,"unitPrice":10},{"itemId":"ITEM-B","quantity":3,"unitPrice":20}]}}
+          """);
+
+        verify(facts).insert(ArgumentMatchers.<ReportingFact>argThat(f ->
+            f.entityType().equals("PURCHASE_ORDER") &&
+            f.entityId().equals("PO-2026-0001") &&
+            f.relatedEntityId().equals("IND-9") &&
+            f.vendorId().equals("VEN-2") &&
+            f.orderedQuantity().equals(5.0) &&
+            f.estimatedValue().equals(80.0)));
+        verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p ->
+            p.id().equals("PURCHASE_ORDER:PO-2026-0001") &&
+            p.status().equals("CREATED") &&
+            p.relatedEntityId().equals("IND-9") &&
+            p.vendorId().equals("VEN-2") &&
+            p.orderedQuantity().equals(5.0) &&
+            p.estimatedValue().equals(80.0)));
+    }
+
+    @Test void purchaseOrderIssuedUpdatesStatusWithoutLosingCreatedTotals() {
+        ReportingProjection current = new ReportingProjection("PURCHASE_ORDER:PO-2026-0002", "PURCHASE_ORDER", "PO-2026-0002", "CREATED", null, null, null, "VEN-3", "IND-10", null, null, 245.0, 7.0, null, null, null, null, null, "purchase-order-service", Instant.parse("2026-10-01T00:00:00Z"), Instant.parse("2026-10-01T00:00:00Z"), Instant.parse("2026-10-01T00:00:00Z"), "po-created-2", "PO_CREATED");
+        when(projections.findById("PURCHASE_ORDER:PO-2026-0002")).thenReturn(Optional.of(current));
+
+        processor.process("""
+          {"eventId":"po-issued-2","eventType":"PO_ISSUED","eventVersion":1,"occurredAt":"2026-10-12T10:00:00Z","producer":"purchase-order-service","payload":{"poId":"PO-2026-0002","issuedBy":"U-3","issuedAt":"2026-10-12T10:00:00Z"}}
+          """);
+
+        verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p ->
+            p.status().equals("ISSUED") &&
+            p.orderedQuantity().equals(7.0) &&
+            p.estimatedValue().equals(245.0) &&
+            p.vendorId().equals("VEN-3") &&
+            p.relatedEntityId().equals("IND-10")));
+    }
+
     @Test void duplicateFactDoesNotCreateAnotherFactButProjectionRemainsReplaySafe() {
         doThrow(new DuplicateKeyException("duplicate event")).when(facts).insert(any(ReportingFact.class));
         processor.process("""

@@ -53,3 +53,18 @@ Reporting facts validate required event identity and timestamps. Reporting proje
 Kafka messages are validated before they are written to reporting facts or projections. The validator checks the JSON envelope (`eventId`, `eventType`, `eventVersion`, `occurredAt`, `producer`, and object-valued `payload`), rejects unknown event types, and checks required payload fields aligned with `contracts/events/*.schema.json`. The contract registry is maintained in `ReportingEventContractValidator`; update it alongside event contract changes. Invalid events raise an exception so the configured Kafka error handler can retry and route persistent failures to the topic dead-letter topic.
 
 The current implementation validates required-field presence and core envelope semantics; it is not a complete JSON Schema Draft-07 engine and does not enforce every property type, enum, or `additionalProperties` rule in every producer schema.
+
+## Phase 6: indent and purchase-order projections
+
+The reporting processor projects indent lifecycle events and purchase-order lifecycle events into stable, denormalized records. `PO_CREATED` records the PO-to-indent and vendor relationships and calculates aggregate ordered quantity and estimated line value from each item row (`quantity * unitPrice`). `PO_ISSUED` and `PO_CLOSED` update lifecycle status while retaining previously known values when the event does not repeat those fields. Reporting remains read-only and does not query the purchase-order service's operational database.
+
+Validate the delivery from the repository root:
+
+```powershell
+.\gradlew :services:reporting-service:clean :services:reporting-service:test
+.\gradlew :services:reporting-service:build
+docker compose build reporting-service
+docker compose up -d reporting-service
+Invoke-RestMethod http://localhost:8092/actuator/health
+```
+

@@ -28,3 +28,13 @@ Archive structure and source-level changes were inspected before packaging. This
 - Added focused tests for valid events, missing envelope fields, missing payload fields, unsupported types, and invalid timestamps.
 - Validation is contract-aligned required-field validation, not a full JSON Schema implementation; full enum/type/additional-property enforcement remains future hardening.
 - Run the root Gradle test and build commands before deploying this ZIP.
+
+## Phase 6 — Indent and purchase-order projections
+
+- Purchase-order events (`PO_CREATED`, `PO_ISSUED`, `PO_CLOSED`) map to one stable `PURCHASE_ORDER:{poId}` read model.
+- `PO_CREATED` links the projection to its source indent and vendor, and aggregates line quantities and extended line values from the event's `items` array.
+- Later PO status events update status without dropping previously projected vendor, indent, quantity, or estimated-value data.
+- Added tests for multi-line order aggregation and preservation of totals when a PO is issued.
+- The event contract remains the source of truth: quantity and unit price must be numeric; no additional non-negative business constraint is introduced beyond the supplied schema.
+- Verification status: source and ZIP integrity checked here; run the root Gradle test/build commands before release because this environment does not contain the repository Gradle wrapper.
+
