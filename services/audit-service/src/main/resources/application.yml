@@ -35,6 +35,9 @@ app:
   description: "Immutable audit trail for create/edit/approve/reject operations"
   kafka:
     audit-topic: ${KAFKA_AUDIT_TOPIC:procurement.audit.events}
+    retry:
+      interval-ms: ${AUDIT_KAFKA_RETRY_INTERVAL_MS:1000}
+      max-retries: ${AUDIT_KAFKA_MAX_RETRIES:3}
 
   security:
     # Must match Auth Service JwtKeyConfig: UTF-8 secret bytes and HS256.

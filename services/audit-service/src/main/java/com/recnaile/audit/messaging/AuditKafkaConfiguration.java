@@ -60,10 +60,15 @@ public class AuditKafkaConfiguration {
     ConcurrentKafkaListenerContainerFactory<String, String> auditKafkaListenerContainerFactory(
             ConsumerFactory<String, String> auditConsumerFactory,
             @org.springframework.beans.factory.annotation.Qualifier("auditDltKafkaTemplate") KafkaTemplate<String, String> dltTemplate,
-            @Value("${app.kafka.audit-topic:procurement.audit.events}") String topic) {
+            @Value("${app.kafka.audit-topic:procurement.audit.events}") String topic,
+            @Value("${app.kafka.retry.interval-ms:1000}") long retryIntervalMs,
+            @Value("${app.kafka.retry.max-retries:3}") long maxRetries) {
+        if (retryIntervalMs < 0 || maxRetries < 0) {
+            throw new IllegalArgumentException("Kafka retry interval and retry count must be zero or greater");
+        }
         var recoverer = new DeadLetterPublishingRecoverer(dltTemplate, (record, exception) ->
                 new org.apache.kafka.common.TopicPartition(topic + ".dlt", record.partition()));
-        var errorHandler = new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 3L));
+        var errorHandler = new DefaultErrorHandler(recoverer, new FixedBackOff(retryIntervalMs, maxRetries));
         var factory = new ConcurrentKafkaListenerContainerFactory<String, String>();
         factory.setConsumerFactory(auditConsumerFactory);
         factory.setCommonErrorHandler(errorHandler);

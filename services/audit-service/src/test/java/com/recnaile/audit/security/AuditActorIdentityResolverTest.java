@@ -21,7 +21,7 @@ class AuditActorIdentityResolverTest {
     @Test void returnsNullForNullJwtOrMissingIdentity() {
         assertNull(AuditActorIdentityResolver.resolve(null));
         Jwt jwt = Jwt.withTokenValue("token").header("alg", "HS256")
-                .subject(" ").build();
+                .claim("roles", java.util.List.of("EMPLOYEE")).build();
         assertNull(AuditActorIdentityResolver.resolve(jwt));
     }
 }

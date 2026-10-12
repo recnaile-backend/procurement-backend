@@ -93,6 +93,25 @@ paths:
         '400': { description: Invalid event UUID }
         '403': { description: MD role required }
         '404': { description: Event not found }
+  /api/v1/audit-events/operations/replay:
+    post:
+      tags: [Audit Events]
+      summary: Validate and republish one failed AUDIT_EVENT envelope (MD only)
+      description: This endpoint does not consume or delete DLT records automatically. The caller supplies one raw event envelope for validation and republishing. Event-ID idempotency applies during ingestion.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rawEventJson]
+              properties:
+                rawEventJson: { type: string, minLength: 1 }
+      responses:
+        '202': { description: Event validated and broker confirmed publication }
+        '400': { description: Invalid event JSON or event contract }
+        '403': { description: MD role required }
+        '500': { description: Broker did not confirm publication }
   /api/v1/audit-events/operations/retention-preview:
     get:
       tags: [Audit Events]
