@@ -17,7 +17,7 @@
 | 11 | Security and scope enforcement | Implemented; verify |
 | 12 | Indexes and performance | Implemented; local verification pending |
 | 13 | Rebuild and recovery | Implemented in this package; verification pending |
-| 14 | Tests, documentation and observability | Remaining |
+| 14 | Tests, documentation and observability | Implemented in this package; verification pending |
 | 15 | Platform integration and release | Remaining |
 
 ## Verify from the procurement-backend repository root
@@ -59,3 +59,12 @@ All requests require a valid JWT. The snapshot capture route requires MD or REPO
 3. Run `POST /api/v1/reporting/admin/rebuild-projections?confirm=true` with an MD/REPORTING JWT during a maintenance window.
 4. Confirm `factsReplayed` matches `eventFactsAtStart`, then check dashboard/report endpoints and service health.
 5. If the operation fails part-way, inspect logs and rerun the rebuild; do not delete `reporting_event_facts` or `reporting_snapshots`.
+
+
+## Phase 14 — Tests, documentation and observability
+
+- Request correlation IDs are returned as `X-Correlation-ID`, added to MDC during request handling and removed afterward. Unsafe values are replaced.
+- Prometheus metrics include event counters, Kafka receive/failure counters and consume timer, plus reporting fact/projection/snapshot gauges.
+- Logging pattern includes trace/span/correlation IDs; OTLP exporter and tracing bridge are retained.
+- Focused filter tests and an operational metrics runbook are included.
+- Verify Gradle tests/build, `/actuator/health`, `/actuator/prometheus`, and a representative API request with a correlation ID before marking complete.

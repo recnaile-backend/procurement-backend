@@ -21,6 +21,9 @@ spring:
       concurrency: ${KAFKA_CONSUMER_CONCURRENCY:1}
 server:
   port: ${SERVICE_PORT:8092}
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-},%X{correlationId:-}]"
 management:
   endpoints:
     web:

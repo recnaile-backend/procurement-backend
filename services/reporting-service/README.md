@@ -20,7 +20,7 @@ A configurable Kafka topic regex (`REPORTING_TOPIC_PATTERN`) selects platform ev
 
 ## Consistency and rebuild
 
-Reports are eventually consistent. Freshness endpoints make the latest observed event and ingestion time visible. Rebuild procedure: stop or isolate the reporting consumer; clear `reporting_projections` and `reporting_event_facts` only in the target reporting database; reset the reporting consumer group to the beginning of retained events (or use an approved event replay); restart and reconcile counts. Do not run this against production without an approved backup and cutover plan. Events older than Kafka retention require an approved source-data export/replay mechanism.
+Reports are eventually consistent. Freshness endpoints make the latest observed event and ingestion time visible. Use `GET /api/v1/reporting/admin/recovery-status` to inspect retained facts, derived projections and snapshots, then `POST /api/v1/reporting/admin/rebuild-projections?confirm=true` to rebuild derived projections from retained facts. This operation pauses the Kafka listener, clears only `reporting_projections`, replays retained facts, preserves event facts and historical snapshots, and restores the listener state. Back up MongoDB and use an approved maintenance window before a production rebuild. Events older than Kafka retention or fields absent from retained facts require an approved source-data export/replay mechanism. Never delete `reporting_event_facts` as part of this recovery endpoint's procedure.
 
 ## Operational configuration
 
@@ -127,3 +127,12 @@ Reporting indexes are explicitly managed by `MongoIndexConfiguration`. Automatic
 ## Phase 13 — projection rebuild and recovery
 
 Admins with `MD` or `REPORTING` roles can inspect recovery counts at `GET /api/v1/reporting/admin/recovery-status`. To rebuild derived projections from retained event facts, call `POST /api/v1/reporting/admin/rebuild-projections?confirm=true`. The endpoint stops the Kafka listener while rebuilding, preserves event facts and historical snapshots, and restarts the listener if it was running. Back up MongoDB first and validate dashboards after a rebuild. Only data retained in the fact model can be reconstructed; omitted historical payload fields require replay from the authoritative source.
+
+
+## Phase 14 — tests, documentation and observability
+
+- HTTP requests propagate a validated `X-Correlation-ID` response header and place it in logging MDC; invalid or missing values are replaced with a generated UUID.
+- Log level output includes service, trace ID, span ID and correlation ID fields.
+- Actuator exposes health, metrics and Prometheus scrape endpoints. Reporting collection gauges expose fact, projection and snapshot counts. Kafka ingestion metrics track messages received, processing failures and processing duration.
+- Focused correlation-ID tests cover safe propagation, unsafe-header replacement and MDC cleanup.
+- See `PHASE-14-TESTS-DOCUMENTATION-OBSERVABILITY.md` for verification commands, metrics and operational guidance.

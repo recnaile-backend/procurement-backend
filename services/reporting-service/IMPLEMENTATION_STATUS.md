@@ -17,7 +17,7 @@
 | 11 | Security and scope enforcement | Implemented in this package; verification pending |
 | 12 | Indexes and performance | Implemented in this package; verification pending |
 | 13 | Rebuild and recovery | Implemented in this package; verification pending |
-| 14 | Tests, documentation and observability | Remaining |
+| 14 | Tests, documentation and observability | Implemented in this package; verification pending |
 | 15 | Platform integration and release | Remaining |
 
 ## Phase 9 — Time-period reports and snapshots
@@ -73,3 +73,12 @@ The archive is packaged from the user's Phase 8 test-compile-fix ZIP. Source and
 ## Phase 12 verification status
 
 The ZIP has been structurally checked, but Gradle tests and MongoDB query-plan checks must be run in the full repository environment. Do not mark Phase 12 verified until the service builds, tests pass, startup indexes are confirmed in MongoDB, and representative scoped queries use the intended indexes.
+
+
+## Phase 14 — Tests, documentation and observability
+
+- Added safe request correlation IDs with response headers and MDC cleanup.
+- Added fact/projection/snapshot count gauges, Kafka receive/failure counters and a processing-duration timer.
+- Updated log pattern for trace/span/correlation IDs and documented Actuator, Prometheus, OTLP, and operational checks.
+- Added focused correlation-ID filter tests.
+- Archive contents have not been Gradle-tested or integration-tested in the full repository environment. Keep Phase 14 verification pending until tests/build and container checks pass.
