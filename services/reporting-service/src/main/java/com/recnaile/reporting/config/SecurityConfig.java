@@ -31,7 +31,7 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/health/**", "/livez", "/readyz", "/actuator/info", "/actuator/prometheus", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
                 .requestMatchers("/api/v1/reporting/dashboard/**").hasAnyRole("PROCUREMENT", "TL", "MD", "REPORTING")
                 .requestMatchers("/api/v1/reporting/reports/**").hasAnyRole("PROCUREMENT", "TL", "MD", "REPORTING", "AUDIT")
-                .requestMatchers("/api/v1/reporting/admin/**").hasAnyRole("MD", "REPORTING")
+                .requestMatchers("/api/v1/reporting/admin/**").hasRole("MD")
                 .anyRequest().authenticated())
             .exceptionHandling(e -> e.authenticationEntryPoint(errorHandler).accessDeniedHandler(errorHandler))
             .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(converter)));

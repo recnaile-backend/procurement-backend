@@ -32,7 +32,7 @@
 
 - Period-summary, snapshots, projections and events endpoints support filtering, pagination and endpoint-specific allowlisted sorting.
 - Page size is capped at 200. Invalid sort fields/directions and reversed date ranges return HTTP 400 Problem Details.
-- Added an admin snapshot capture endpoint for MD/REPORTING roles.
+- Added an admin snapshot capture endpoint restricted to MD.
 
 ## Phase 11 — Security and scope enforcement
 

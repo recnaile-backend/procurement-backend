@@ -42,12 +42,12 @@ GET  /api/v1/reporting/reports/snapshots?page=0&size=25&sort=snapshotDate,desc&d
 POST /api/v1/reporting/admin/snapshots?date=2026-10-12&departmentId=DEPT-7&projectId=PROJECT-9
 ```
 
-All requests require a valid JWT. The snapshot capture route requires MD or REPORTING. Department/project filters are constrained by token scope; a multi-project caller must choose one allowed project. Confirm the role claims and HS256 secret configuration match the Auth Service before release.
+All requests require a valid JWT. The snapshot capture route requires the MD role. Department/project filters are constrained by token scope; a multi-project caller must choose one allowed project. Confirm the role claims and HS256 secret configuration match the Auth Service before release.
 
 ## Phase 13 — Rebuild and recovery
 
 - Added `GET /api/v1/reporting/admin/recovery-status` for event-fact, projection, and snapshot counts.
-- Added `POST /api/v1/reporting/admin/rebuild-projections?confirm=true`. The explicit confirmation protects against accidental rebuilds; the route inherits the existing MD/REPORTING admin authorization.
+- Added `POST /api/v1/reporting/admin/rebuild-projections?confirm=true`. The explicit confirmation protects against accidental rebuilds; the route is restricted to the MD role.
 - The rebuild stops the Reporting Kafka listener, deletes only derived projections, and replays retained event facts in occurrence/ingestion order in bounded batches. It then restarts the listener if it was running.
 - Event facts and historical snapshots are preserved. If a rebuild is interrupted, it can be safely rerun from the immutable fact collection.
 - Recovery can reconstruct only values retained in `reporting_event_facts`; fields that were never stored in facts (for example some low-stock alert details) cannot be recovered from this service alone. Reconcile those against authoritative source events if full historical fidelity is required.
@@ -56,7 +56,7 @@ All requests require a valid JWT. The snapshot capture route requires MD or REPO
 
 1. Check `GET /api/v1/reporting/admin/recovery-status`.
 2. Take/verify a MongoDB backup before a production rebuild.
-3. Run `POST /api/v1/reporting/admin/rebuild-projections?confirm=true` with an MD/REPORTING JWT during a maintenance window.
+3. Run `POST /api/v1/reporting/admin/rebuild-projections?confirm=true` with an MD JWT during a maintenance window.
 4. Confirm `factsReplayed` matches `eventFactsAtStart`, then check dashboard/report endpoints and service health.
 5. If the operation fails part-way, inspect logs and rerun the rebuild; do not delete `reporting_event_facts` or `reporting_snapshots`.
 

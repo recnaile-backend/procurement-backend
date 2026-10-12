@@ -20,7 +20,7 @@ Errors use a consistent RFC 7807-style `ApiProblem` body with `status`, `code`, 
 - `GET /api/v1/reporting/reports/projections?page=0&size=25&sort=updatedAt,desc` — pageable projection listing with entityType/status/departmentId/projectId filters.
 - `GET /api/v1/reporting/reports/events` — pageable retained event facts; optional eventType/from/to/departmentId/projectId filters.
 - `GET /api/v1/reporting/reports/snapshots?departmentId=...&projectId=...&page=0&size=25&sort=snapshotDate,desc` — pageable historical KPI snapshots for exactly the caller's resolved scope.
-- `POST /api/v1/reporting/admin/snapshots?date=YYYY-MM-DD&departmentId=...&projectId=...` — capture a point-in-time snapshot; MD/REPORTING roles only. Omitting department/project captures a platform-wide snapshot for global roles.
+- `POST /api/v1/reporting/admin/snapshots?date=YYYY-MM-DD&departmentId=...&projectId=...` — capture a point-in-time snapshot; MD role only. Omitting department/project captures a platform-wide snapshot for global roles.
 
 All API endpoints require a JWT. The service validates HS256 tokens using `JWT_SECRET_KEY`, matching the Auth Service and existing resource-server configuration in the supplied repository. The secret must be at least 32 UTF-8 bytes. Confirm the exact issuer/validator policy with the platform security standard before release. Role claims `roles` or `authorities` are mapped to `ROLE_*`. Dashboard and detailed-report role requirements are declared in `config/SecurityConfig.java`. Verify claim shape against the platform Auth Service before release.
 
@@ -113,7 +113,7 @@ The approval-aging metrics use the projection's `updatedAt` as the current aging
 - Dashboard, freshness, period summary, projection, event-fact and snapshot endpoints expose stable JSON responses.
 - List endpoints support page/size/sort controls; page size is limited to 200 and sort fields/directions are allowlisted per endpoint.
 - Event date ranges and report date ranges are validated. Invalid filters and sort fields return HTTP 400 Problem Details.
-- `POST /api/v1/reporting/admin/snapshots` is restricted to the admin route's MD/REPORTING roles.
+- `POST /api/v1/reporting/admin/snapshots` is restricted to the MD role.
 - The reporting service only reads its own MongoDB database. It does not call operational services or their databases.
 
 ## Phase 11 — Security and scope enforcement
@@ -126,7 +126,7 @@ The approval-aging metrics use the projection's `updatedAt` as the current aging
 
 ## Phase 9–11 operational notes
 
-The report boundary is eventually consistent. Period summaries describe retained event facts, while dashboards describe the current projections; these are different views and should not be expected to reconcile instantaneously. A scheduled daily snapshot captures the platform-wide scope. Scope-specific snapshots can be captured by an authorized reporting administrator. Snapshot uniqueness is date + department + project; startup index setup removes the old single-field `snapshotDate_1` index when present and installs the scope-aware compound index. Back up the reporting database before first deployment of this schema change.
+The report boundary is eventually consistent. Period summaries describe retained event facts, while dashboards describe the current projections; these are different views and should not be expected to reconcile instantaneously. A scheduled daily snapshot captures the platform-wide scope. Scope-specific snapshots can be captured by an MD-authorized operator. Snapshot uniqueness is date + department + project; startup index setup removes the old single-field `snapshotDate_1` index when present and installs the scope-aware compound index. Back up the reporting database before first deployment of this schema change.
 
 
 ## Indexes and query performance
@@ -136,7 +136,7 @@ Reporting indexes are explicitly managed by `MongoIndexConfiguration`. Automatic
 
 ## Phase 13 — projection rebuild and recovery
 
-Admins with `MD` or `REPORTING` roles can inspect recovery counts at `GET /api/v1/reporting/admin/recovery-status`. To rebuild derived projections from retained event facts, call `POST /api/v1/reporting/admin/rebuild-projections?confirm=true`. The endpoint stops the Kafka listener while rebuilding, preserves event facts and historical snapshots, and restarts the listener if it was running. Back up MongoDB first and validate dashboards after a rebuild. Only data retained in the fact model can be reconstructed; omitted historical payload fields require replay from the authoritative source.
+Users with the `MD` role can inspect recovery counts at `GET /api/v1/reporting/admin/recovery-status`. To rebuild derived projections from retained event facts, call `POST /api/v1/reporting/admin/rebuild-projections?confirm=true`. The endpoint stops the Kafka listener while rebuilding, preserves event facts and historical snapshots, and restarts the listener if it was running. Back up MongoDB first and validate dashboards after a rebuild. Only data retained in the fact model can be reconstructed; omitted historical payload fields require replay from the authoritative source.
 
 
 ## Phase 14 — tests, documentation and observability

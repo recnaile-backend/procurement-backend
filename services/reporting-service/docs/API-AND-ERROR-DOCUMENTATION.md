@@ -1,3 +1,7 @@
+## RBAC policy
+
+`MD` is the highest-privilege role in this application. All `/api/v1/reporting/admin/**` endpoints require `ROLE_MD`; there is no `ADMIN` role, and the `REPORTING` role does not grant administrative access. Dashboard and report endpoints retain their existing reader-role rules and must enforce department/project scope in the application layer.
+
 # Reporting Service — Swagger UI and API Error Reference
 
 ## OpenAPI / Swagger URLs
@@ -23,9 +27,9 @@ All endpoints are relative to `/api/v1/reporting`. Responses are JSON unless an 
 | GET | `/reports/projections` | Pageable current projections; optional `entityType`, `status`, scope filters | Reporting roles permitted by security/scope policy |
 | GET | `/reports/events` | Pageable retained event facts; optional `eventType`, ISO-8601 `from`/`to`, scope filters | Reporting roles permitted by security/scope policy |
 | GET | `/reports/snapshots` | Pageable historical KPI snapshots | Reporting roles permitted by security/scope policy |
-| POST | `/admin/snapshots` | Capture a point-in-time snapshot; optional ISO date `date` and scope filters | MD or REPORTING, subject to scope policy |
-| GET | `/admin/recovery-status` | Counts retained facts, projections, and snapshots | MD or REPORTING |
-| POST | `/admin/rebuild-projections?confirm=true` | Rebuild derived projections from retained event facts | MD or REPORTING; explicit confirmation required |
+| POST | `/admin/snapshots` | Capture a point-in-time snapshot; optional ISO date `date` and scope filters | MD only, subject to scope policy |
+| GET | `/admin/recovery-status` | Counts retained facts, projections, and snapshots | MD only |
+| POST | `/admin/rebuild-projections?confirm=true` | Rebuild derived projections from retained event facts | MD only; explicit confirmation required |
 
 Pagination defaults to `page=0`, `size=25`; size must be 1–200. Each list endpoint only accepts its documented allowlisted sort fields. `period` values are `DAILY`, `WEEKLY`, `MONTHLY`, `QUARTERLY`, `HALF_YEARLY`, and `YEARLY`. Timestamp filters use ISO-8601 instants. Report data is eventually consistent.
 

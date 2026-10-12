@@ -4,7 +4,7 @@
 
 - Recovery status endpoint: `GET /api/v1/reporting/admin/recovery-status`.
 - Projection rebuild endpoint: `POST /api/v1/reporting/admin/rebuild-projections?confirm=true`.
-- The rebuild requires explicit confirmation and inherits the existing MD/REPORTING admin-role restriction.
+- The rebuild requires explicit confirmation and is restricted to the MD role.
 - The Kafka listener is stopped while replay runs and restarted afterward if it was previously running.
 - Only derived projections are deleted. Immutable event facts and historical snapshots are retained.
 - Facts are replayed in occurrence, ingestion, and event-ID order in batches of 500.
@@ -13,7 +13,7 @@
 ## Runbook
 
 1. Verify a current MongoDB backup before a production rebuild.
-2. Query `GET /api/v1/reporting/admin/recovery-status` using an MD/REPORTING JWT.
+2. Query `GET /api/v1/reporting/admin/recovery-status` using an MD JWT.
 3. Run `POST /api/v1/reporting/admin/rebuild-projections?confirm=true`.
 4. Confirm `factsReplayed` equals `eventFactsAtStart` in the response.
 5. Verify service health, dashboard totals, and representative scoped reports.
