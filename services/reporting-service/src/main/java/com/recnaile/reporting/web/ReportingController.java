@@ -5,6 +5,8 @@ import com.recnaile.reporting.service.ReportingQueryService;
 import com.recnaile.reporting.service.ReportingRecoveryService;
 import com.recnaile.reporting.service.ReportingScopePolicy;
 import com.recnaile.reporting.service.ReportingSnapshotService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -20,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 
 @RestController
+@Tag(name = "Reporting", description = "Read-only dashboards and reports, plus restricted snapshot and recovery operations")
 @Validated
 @RequestMapping("/api/v1/reporting")
 public class ReportingController {

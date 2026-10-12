@@ -38,3 +38,11 @@ docker compose logs --tail=200 reporting-service
 ```
 
 If the project uses `compose-debug.yml`, add `-f compose-debug.yml` to each Docker Compose command. The script below checks local HTTP endpoints and reports Docker state, but it cannot replace authenticated API and real Kafka-event verification.
+
+
+## API documentation and error contracts
+
+- Swagger UI: `http://localhost:8092/swagger-ui/index.html`
+- OpenAPI JSON: `http://localhost:8092/v3/api-docs`
+- Error contract and status mapping: `docs/API-AND-ERROR-DOCUMENTATION.md`
+- Business API errors and JWT 401/403 responses use `application/problem+json` with a stable `code` and correlation identifier.

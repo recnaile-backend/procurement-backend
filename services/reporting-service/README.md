@@ -2,6 +2,16 @@
 
 Read-optimized reporting boundary for the RECNAILE Procurement Platform. It consumes procurement domain events from Kafka and maintains its own MongoDB projections in `reporting` (or `MONGODB_DATABASE`). It does not query operational service databases.
 
+
+## Swagger UI and API error documentation
+
+- Swagger UI: `http://localhost:8092/swagger-ui/index.html`
+- OpenAPI JSON: `http://localhost:8092/v3/api-docs`
+- OpenAPI YAML: `http://localhost:8092/v3/api-docs.yaml`
+- Full endpoint, JWT, status-code, and error-response reference: [`docs/API-AND-ERROR-DOCUMENTATION.md`](docs/API-AND-ERROR-DOCUMENTATION.md)
+
+Errors use a consistent RFC 7807-style `ApiProblem` body with `status`, `code`, `detail`, `instance`, and `correlationId`. Swagger UI includes the JWT Bearer **Authorize** control.
+
 ## APIs
 
 - `GET /api/v1/reporting/dashboard/summary?departmentId=...&projectId=...` — operational KPI counts, aging, procurement/inventory activity, and applied scope filters. Department/project values are constrained by JWT reporting scope claims.

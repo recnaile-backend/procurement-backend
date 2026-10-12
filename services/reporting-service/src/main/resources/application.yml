@@ -21,6 +21,9 @@ spring:
     listener:
       ack-mode: record
       concurrency: ${KAFKA_CONSUMER_CONCURRENCY:1}
+  mvc:
+    problemdetails:
+      enabled: true
 server:
   port: ${SERVICE_PORT:8092}
   shutdown: graceful

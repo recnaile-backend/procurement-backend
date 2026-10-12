@@ -14,6 +14,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import com.recnaile.reporting.web.ReportingSecurityErrorHandler;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -23,15 +24,16 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
     @Bean
-    SecurityFilterChain reportingSecurity(HttpSecurity http, JwtAuthenticationConverter converter) throws Exception {
+    SecurityFilterChain reportingSecurity(HttpSecurity http, JwtAuthenticationConverter converter, ReportingSecurityErrorHandler errorHandler) throws Exception {
         http.csrf(csrf -> csrf.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
-                .requestMatchers("/actuator/health", "/actuator/health/**", "/livez", "/readyz", "/actuator/info", "/actuator/prometheus", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/health/**", "/livez", "/readyz", "/actuator/info", "/actuator/prometheus", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
                 .requestMatchers("/api/v1/reporting/dashboard/**").hasAnyRole("PROCUREMENT", "TL", "MD", "REPORTING")
                 .requestMatchers("/api/v1/reporting/reports/**").hasAnyRole("PROCUREMENT", "TL", "MD", "REPORTING", "AUDIT")
                 .requestMatchers("/api/v1/reporting/admin/**").hasAnyRole("MD", "REPORTING")
                 .anyRequest().authenticated())
+            .exceptionHandling(e -> e.authenticationEntryPoint(errorHandler).accessDeniedHandler(errorHandler))
             .oauth2ResourceServer(o -> o.jwt(j -> j.jwtAuthenticationConverter(converter)));
         return http.build();
     }
