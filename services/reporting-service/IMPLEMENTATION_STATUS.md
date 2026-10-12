@@ -19,3 +19,12 @@ Archive structure and source-level changes were inspected before packaging. This
 - Projection IDs remain `ENTITY_TYPE:entityId` (for example, `INDENT:IND-42`).
 - A legacy projection whose stored `id` does not match its `entityType` and `entityId` will fail validation if reconstructed through this record constructor; inspect existing MongoDB data before deploying if such records may exist.
 - Reporting remains a read model and must not query operational service databases directly.
+
+
+## Phase 4 — Event envelope and contract validation
+
+- Added `ReportingEventContractValidator` for envelope shape, event version, ISO-8601 timestamp, supported event type, and required payload-field checks.
+- Integrated validation before event mapping/persistence in `ReportingEventProcessor`.
+- Added focused tests for valid events, missing envelope fields, missing payload fields, unsupported types, and invalid timestamps.
+- Validation is contract-aligned required-field validation, not a full JSON Schema implementation; full enum/type/additional-property enforcement remains future hardening.
+- Run the root Gradle test and build commands before deploying this ZIP.

@@ -30,7 +30,7 @@ class ReportingEventProcessorTest {
 
     @Test void indentSubmittedCreatesFactAndProjection() {
         processor.process("""
-          {"eventId":"e-1","eventType":"INDENT_SUBMITTED","eventVersion":1,"occurredAt":"2026-10-12T10:00:00Z","producer":"indent-service","payload":{"indentId":"IND-1","departmentId":"D-1","projectId":"P-1","requestedBy":"U-1","estimatedValue":1500}}
+          {"eventId":"e-1","eventType":"INDENT_SUBMITTED","eventVersion":1,"occurredAt":"2026-10-12T10:00:00Z","producer":"indent-service","payload":{"indentId":"IND-1","departmentId":"D-1","projectId":"P-1","requestedBy":"U-1","items":[],"estimatedValue":1500}}
           """);
         verify(facts).insert(ArgumentMatchers.<ReportingFact>argThat(f -> f.eventId().equals("e-1") && f.entityType().equals("INDENT") && f.entityId().equals("IND-1")));
         verify(projections).save(ArgumentMatchers.<ReportingProjection>argThat(p -> p.id().equals("INDENT:IND-1") && p.status().equals("PENDING_VERIFICATION") && p.departmentId().equals("D-1")));
@@ -57,7 +57,7 @@ class ReportingEventProcessorTest {
         ReportingProjection current = new ReportingProjection("INDENT:IND-3","INDENT","IND-3","APPROVED",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,Instant.parse("2026-10-01T00:00:00Z"),Instant.parse("2026-10-10T00:00:00Z"),Instant.parse("2026-10-10T00:00:00Z"),"e-new","INDENT_APPROVED");
         when(projections.findById("INDENT:IND-3")).thenReturn(Optional.of(current));
         processor.process("""
-          {"eventId":"e-old","eventType":"INDENT_SUBMITTED","eventVersion":1,"occurredAt":"2026-10-01T00:00:00Z","producer":"indent-service","payload":{"indentId":"IND-3","departmentId":"D-1","projectId":"P-1","requestedBy":"U-1","estimatedValue":100}}
+          {"eventId":"e-old","eventType":"INDENT_SUBMITTED","eventVersion":1,"occurredAt":"2026-10-01T00:00:00Z","producer":"indent-service","payload":{"indentId":"IND-3","departmentId":"D-1","projectId":"P-1","requestedBy":"U-1","items":[],"estimatedValue":100}}
           """);
         verify(projections, never()).save(any(ReportingProjection.class));
     }

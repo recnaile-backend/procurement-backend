@@ -27,6 +27,7 @@ public class ReportingEventProcessor {
     public void process(String raw) {
         try {
             JsonNode envelope = mapper.readTree(raw);
+            new ReportingEventContractValidator().validate(envelope);
             String eventId = text(envelope, "eventId");
             String eventType = text(envelope, "eventType");
             if (eventId == null || eventType == null || !envelope.hasNonNull("payload")) throw new IllegalArgumentException("Event envelope requires eventId, eventType and payload");
