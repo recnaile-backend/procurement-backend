@@ -1,5 +1,5 @@
 
-FROM gradle:8.14.5-jdk21 AS build
+FROM gradle:8.14.6-jdk21 AS build
 WORKDIR /workspace
 
 COPY settings.gradle build.gradle gradle.properties ./
